@@ -4,10 +4,20 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
+import { normalizePhone } from '@/lib/phone';
 
 const optionalText = z.preprocess(
   (value) => typeof value === 'string' && value.trim() === '' ? null : value,
   z.string().trim().max(160).nullable().optional()
+);
+
+// Checkbox HTML: cuando está tildado, FormData trae 'on' (o el value que se le
+// haya dado); cuando no está tildado, el campo directamente no viene en el
+// FormData. Por eso el preprocess trata "ausente" y "off" como false, nunca
+// como true — el consentimiento nunca se infiere ni se asume por defecto.
+const checkboxBoolean = z.preprocess(
+  (value) => value === 'on' || value === 'true' || value === true,
+  z.boolean()
 );
 
 const patientSchema = z.object({
@@ -27,6 +37,8 @@ const patientSchema = z.object({
     (value) => typeof value === 'string' && value.trim() === '' ? null : value,
     z.coerce.number().nonnegative().nullable().optional()
   ),
+  whatsapp_consent: checkboxBoolean,
+  appointment_reminders_opt_in: checkboxBoolean,
 });
 
 function formDataToPatient(formData: FormData) {
@@ -41,6 +53,8 @@ function formDataToPatient(formData: FormData) {
     insurance_plan: formData.get('insurance_plan'),
     care_location: formData.get('care_location'),
     default_price: formData.get('default_price'),
+    whatsapp_consent: formData.get('whatsapp_consent'),
+    appointment_reminders_opt_in: formData.get('appointment_reminders_opt_in'),
   });
 }
 
@@ -52,9 +66,12 @@ export async function createPatient(formData: FormData) {
 
   const { supabase, tenantId } = await requireTenant();
   const { id: _id, ...payload } = parsed.data;
+  const phoneNormalization = normalizePhone(payload.phone ?? null);
   const { error } = await supabase.from('patients').insert({
     tenant_id: tenantId,
     ...payload,
+    phone_e164: phoneNormalization.e164,
+    whatsapp_consent_at: payload.whatsapp_consent ? new Date().toISOString() : null,
   });
 
   if (error) {
@@ -73,9 +90,34 @@ export async function updatePatient(formData: FormData) {
 
   const { supabase, tenantId } = await requireTenant();
   const { id, ...payload } = parsed.data;
+  const phoneNormalization = normalizePhone(payload.phone ?? null);
+
+  // El timestamp de consentimiento sólo se actualiza en una transición real
+  // false -> true (se guarda cuándo se otorgó), y se limpia si se revoca.
+  // Si ya estaba en true y sigue en true, se conserva la fecha original.
+  const { data: existing } = await supabase
+    .from('patients')
+    .select('whatsapp_consent, whatsapp_consent_at')
+    .eq('id', id)
+    .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  let whatsappConsentAt: string | null = existing?.whatsapp_consent_at ?? null;
+  if (payload.whatsapp_consent && !existing?.whatsapp_consent) {
+    whatsappConsentAt = new Date().toISOString();
+  } else if (!payload.whatsapp_consent) {
+    whatsappConsentAt = null;
+  }
+
   const { data, error } = await supabase
     .from('patients')
-    .update({ ...payload, updated_at: new Date().toISOString() })
+    .update({
+      ...payload,
+      phone_e164: phoneNormalization.e164,
+      whatsapp_consent_at: whatsappConsentAt,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .is('deleted_at', null)

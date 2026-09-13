@@ -135,6 +135,22 @@ export default async function PatientsPage({
           <label>Plan<input name="insurance_plan" maxLength={160} /></label>
           <label>Lugar de atención<input name="care_location" maxLength={160} /></label>
           <label>Precio habitual<input name="default_price" type="number" min="0" step="0.01" /></label>
+
+          <div style={{ gridColumn: '1 / -1' }}>
+            <h3 style={{ margin: '4px 0' }}>Comunicación y recordatorios</h3>
+            <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+              Sin autorización explícita, no se enviará ningún mensaje automático en el futuro.
+            </p>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400 }}>
+              <input type="checkbox" name="whatsapp_consent" style={{ width: 'auto' }} />
+              Autoriza recibir mensajes por WhatsApp
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400, marginTop: 6 }}>
+              <input type="checkbox" name="appointment_reminders_opt_in" style={{ width: 'auto' }} />
+              Recibir recordatorios automáticos de turnos
+            </label>
+          </div>
+
           <div className="form-actions">
             <button className="btn" type="submit">Crear paciente</button>
           </div>

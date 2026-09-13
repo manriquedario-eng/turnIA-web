@@ -45,7 +45,7 @@ export default async function PatientDetailPage({
   const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult] = await Promise.all([
     supabase
       .from('patients')
-      .select('id,name,phone,email,dni,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at')
+      .select('id,name,phone,email,dni,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at,phone_e164,whatsapp_consent,whatsapp_consent_at,appointment_reminders_opt_in')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
@@ -283,6 +283,35 @@ export default async function PatientDetailPage({
           <label>Plan<input name="insurance_plan" defaultValue={patient.insurance_plan ?? ''} maxLength={160} /></label>
           <label>Lugar de atención<input name="care_location" defaultValue={patient.care_location ?? ''} maxLength={160} /></label>
           <label>Precio habitual<input name="default_price" type="number" min="0" step="0.01" defaultValue={patient.default_price ?? ''} /></label>
+
+          <div style={{ gridColumn: '1 / -1' }}>
+            <h3 style={{ margin: '4px 0' }}>Comunicación y recordatorios</h3>
+            <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+              Sin autorización explícita, no se enviará ningún mensaje automático en el futuro.
+              {(patient as any).whatsapp_consent_at
+                ? ` Autorización registrada el ${formatDateTime((patient as any).whatsapp_consent_at)}.`
+                : ''}
+            </p>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400 }}>
+              <input
+                type="checkbox"
+                name="whatsapp_consent"
+                style={{ width: 'auto' }}
+                defaultChecked={Boolean((patient as any).whatsapp_consent)}
+              />
+              Autoriza recibir mensajes por WhatsApp
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400, marginTop: 6 }}>
+              <input
+                type="checkbox"
+                name="appointment_reminders_opt_in"
+                style={{ width: 'auto' }}
+                defaultChecked={Boolean((patient as any).appointment_reminders_opt_in)}
+              />
+              Recibir recordatorios automáticos de turnos
+            </label>
+          </div>
+
           <div className="form-actions">
             <button className="btn" type="submit">Guardar cambios</button>
           </div>
