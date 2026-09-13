@@ -28,12 +28,17 @@ function isCancelled(status: string | null) {
   return status === 'cancelled' || status === 'cancelado';
 }
 
+function money(amount: number, currency = 'ARS') {
+  return `${currency} ${amount.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
+}
+
 export default async function DashboardPage() {
   const { supabase, tenantId } = await requireTenant();
   const today = todayLocal();
   const { start, end } = dayRange(today);
+  const now = new Date();
 
-  const [patientsResult, appointmentsResult, paymentsResult, cashResult] = await Promise.all([
+  const [patientsResult, appointmentsResult, paymentsTodayResult, cashResult] = await Promise.all([
     supabase
       .from('patients')
       .select('id', { count: 'exact', head: true })
@@ -63,11 +68,44 @@ export default async function DashboardPage() {
   const appointments = appointmentsResult.data ?? [];
   const activeAppointments = appointments.filter((item) => !isCancelled(item.status));
   const cancelledAppointments = appointments.filter((item) => isCancelled(item.status));
-  const collectedToday = (paymentsResult.data ?? []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
+  const appointmentIds = activeAppointments.map((item) => item.id);
+
+  const appointmentPaymentsResult = appointmentIds.length > 0
+    ? await supabase
+      .from('payments')
+      .select('appointment_id, amount')
+      .eq('tenant_id', tenantId)
+      .in('appointment_id', appointmentIds)
+    : { data: [] as Array<{ appointment_id: string | null; amount: number | string | null }> };
+
+  const paidByAppointment = new Map<string, number>();
+  for (const payment of appointmentPaymentsResult.data ?? []) {
+    if (!payment.appointment_id) continue;
+    paidByAppointment.set(
+      payment.appointment_id,
+      (paidByAppointment.get(payment.appointment_id) ?? 0) + Number(payment.amount ?? 0),
+    );
+  }
+
+  const pendingByAppointment = new Map<string, number>();
+  let pendingToday = 0;
+  for (const appointment of activeAppointments) {
+    const quoted = Number(appointment.quoted_amount ?? 0);
+    const paid = paidByAppointment.get(appointment.id) ?? 0;
+    const pending = Math.max(quoted - paid, 0);
+    pendingByAppointment.set(appointment.id, pending);
+    pendingToday += pending;
+  }
+
+  const collectedToday = (paymentsTodayResult.data ?? []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
   const cashToday = (cashResult.data ?? []).reduce((sum, row) => {
     const amount = Number(row.amount ?? 0);
     return sum + (row.kind === 'in' ? amount : -amount);
   }, 0);
+
+  const nextAppointment = activeAppointments.find((item) => new Date(item.starts_at) >= now) ?? null;
+  const unpaidAppointments = activeAppointments.filter((item) => (pendingByAppointment.get(item.id) ?? 0) > 0);
+  const attentionCount = unpaidAppointments.length + cancelledAppointments.length;
 
   return (
     <section className="stack">
@@ -78,7 +116,7 @@ export default async function DashboardPage() {
 
       <div className="grid">
         <div className="card">
-          <div className="muted">Turnos de hoy</div>
+          <div className="muted">Turnos programados</div>
           <strong style={{ fontSize: 28 }}>{activeAppointments.length}</strong>
         </div>
         <div className="card">
@@ -87,12 +125,51 @@ export default async function DashboardPage() {
         </div>
         <div className="card">
           <div className="muted">Cobrado hoy</div>
-          <strong style={{ fontSize: 28 }}>${collectedToday.toLocaleString('es-AR')}</strong>
+          <strong style={{ fontSize: 28 }}>{money(collectedToday)}</strong>
         </div>
         <div className="card">
-          <div className="muted">Movimiento neto de caja</div>
-          <strong style={{ fontSize: 28 }}>${cashToday.toLocaleString('es-AR')}</strong>
+          <div className="muted">Pendiente de cobro hoy</div>
+          <strong style={{ fontSize: 28 }}>{money(pendingToday)}</strong>
         </div>
+      </div>
+
+      <div className="grid">
+        <section className="card stack">
+          <div>
+            <h2 style={{ marginTop: 0 }}>Próximo paciente</h2>
+            <p className="muted">El siguiente turno activo de hoy.</p>
+          </div>
+          {nextAppointment ? (
+            <div className="stack" style={{ gap: 8 }}>
+              <strong style={{ fontSize: 22 }}>{formatTime(nextAppointment.starts_at)} · {nextAppointment.patients?.name ?? 'Sin paciente'}</strong>
+              <span>{nextAppointment.services?.name ?? 'Sin servicio'} · {nextAppointment.modality}</span>
+              <span className="muted">
+                Monto: {money(Number(nextAppointment.quoted_amount ?? 0), nextAppointment.currency ?? 'ARS')} · Pendiente: {money(pendingByAppointment.get(nextAppointment.id) ?? 0, nextAppointment.currency ?? 'ARS')}
+              </span>
+              <div>
+                <Link className="btn" href={`/agenda?view=day&date=${today}`}>Ver en agenda</Link>
+              </div>
+            </div>
+          ) : (
+            <p className="muted">No quedan turnos activos para hoy.</p>
+          )}
+        </section>
+
+        <section className="card stack">
+          <div>
+            <h2 style={{ marginTop: 0 }}>Requiere atención</h2>
+            <p className="muted">Pendientes de cobro y cancelaciones del día.</p>
+          </div>
+          <strong style={{ fontSize: 28 }}>{attentionCount}</strong>
+          <div className="stack" style={{ gap: 6 }}>
+            <span>{unpaidAppointments.length} turno(s) con saldo pendiente</span>
+            <span>{cancelledAppointments.length} cancelación(es)</span>
+          </div>
+          <div className="nav" style={{ flexWrap: 'wrap' }}>
+            <Link className="btn" href="/payments">Registrar cobro</Link>
+            <Link className="btn secondary" href={`/agenda?view=day&date=${today}`}>Revisar agenda</Link>
+          </div>
+        </section>
       </div>
 
       <div className="card">
@@ -113,7 +190,7 @@ export default async function DashboardPage() {
           <div style={{ overflowX: 'auto' }}>
             <table className="table">
               <thead>
-                <tr><th>Hora</th><th>Paciente</th><th>Servicio</th><th>Modalidad</th><th>Estado</th><th>Monto</th></tr>
+                <tr><th>Hora</th><th>Paciente</th><th>Servicio</th><th>Modalidad</th><th>Estado</th><th>Monto</th><th>Pendiente</th></tr>
               </thead>
               <tbody>
                 {appointments.map((appointment: any) => (
@@ -123,7 +200,8 @@ export default async function DashboardPage() {
                     <td>{appointment.services?.name ?? 'Sin servicio'}</td>
                     <td>{appointment.modality}</td>
                     <td>{appointment.status}</td>
-                    <td>{appointment.quoted_amount != null ? `${appointment.currency ?? 'ARS'} ${Number(appointment.quoted_amount).toLocaleString('es-AR')}` : '—'}</td>
+                    <td>{appointment.quoted_amount != null ? money(Number(appointment.quoted_amount), appointment.currency ?? 'ARS') : '—'}</td>
+                    <td>{isCancelled(appointment.status) ? '—' : money(pendingByAppointment.get(appointment.id) ?? 0, appointment.currency ?? 'ARS')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -136,10 +214,11 @@ export default async function DashboardPage() {
         <h2>Acciones rápidas</h2>
         <div className="nav" style={{ flexWrap: 'wrap' }}>
           <Link className="btn" href={`/agenda?view=day&date=${today}`}>Nuevo turno</Link>
-          <Link className="btn secondary" href="/patients">Pacientes</Link>
+          <Link className="btn secondary" href="/patients">Nuevo paciente / Pacientes</Link>
           <Link className="btn secondary" href="/payments">Registrar cobro</Link>
           <Link className="btn secondary" href="/services">Servicios</Link>
         </div>
+        <p className="muted" style={{ marginBottom: 0 }}>Movimiento neto de caja de hoy: {money(cashToday)}</p>
       </div>
     </section>
   );
