@@ -15,6 +15,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
         <nav className="nav">
           <Link href="/dashboard">Inicio</Link>
           <Link href="/agenda">Agenda</Link>
+          <Link href="/planning">Recurrentes y espera</Link>
           <Link href="/patients">Pacientes</Link>
           <Link href="/services">Servicios</Link>
           <Link href="/payments">Pagos y Caja</Link>
