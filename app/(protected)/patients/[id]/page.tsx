@@ -3,6 +3,14 @@ import { notFound } from 'next/navigation';
 import { requireTenant } from '@/lib/auth/require-user';
 import { archivePatient, createManualFollowUp, updatePatient } from '../actions';
 
+type TimelineItem = {
+  id: string;
+  at: string;
+  type: 'Turno' | 'Pago' | 'Seguimiento' | 'Ficha';
+  title: string;
+  detail?: string;
+};
+
 export default async function PatientDetailPage({
   params,
   searchParams,
@@ -14,7 +22,7 @@ export default async function PatientDetailPage({
   const query = await searchParams;
   const { supabase, tenantId } = await requireTenant();
 
-  const [{ data: patient }, { data: followUps }] = await Promise.all([
+  const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult] = await Promise.all([
     supabase
       .from('patients')
       .select('id,name,phone,email,dni,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at')
@@ -29,9 +37,64 @@ export default async function PatientDetailPage({
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('appointments')
+      .select('id,starts_at,status,modality,quoted_amount,currency,services(name)')
+      .eq('patient_id', id)
+      .eq('tenant_id', tenantId)
+      .order('starts_at', { ascending: false }),
+    supabase
+      .from('payments')
+      .select('id,appointment_id,amount,currency,method,created_at')
+      .eq('patient_id', id)
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('patient_records')
+      .select('id,reason,follow_up,background,notes,plan,updated_at')
+      .eq('patient_id', id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle(),
   ]);
 
+  const patient = patientResult.data;
+  const followUps = followUpResult.data ?? [];
+  const appointments = appointmentResult.data ?? [];
+  const payments = paymentResult.data ?? [];
+  const record = recordResult.data;
+
   if (!patient) notFound();
+
+  const timeline: TimelineItem[] = [
+    ...appointments.map((item: any) => ({
+      id: `appointment-${item.id}`,
+      at: item.starts_at,
+      type: 'Turno' as const,
+      title: `${item.services?.name ?? 'Servicio'} · ${item.status}`,
+      detail: `${item.modality}${item.quoted_amount != null ? ` · ${item.currency} ${item.quoted_amount}` : ''}`,
+    })),
+    ...payments.map((item: any) => ({
+      id: `payment-${item.id}`,
+      at: item.created_at,
+      type: 'Pago' as const,
+      title: `${item.currency} ${item.amount}`,
+      detail: item.method,
+    })),
+    ...followUps.map((item: any) => ({
+      id: `followup-${item.id}`,
+      at: item.created_at,
+      type: 'Seguimiento' as const,
+      title: item.source_type === 'manual_text' ? 'Seguimiento manual' : item.source_type,
+      detail: item.content,
+    })),
+    ...(record ? [{
+      id: `record-${record.id}`,
+      at: record.updated_at,
+      type: 'Ficha' as const,
+      title: 'Ficha del paciente actualizada',
+      detail: record.reason || record.follow_up || record.notes || record.plan || undefined,
+    }] : []),
+  ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
   return (
     <section>
@@ -61,6 +124,18 @@ export default async function PatientDetailPage({
       </div>
 
       <div className="card" style={{ marginTop: 20 }}>
+        <h2>Timeline del paciente</h2>
+        <p className="muted">Turnos, pagos, seguimientos y actualización de ficha en una sola línea de tiempo.</p>
+        {timeline.length === 0 ? <p className="muted">Todavía no hay actividad registrada.</p> : timeline.map((item) => (
+          <article key={item.id} style={{ padding: '12px 0', borderBottom: '1px solid #e5e7eb' }}>
+            <small className="muted">{new Date(item.at).toLocaleString('es-AR')} · {item.type}</small>
+            <p style={{ marginBottom: item.detail ? 4 : 0 }}><strong>{item.title}</strong></p>
+            {item.detail ? <p style={{ whiteSpace: 'pre-wrap', marginTop: 0 }}>{item.detail}</p> : null}
+          </article>
+        ))}
+      </div>
+
+      <div className="card" style={{ marginTop: 20 }}>
         <h2>Nuevo seguimiento</h2>
         <form action={createManualFollowUp}>
           <input type="hidden" name="patientId" value={patient.id} />
@@ -74,13 +149,13 @@ export default async function PatientDetailPage({
 
       <div className="card" style={{ marginTop: 20 }}>
         <h2>Historial de seguimientos</h2>
-        {(followUps ?? []).map((item) => (
+        {followUps.map((item) => (
           <article key={item.id} style={{ padding: '12px 0', borderBottom: '1px solid #e5e7eb' }}>
             <small className="muted">{new Date(item.created_at).toLocaleString('es-AR')} · {item.source_type === 'manual_text' ? 'Manual' : item.source_type}</small>
             <p style={{ whiteSpace: 'pre-wrap' }}>{item.content}</p>
           </article>
         ))}
-        {!followUps?.length ? <p className="muted">Todavía no hay seguimientos.</p> : null}
+        {!followUps.length ? <p className="muted">Todavía no hay seguimientos.</p> : null}
       </div>
 
       <div className="card" style={{ marginTop: 20 }}>
