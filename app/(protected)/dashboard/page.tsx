@@ -32,6 +32,13 @@ function money(amount: number, currency = 'ARS') {
   return `${currency} ${amount.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
 }
 
+function relatedName(value: unknown) {
+  const relation = Array.isArray(value) ? value[0] : value;
+  if (!relation || typeof relation !== 'object' || !('name' in relation)) return null;
+  const name = (relation as { name?: unknown }).name;
+  return typeof name === 'string' ? name : null;
+}
+
 export default async function DashboardPage() {
   const { supabase, tenantId } = await requireTenant();
   const today = todayLocal();
@@ -141,8 +148,8 @@ export default async function DashboardPage() {
           </div>
           {nextAppointment ? (
             <div className="stack" style={{ gap: 8 }}>
-              <strong style={{ fontSize: 22 }}>{formatTime(nextAppointment.starts_at)} · {nextAppointment.patients?.name ?? 'Sin paciente'}</strong>
-              <span>{nextAppointment.services?.name ?? 'Sin servicio'} · {nextAppointment.modality}</span>
+              <strong style={{ fontSize: 22 }}>{formatTime(nextAppointment.starts_at)} · {relatedName(nextAppointment.patients) ?? 'Sin paciente'}</strong>
+              <span>{relatedName(nextAppointment.services) ?? 'Sin servicio'} · {nextAppointment.modality}</span>
               <span className="muted">
                 Monto: {money(Number(nextAppointment.quoted_amount ?? 0), nextAppointment.currency ?? 'ARS')} · Pendiente: {money(pendingByAppointment.get(nextAppointment.id) ?? 0, nextAppointment.currency ?? 'ARS')}
               </span>
