@@ -863,6 +863,152 @@ table tbody tr:hover {
   }
 }
 
+/* =========================================================================
+   Pacientes — Checkpoint 5D
+   ========================================================================= */
+
+.patient-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.patient-row-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.patient-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.patient-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: var(--color-sage-soft);
+  color: var(--color-sage-dark);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.patient-row-main .muted span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 640px) {
+  .patient-row {
+    align-items: flex-start;
+  }
+
+  .patient-row-main {
+    min-width: 100%;
+  }
+
+  .patient-row-meta {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* Cabecera de ficha de paciente */
+.patient-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.patient-header-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.patient-avatar-lg {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  background: var(--color-sage-soft);
+  color: var(--color-sage-dark);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.patient-contact-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--color-ink-soft);
+}
+
+.patient-contact-list span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Timeline */
+.timeline-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.timeline-item:last-child {
+  border-bottom: none;
+}
+
+.timeline-marker {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-terracotta);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.timeline-marker.type-pago {
+  background: var(--color-sage-dark);
+}
+
+.timeline-marker.type-seguimiento {
+  background: var(--color-info);
+}
+
+.timeline-marker.type-ficha {
+  background: var(--color-ink-faint);
+}
+
+.timeline-body {
+  flex: 1;
+  min-width: 0;
+}
+
 @media (max-width: 720px) {
   .form-grid {
     grid-template-columns: 1fr;

@@ -126,6 +126,23 @@ export function IconPlus({ size = 16 }: IconProps) {
   );
 }
 
+export function IconPhone({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" {...base}>
+      <path d="M5 3.5h2.2l1 3.3-1.6 1.3a9 9 0 0 0 4.3 4.3l1.3-1.6 3.3 1v2.2c0 .8-.7 1.4-1.5 1.3-6-.6-9.9-4.5-10.5-10.5-.1-.8.5-1.5 1.3-1.5Z" />
+    </svg>
+  );
+}
+
+export function IconMail({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" {...base}>
+      <rect x="2.5" y="4.5" width="15" height="11" rx="2" />
+      <path d="m3 5.5 7 5.5 7-5.5" />
+    </svg>
+  );
+}
+
 export function IconLogout({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" {...base}>
