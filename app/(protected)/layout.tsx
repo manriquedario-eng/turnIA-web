@@ -14,6 +14,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
         </div>
         <nav className="nav">
           <Link href="/dashboard">Inicio</Link>
+          <Link href="/agenda">Agenda</Link>
           <Link href="/patients">Pacientes</Link>
           <form action={logout}><button className="btn secondary" type="submit">Salir</button></form>
         </nav>
