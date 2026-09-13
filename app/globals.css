@@ -410,31 +410,38 @@ table tbody tr:hover {
 .app-shell {
   min-height: 100vh;
   display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 20px;
+  background: var(--color-cream);
 }
 
-/* --- Sidebar (desktop) --- */
+/* --- Sidebar (desktop) — card flotante clara, no panel oscuro --- */
 
 .app-sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
-  background: var(--color-ink);
-  color: #f4ede3;
+  background: var(--color-surface);
+  color: var(--color-ink);
   display: flex;
   flex-direction: column;
-  padding: 20px 14px;
+  padding: 18px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   position: sticky;
-  top: 0;
-  height: 100vh;
+  top: 20px;
+  height: calc(100vh - 40px);
 }
 
 .app-sidebar .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 10px 22px;
+  padding: 4px 8px 16px;
   font-weight: 700;
-  font-size: 18px;
-  color: #fff;
+  font-size: 17px;
+  color: var(--color-ink);
 }
 
 .app-sidebar .brand-mark {
@@ -450,11 +457,57 @@ table tbody tr:hover {
   flex-shrink: 0;
 }
 
+/* --- Profile card (arriba del sidebar) --- */
+
+.sidebar-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 16px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.sidebar-profile .sidebar-profile-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: var(--color-sage-soft);
+  color: var(--color-sage-dark);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.sidebar-profile .sidebar-profile-copy {
+  overflow: hidden;
+}
+
+.sidebar-profile .sidebar-profile-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--color-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-profile .sidebar-profile-role {
+  font-size: 11px;
+  color: var(--color-ink-soft);
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .sidebar-section-label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #a99a89;
+  color: var(--color-ink-faint);
   padding: 14px 12px 6px;
 }
 
@@ -472,19 +525,19 @@ table tbody tr:hover {
   gap: 12px;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  color: #d8ccbe;
+  color: var(--color-ink-soft);
   font-weight: 500;
   font-size: 14px;
 }
 
 .sidebar-link svg {
   flex-shrink: 0;
-  opacity: 0.85;
+  opacity: 0.75;
 }
 
 .sidebar-link:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
 }
 
 .sidebar-link.active {
@@ -497,7 +550,7 @@ table tbody tr:hover {
 }
 
 .sidebar-footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--color-border-soft);
   padding-top: 12px;
   margin-top: 12px;
 }
@@ -505,12 +558,13 @@ table tbody tr:hover {
 .sidebar-footer form button {
   width: 100%;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  color: #f4ede3;
+  border: 1px solid var(--color-border);
+  color: var(--color-ink-soft);
 }
 
 .sidebar-footer form button:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
 }
 
 /* --- Topbar --- */
@@ -593,6 +647,11 @@ table tbody tr:hover {
 }
 
 @media (max-width: 900px) {
+  .app-shell {
+    padding: 0;
+    gap: 0;
+  }
+
   .app-sidebar {
     position: fixed;
     left: 0;
@@ -601,6 +660,9 @@ table tbody tr:hover {
     transform: translateX(-100%);
     transition: transform 0.2s ease;
     box-shadow: var(--shadow-lg);
+    height: 100vh;
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    border-left: none;
   }
 
   .app-sidebar.open {
@@ -658,7 +720,47 @@ table tbody tr:hover {
     grid-template-columns: 1fr;
   }
 
-  .table {
+  /* Tablas que NO se marcaron como .responsive-table siguen scrolleando
+     horizontal (comportamiento actual, sin cambios). */
+  .table:not(.responsive-table) {
     min-width: 640px;
+  }
+
+  /* Preparado para 5C/5D: al agregar la clase "responsive-table" a una
+     tabla y un atributo data-label="Columna" a cada <td>, cada fila pasa
+     a presentarse como una tarjeta apilada en vez de scroll horizontal.
+     No tiene efecto todavía porque ninguna página usa esta clase aún. */
+  .responsive-table thead {
+    display: none;
+  }
+
+  .responsive-table,
+  .responsive-table tbody,
+  .responsive-table tr,
+  .responsive-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .responsive-table tr {
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--color-border-soft);
+  }
+
+  .responsive-table td {
+    padding: 4px 0 !important;
+    border: 0;
+  }
+
+  .responsive-table td[data-label]::before {
+    content: attr(data-label);
+    display: inline-block;
+    min-width: 104px;
+    color: var(--color-ink-soft);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-right: 6px;
   }
 }

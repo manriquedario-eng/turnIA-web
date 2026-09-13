@@ -20,7 +20,13 @@ export function AppShell({
 
   return (
     <div className="app-shell">
-      <Sidebar open={mobileOpen} onClose={() => setMobileOpen(false)} logoutAction={logoutAction} />
+      <Sidebar
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        logoutAction={logoutAction}
+        email={email}
+        role={role}
+      />
       <div className="app-main">
         <Topbar email={email} role={role} onMenuClick={() => setMobileOpen(true)} />
         <main className="app-content">

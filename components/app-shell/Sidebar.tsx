@@ -9,12 +9,17 @@ export function Sidebar({
   open,
   onClose,
   logoutAction,
+  email,
+  role,
 }: {
   open: boolean;
   onClose: () => void;
   logoutAction: () => void | Promise<void>;
+  email: string;
+  role: string;
 }) {
   const pathname = usePathname();
+  const initials = email.slice(0, 2).toUpperCase();
 
   return (
     <>
@@ -23,6 +28,14 @@ export function Sidebar({
         <div className="brand">
           <span className="brand-mark">Tu</span>
           TurnIA
+        </div>
+
+        <div className="sidebar-profile">
+          <div className="sidebar-profile-avatar">{initials}</div>
+          <div className="sidebar-profile-copy">
+            <div className="sidebar-profile-name">{email}</div>
+            <div className="sidebar-profile-role">{role}</div>
+          </div>
         </div>
 
         <nav className="sidebar-nav">
