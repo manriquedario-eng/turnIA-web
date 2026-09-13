@@ -112,3 +112,47 @@ export async function archivePatient(formData: FormData) {
   revalidatePath('/patients');
   redirect('/patients?success=archived');
 }
+
+export async function createManualFollowUp(formData: FormData) {
+  const parsed = z.object({
+    patientId: z.string().uuid(),
+    content: z.string().trim().min(2, 'El seguimiento no puede estar vacío').max(10000),
+  }).safeParse({
+    patientId: formData.get('patientId'),
+    content: formData.get('content'),
+  });
+
+  if (!parsed.success) {
+    redirect('/patients?error=Seguimiento%20inválido');
+  }
+
+  const { supabase, tenantId, user } = await requireTenant();
+  const { data: patient } = await supabase
+    .from('patients')
+    .select('id')
+    .eq('id', parsed.data.patientId)
+    .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (!patient) {
+    redirect('/patients?error=Paciente%20no%20disponible');
+  }
+
+  const { error } = await supabase.from('patient_follow_ups').insert({
+    tenant_id: tenantId,
+    professional_id: user.id,
+    patient_id: parsed.data.patientId,
+    appointment_id: null,
+    source_type: 'manual_text',
+    voice_note_id: null,
+    content: parsed.data.content,
+  });
+
+  if (error) {
+    redirect(`/patients/${parsed.data.patientId}?error=${encodeURIComponent('No se pudo guardar el seguimiento')}`);
+  }
+
+  revalidatePath(`/patients/${parsed.data.patientId}`);
+  redirect(`/patients/${parsed.data.patientId}?success=followup`);
+}
