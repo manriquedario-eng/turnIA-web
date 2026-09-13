@@ -371,6 +371,12 @@ table tbody tr:hover {
   color: var(--color-info);
 }
 
+.badge-completado,
+.badge-completed {
+  background: var(--color-sage-soft);
+  color: var(--color-sage-dark);
+}
+
 .badge-neutral {
   background: var(--color-surface-sunken);
   color: var(--color-ink-soft);
@@ -727,6 +733,133 @@ table tbody tr:hover {
 
   .mobile-tabbar a.active {
     color: var(--color-terracotta);
+  }
+}
+
+/* =========================================================================
+   Agenda — Checkpoint 5C
+   ========================================================================= */
+
+/* Tabs de vista (Día/Semana/Mes) como control segmentado */
+.segmented {
+  display: inline-flex;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 2px;
+}
+
+.segmented a {
+  padding: 7px 14px;
+  border-radius: calc(var(--radius-sm) - 2px);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+}
+
+.segmented a:hover {
+  color: var(--color-ink);
+}
+
+.segmented a.active {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Anterior / Hoy / Siguiente */
+.date-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.date-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-ink);
+  padding: 0;
+}
+
+.date-nav-btn:hover {
+  background: var(--color-surface-sunken);
+}
+
+.date-nav .btn.secondary {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+/* Tarjeta de turno en la lista de agenda */
+.appointment-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.appointment-card.is-next {
+  border-color: var(--color-terracotta);
+  box-shadow: 0 0 0 1px var(--color-terracotta);
+}
+
+.appointment-card.is-cancelled {
+  opacity: 0.6;
+}
+
+.appointment-time {
+  min-width: 92px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-ink);
+}
+
+.appointment-time .appointment-date {
+  display: block;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--color-ink-faint);
+  text-transform: capitalize;
+}
+
+.appointment-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.appointment-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .appointment-card {
+    align-items: flex-start;
+  }
+
+  .appointment-main {
+    min-width: 100%;
+  }
+
+  .appointment-meta {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 

@@ -1,6 +1,11 @@
 import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
 import { cancelAppointment, createAppointment, updateAppointment } from './actions';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { IconChevronLeft, IconChevronRight, IconPlus } from '@/components/ui/icons';
+
+const TZ = 'America/Argentina/Buenos_Aires';
 
 function startOfDayIso(date: string) {
   return new Date(`${date}T00:00:00-03:00`).toISOString();
@@ -16,9 +21,16 @@ function addDays(date: string, days: number) {
   return value.toISOString().slice(0, 10);
 }
 
+function shiftMonth(date: string, delta: number) {
+  const first = `${date.slice(0, 7)}-01`;
+  const value = new Date(`${first}T12:00:00-03:00`);
+  value.setUTCMonth(value.getUTCMonth() + delta);
+  return value.toISOString().slice(0, 10);
+}
+
 function todayInMendoza() {
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Argentina/Buenos_Aires',
+    timeZone: TZ,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -28,7 +40,7 @@ function todayInMendoza() {
 function dateTimeLocal(iso: string) {
   const d = new Date(iso);
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Argentina/Buenos_Aires',
+    timeZone: TZ,
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   }).formatToParts(d);
@@ -36,16 +48,45 @@ function dateTimeLocal(iso: string) {
   return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
 }
 
-function formatDateTime(iso: string) {
+function formatTime(iso: string) {
   return new Intl.DateTimeFormat('es-AR', {
-    timeZone: 'America/Argentina/Buenos_Aires',
-    dateStyle: 'short',
-    timeStyle: 'short',
+    timeZone: TZ,
+    hour: '2-digit', minute: '2-digit',
   }).format(new Date(iso));
+}
+
+function formatShortDay(iso: string) {
+  return new Intl.DateTimeFormat('es-AR', {
+    timeZone: TZ,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(new Date(iso)).replace(/\.$/, '').replace(',', '');
+}
+
+function capitalize(text: string) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function periodLabel(view: string, date: string) {
+  const anchor = new Date(`${date}T12:00:00-03:00`);
+  if (view === 'day') {
+    return capitalize(new Intl.DateTimeFormat('es-AR', { timeZone: TZ, dateStyle: 'full' }).format(anchor));
+  }
+  if (view === 'week') {
+    const end = new Date(`${addDays(date, 6)}T12:00:00-03:00`);
+    const fmt = (d: Date) => new Intl.DateTimeFormat('es-AR', { timeZone: TZ, day: 'numeric', month: 'short' }).format(d);
+    return `Semana del ${fmt(anchor)} al ${fmt(end)}`;
+  }
+  return capitalize(new Intl.DateTimeFormat('es-AR', { timeZone: TZ, month: 'long', year: 'numeric' }).format(anchor));
 }
 
 function localInputToIsoValue(local: string) {
   return new Date(`${local}:00-03:00`).toISOString();
+}
+
+function isCancelled(status: string | null) {
+  return status === 'cancelled' || status === 'cancelado';
 }
 
 export default async function AgendaPage({
@@ -58,6 +99,7 @@ export default async function AgendaPage({
   const view = ['day', 'week', 'month'].includes(String(params.view)) ? String(params.view) : 'day';
   const date = /^\d{4}-\d{2}-\d{2}$/.test(String(params.date)) ? String(params.date) : todayInMendoza();
   const editId = typeof params.edit === 'string' ? params.edit : undefined;
+  const todayDate = todayInMendoza();
 
   let rangeStart = date;
   let rangeEnd = date;
@@ -70,6 +112,9 @@ export default async function AgendaPage({
     rangeStart = first;
     rangeEnd = nextMonth.toISOString().slice(0, 10);
   }
+
+  const prevDate = view === 'day' ? addDays(date, -1) : view === 'week' ? addDays(date, -7) : shiftMonth(date, -1);
+  const nextDate = view === 'day' ? addDays(date, 1) : view === 'week' ? addDays(date, 7) : shiftMonth(date, 1);
 
   const [{ data: appointments, error: appointmentError }, { data: patients }, { data: services }] = await Promise.all([
     supabase
@@ -101,35 +146,53 @@ export default async function AgendaPage({
   const ok = typeof params.ok === 'string' ? params.ok : undefined;
   const error = typeof params.error === 'string' ? params.error : undefined;
 
+  const now = Date.now();
+  const nextAppointment = view === 'day' && date === todayDate
+    ? (appointments ?? []).find((a) => !isCancelled(a.status) && new Date(a.starts_at).getTime() >= now)
+    : undefined;
+
   return (
-    <section>
-      <div className="page-head">
+    <section className="stack">
+      <div className="page-header">
         <div>
           <h1>Agenda</h1>
-          <p className="muted">Turnos del consultorio · horario Mendoza</p>
+          <p className="muted" style={{ textTransform: 'capitalize' }}>{periodLabel(view, date)}</p>
         </div>
+        <Link className="btn" href={`${returnTo}#turno-form`}>
+          <IconPlus /> Nuevo turno
+        </Link>
       </div>
 
       {ok ? <p className="alert success">{ok}</p> : null}
       {error ? <p className="alert error">{error}</p> : null}
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <div className="nav">
-            <Link href={`/agenda?view=day&date=${date}`}>Día</Link>
-            <Link href={`/agenda?view=week&date=${date}`}>Semana</Link>
-            <Link href={`/agenda?view=month&date=${date}`}>Mes</Link>
+      <div className="card">
+        <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div className="segmented">
+            <Link href={`/agenda?view=day&date=${date}`} className={view === 'day' ? 'active' : ''}>Día</Link>
+            <Link href={`/agenda?view=week&date=${date}`} className={view === 'week' ? 'active' : ''}>Semana</Link>
+            <Link href={`/agenda?view=month&date=${date}`} className={view === 'month' ? 'active' : ''}>Mes</Link>
           </div>
-          <form method="get" className="nav">
-            <input type="hidden" name="view" value={view} />
-            <input type="date" name="date" defaultValue={date} />
-            <button className="btn secondary" type="submit">Ir</button>
-          </form>
+
+          <div className="date-nav">
+            <Link className="date-nav-btn" href={`/agenda?view=${view}&date=${prevDate}`} aria-label="Período anterior">
+              <IconChevronLeft />
+            </Link>
+            <Link className="btn secondary" href={`/agenda?view=${view}&date=${todayDate}`}>Hoy</Link>
+            <Link className="date-nav-btn" href={`/agenda?view=${view}&date=${nextDate}`} aria-label="Período siguiente">
+              <IconChevronRight />
+            </Link>
+            <form method="get" className="nav" style={{ marginLeft: 8 }}>
+              <input type="hidden" name="view" value={view} />
+              <input type="date" name="date" defaultValue={date} />
+              <button className="btn secondary" type="submit">Ir</button>
+            </form>
+          </div>
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <h2>{editing ? 'Editar / reprogramar turno' : 'Nuevo turno'}</h2>
+      <div className="card" id="turno-form">
+        <h2 style={{ marginTop: 0 }}>{editing ? 'Editar / reprogramar turno' : 'Nuevo turno'}</h2>
         <form action={editing ? updateAppointment : createAppointment} className="form-grid">
           <input type="hidden" name="return_to" value={returnTo} />
           {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
@@ -170,7 +233,7 @@ export default async function AgendaPage({
             <input name="quoted_amount" type="number" min="0" step="0.01" defaultValue={editing?.quoted_amount ?? ''} />
           </label>
 
-          <div className="nav">
+          <div className="form-actions">
             <button className="btn" type="submit">{editing ? 'Guardar cambios' : 'Crear turno'}</button>
             {editing ? <Link className="btn secondary" href={returnTo}>Cancelar edición</Link> : null}
           </div>
@@ -181,45 +244,57 @@ export default async function AgendaPage({
       </div>
 
       <div className="card">
-        <h2>{view === 'day' ? 'Turnos del día' : view === 'week' ? 'Turnos de la semana' : 'Turnos del mes'}</h2>
+        <h2 style={{ marginTop: 0 }}>{view === 'day' ? 'Turnos del día' : view === 'week' ? 'Turnos de la semana' : 'Turnos del mes'}</h2>
         {(appointments ?? []).length === 0 ? (
-          <p className="muted">No hay turnos en este período.</p>
+          <EmptyState title="No hay turnos en este período" description="Cargá un turno nuevo o probá con otra fecha." />
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead>
-                <tr><th>Fecha y hora</th><th>Paciente</th><th>Servicio</th><th>Modalidad</th><th>Estado</th><th>Monto</th><th>Acciones</th></tr>
-              </thead>
-              <tbody>
-                {(appointments ?? []).map((a) => {
-                  const patient = a.patient_id ? patientMap.get(a.patient_id) : undefined;
-                  const service = a.service_id ? serviceMap.get(a.service_id) : undefined;
-                  const cancelled = a.status === 'cancelled' || a.status === 'cancelado';
-                  return (
-                    <tr key={a.id}>
-                      <td>{formatDateTime(a.starts_at)} – {new Intl.DateTimeFormat('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', timeStyle: 'short' }).format(new Date(a.ends_at))}</td>
-                      <td>{patient?.name ?? 'Paciente no disponible'}</td>
-                      <td>{service?.name ?? 'Servicio no disponible'}</td>
-                      <td>{a.modality}</td>
-                      <td>{a.status}</td>
-                      <td>{a.quoted_amount != null ? `${a.currency} ${a.quoted_amount}` : '—'}</td>
-                      <td>
-                        <div className="nav">
-                          {!cancelled ? <Link href={`${returnTo}&edit=${a.id}`}>Editar</Link> : null}
-                          {!cancelled ? (
-                            <form action={cancelAppointment}>
-                              <input type="hidden" name="id" value={a.id} />
-                              <input type="hidden" name="return_to" value={returnTo} />
-                              <button className="btn danger" type="submit">Cancelar</button>
-                            </form>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="stack" style={{ gap: 10, marginTop: 8 }}>
+            {(appointments ?? []).map((a) => {
+              const patient = a.patient_id ? patientMap.get(a.patient_id) : undefined;
+              const service = a.service_id ? serviceMap.get(a.service_id) : undefined;
+              const cancelled = isCancelled(a.status);
+              const isNext = nextAppointment?.id === a.id;
+              const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : ''].filter(Boolean).join(' ');
+
+              return (
+                <div key={a.id} className={cardClass}>
+                  <div className="appointment-main">
+                    <div className="appointment-time">
+                      {view !== 'day' ? <span className="appointment-date">{formatShortDay(a.starts_at)}</span> : null}
+                      {formatTime(a.starts_at)}–{formatTime(a.ends_at)}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{patient?.name ?? 'Paciente no disponible'}</div>
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        {service?.name ?? 'Servicio no disponible'} · {a.modality}
+                      </div>
+                    </div>
+                    {isNext ? <span className="badge badge-confirmado">Próximo</span> : null}
+                  </div>
+
+                  <div className="appointment-meta">
+                    <span className="muted" style={{ fontSize: 13, minWidth: 90, textAlign: 'right' }}>
+                      {a.quoted_amount != null ? `${a.currency ?? 'ARS'} ${Number(a.quoted_amount).toLocaleString('es-AR')}` : '—'}
+                    </span>
+                    <StatusBadge status={a.status} />
+                    {!cancelled ? (
+                      <div className="nav" style={{ gap: 10 }}>
+                        <Link href={`${returnTo}&edit=${a.id}#turno-form`} className="btn secondary" style={{ padding: '7px 12px', fontSize: 13 }}>
+                          Editar
+                        </Link>
+                        <form action={cancelAppointment}>
+                          <input type="hidden" name="id" value={a.id} />
+                          <input type="hidden" name="return_to" value={returnTo} />
+                          <button className="btn danger" type="submit" style={{ padding: '7px 12px', fontSize: 13 }}>
+                            Cancelar
+                          </button>
+                        </form>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

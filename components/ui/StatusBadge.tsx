@@ -14,6 +14,8 @@ const VARIANTS: Record<string, string> = {
   ausente: 'badge-ausente',
   no_show: 'badge-no_show',
   'no-show': 'badge-no_show',
+  completado: 'badge-completado',
+  completed: 'badge-completed',
 };
 
 export function StatusBadge({ status }: { status: string | null | undefined }) {
