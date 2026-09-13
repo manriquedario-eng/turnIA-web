@@ -4,6 +4,27 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
+import { sendAppointmentCreatedMessage } from '@/lib/whatsapp/send-appointment-created';
+
+const MESSAGING_TZ = 'America/Argentina/Buenos_Aires';
+
+function formatAppointmentDateLabel(iso: string) {
+  return new Intl.DateTimeFormat('es-AR', {
+    timeZone: MESSAGING_TZ,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(iso));
+}
+
+function formatAppointmentTimeLabel(iso: string) {
+  return new Intl.DateTimeFormat('es-AR', {
+    timeZone: MESSAGING_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(iso));
+}
 
 const localDateTime = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 const appointmentSchema = z.object({
@@ -62,7 +83,7 @@ export async function createAppointment(formData: FormData) {
   if (start.getTime() < Date.now() - 60_000) redirect(`${returnTo}&error=No%20se%20pueden%20crear%20turnos%20en%20el%20pasado`);
 
   const service = await validateRelations(tenantId, parsed.data.patient_id, parsed.data.service_id);
-  const { error } = await supabase.from('appointments').insert({
+  const { data: created, error } = await supabase.from('appointments').insert({
     tenant_id: tenantId,
     patient_id: parsed.data.patient_id,
     service_id: parsed.data.service_id,
@@ -74,9 +95,48 @@ export async function createAppointment(formData: FormData) {
     quoted_amount: parsed.data.quoted_amount ?? service.price ?? null,
     currency: service.currency ?? 'ARS',
     professional_id: user.id,
-  });
+  }).select('id').maybeSingle();
 
   if (error) redirect(`${returnTo}&error=${encodeURIComponent(error.message)}`);
+
+  // El turno ya está creado y confirmado en este punto. Todo lo que sigue
+  // (WhatsApp) es estrictamente posterior y está aislado: un error acá nunca
+  // debe revertir ni afectar el turno ya guardado, por eso va en su propio
+  // try/catch y nunca antes del insert de arriba.
+  if (created?.id) {
+    try {
+      const [{ data: patient }, { data: profile }] = await Promise.all([
+        supabase
+          .from('patients')
+          .select('name, phone_e164, whatsapp_consent, appointment_reminders_opt_in')
+          .eq('id', parsed.data.patient_id)
+          .eq('tenant_id', tenantId)
+          .maybeSingle(),
+        supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
+      ]);
+
+      if (patient) {
+        await sendAppointmentCreatedMessage({
+          supabase,
+          tenantId,
+          patientId: parsed.data.patient_id,
+          appointmentId: created.id,
+          patientName: patient.name,
+          phoneE164: patient.phone_e164 ?? null,
+          whatsappConsent: Boolean(patient.whatsapp_consent),
+          appointmentRemindersOptIn: Boolean(patient.appointment_reminders_opt_in),
+          professionalName: profile?.display_name || user.email || 'tu profesional',
+          dateLabel: formatAppointmentDateLabel(startsAt),
+          timeLabel: formatAppointmentTimeLabel(startsAt),
+        });
+      }
+    } catch {
+      // Nunca dejar que un problema de mensajería afecte la respuesta de
+      // creación de turno: se ignora acá a propósito. sendAppointmentCreatedMessage
+      // ya deja su propia traza en appointment_messages cuando puede.
+    }
+  }
+
   revalidatePath('/agenda');
   redirect(`${returnTo}&ok=Turno%20creado`);
 }
