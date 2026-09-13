@@ -31,51 +31,28 @@ export async function registerPayment(formData: FormData) {
 
   const { data: appointment, error: appointmentError } = await supabase
     .from('appointments')
-    .select('id, patient_id, currency')
+    .select('id')
     .eq('id', parsed.data.appointment_id)
     .eq('tenant_id', tenantId)
     .maybeSingle();
 
   if (appointmentError || !appointment) redirect('/payments?error=Turno%20inválido');
 
-  const { data: existing } = await supabase
-    .from('payments')
-    .select('id')
-    .eq('tenant_id', tenantId)
-    .eq('idempotency_key', parsed.data.idempotency_key)
-    .maybeSingle();
-
-  if (existing) redirect('/payments?ok=Pago%20ya%20registrado');
-
-  const { data: payment, error: paymentError } = await supabase
-    .from('payments')
-    .insert({
-      tenant_id: tenantId,
-      appointment_id: appointment.id,
-      patient_id: appointment.patient_id,
-      amount: parsed.data.amount,
-      currency: appointment.currency || 'ARS',
-      method: parsed.data.method,
-      idempotency_key: parsed.data.idempotency_key,
-    })
-    .select('id')
-    .single();
-
-  if (paymentError || !payment) redirect(`/payments?error=${encodeURIComponent(paymentError?.message || 'No se pudo registrar el pago')}`);
-
-  const { error: cashError } = await supabase.from('cash_movements').insert({
-    tenant_id: tenantId,
-    payment_id: payment.id,
-    amount: parsed.data.amount,
-    method: parsed.data.method,
-    kind: 'in',
+  const { data, error } = await supabase.rpc('register_payment_with_cash', {
+    p_appointment_id: parsed.data.appointment_id,
+    p_amount: parsed.data.amount,
+    p_method: parsed.data.method,
+    p_idempotency_key: parsed.data.idempotency_key,
   });
 
-  if (cashError) redirect(`/payments?error=${encodeURIComponent('Pago registrado, pero falló su movimiento de caja')}`);
+  if (error) redirect(`/payments?error=${encodeURIComponent(error.message || 'No se pudo registrar el pago')}`);
+
+  const result = Array.isArray(data) ? data[0] : data;
+  const created = result?.created !== false;
 
   revalidatePath('/payments');
   revalidatePath('/dashboard');
-  redirect('/payments?ok=Pago%20registrado');
+  redirect(created ? '/payments?ok=Pago%20registrado' : '/payments?ok=Pago%20ya%20registrado');
 }
 
 export async function registerCashMovement(formData: FormData) {
