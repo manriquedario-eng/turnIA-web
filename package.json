@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "security:regression": "node scripts/security-regression.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
