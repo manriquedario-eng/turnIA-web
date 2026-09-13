@@ -1,0 +1,22 @@
+name: Export TurnIA Source
+
+on:
+  push:
+    branches:
+      - export/turnia-snapshot
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create source archive
+        run: |
+          zip -r turnia-source.zip . -x '.git/*' 'turnia-source.zip'
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: turnia-source-snapshot
+          path: turnia-source.zip
+          if-no-files-found: error
