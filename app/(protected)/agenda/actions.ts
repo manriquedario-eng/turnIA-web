@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
 import { sendAppointmentCreatedMessage } from '@/lib/whatsapp/send-appointment-created';
+import { createGoogleMeetForAppointment } from '@/lib/google/calendar';
+import { sendAppointmentConfirmationEmail } from '@/lib/email/send-appointment-created';
 
 const MESSAGING_TZ = 'America/Argentina/Buenos_Aires';
 
@@ -100,22 +102,108 @@ export async function createAppointment(formData: FormData) {
   if (error) redirect(`${returnTo}&error=${encodeURIComponent(error.message)}`);
 
   // El turno ya está creado y confirmado en este punto. Todo lo que sigue
-  // (WhatsApp) es estrictamente posterior y está aislado: un error acá nunca
-  // debe revertir ni afectar el turno ya guardado, por eso va en su propio
-  // try/catch y nunca antes del insert de arriba.
+  // (Google Meet, email, WhatsApp) es estrictamente posterior y está
+  // aislado: un error en cualquiera de estas integraciones nunca debe
+  // revertir ni afectar el turno ya guardado, por eso cada una va en su
+  // propio try/catch y ninguna corre antes del insert de arriba. Mismo
+  // principio que ya regía para WhatsApp, extendido ahora a Google Meet y
+  // email (PARTE 9 del pedido: "un fallo en Google, email o WhatsApp nunca
+  // debe impedir crear el turno").
   if (created?.id) {
+    let patient: {
+      name: string;
+      email: string | null;
+      phone_e164: string | null;
+      whatsapp_consent: boolean | null;
+      appointment_reminders_opt_in: boolean | null;
+    } | null = null;
+    let professionalName = user.email || 'tu profesional';
+
     try {
-      const [{ data: patient }, { data: profile }] = await Promise.all([
+      const [{ data: patientRow }, { data: profile }] = await Promise.all([
         supabase
           .from('patients')
-          .select('name, phone_e164, whatsapp_consent, appointment_reminders_opt_in')
+          .select('name, email, phone_e164, whatsapp_consent, appointment_reminders_opt_in')
           .eq('id', parsed.data.patient_id)
           .eq('tenant_id', tenantId)
           .maybeSingle(),
         supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
       ]);
+      patient = patientRow ?? null;
+      professionalName = profile?.display_name || user.email || 'tu profesional';
+    } catch {
+      // Si ni siquiera se pudo leer al paciente/profesional, no se intenta
+      // ninguna integración — pero el turno ya quedó creado igual.
+      patient = null;
+    }
 
-      if (patient) {
+    const dateLabel = formatAppointmentDateLabel(startsAt);
+    const timeLabel = formatAppointmentTimeLabel(startsAt);
+    let meetingUrl: string | null = null;
+
+    // 4) Google Meet — sólo para turnos online, y sólo si el profesional
+    // tiene Google Calendar conectado. "not_connected" es un estado
+    // esperado (la UI de agenda ya avisa al profesional en ese caso) y no
+    // se trata como error de diagnóstico; cualquier otro motivo de fallo sí
+    // se registra, sin datos sensibles.
+    if (patient && parsed.data.modality === 'online') {
+      try {
+        const meetResult = await createGoogleMeetForAppointment({
+          tenantId,
+          professionalUserId: user.id,
+          appointmentId: created.id,
+          summary: `Turno TurnIA: ${patient.name} con ${professionalName}`,
+          startsAtIso: startsAt,
+          endsAtIso: endsAt,
+          timeZone: MESSAGING_TZ,
+        });
+
+        if (meetResult.ok) {
+          meetingUrl = meetResult.meetUrl;
+          await supabase
+            .from('appointments')
+            .update({
+              meeting_provider: 'google_meet',
+              meeting_url: meetResult.meetUrl,
+              external_calendar_event_id: meetResult.eventId,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', created.id)
+            .eq('tenant_id', tenantId);
+        } else if (meetResult.reason !== 'not_connected') {
+          console.error('No se pudo crear Google Meet para el turno', created.id, meetResult.reason);
+        }
+      } catch (err) {
+        console.error('Error inesperado creando Google Meet', created.id, err instanceof Error ? err.message : 'error desconocido');
+      }
+    }
+
+    // 6) Email de confirmación — aislado, nunca afecta al turno ya creado.
+    if (patient) {
+      try {
+        await sendAppointmentConfirmationEmail({
+          supabase,
+          tenantId,
+          patientId: parsed.data.patient_id,
+          appointmentId: created.id,
+          patientEmail: patient.email ?? null,
+          patientName: patient.name,
+          professionalName,
+          dateLabel,
+          timeLabel,
+          modality: parsed.data.modality,
+          meetingUrl,
+        });
+      } catch {
+        // sendAppointmentConfirmationEmail ya no debería lanzar nunca; se
+        // aísla igual como red de seguridad adicional.
+      }
+    }
+
+    // 7) WhatsApp — sin cambios de comportamiento respecto a la integración
+    // existente (mismos controles de consentimiento de siempre).
+    if (patient) {
+      try {
         await sendAppointmentCreatedMessage({
           supabase,
           tenantId,
@@ -125,15 +213,15 @@ export async function createAppointment(formData: FormData) {
           phoneE164: patient.phone_e164 ?? null,
           whatsappConsent: Boolean(patient.whatsapp_consent),
           appointmentRemindersOptIn: Boolean(patient.appointment_reminders_opt_in),
-          professionalName: profile?.display_name || user.email || 'tu profesional',
-          dateLabel: formatAppointmentDateLabel(startsAt),
-          timeLabel: formatAppointmentTimeLabel(startsAt),
+          professionalName,
+          dateLabel,
+          timeLabel,
         });
+      } catch {
+        // Nunca dejar que un problema de mensajería afecte la respuesta de
+        // creación de turno: se ignora acá a propósito. sendAppointmentCreatedMessage
+        // ya deja su propia traza en appointment_messages cuando puede.
       }
-    } catch {
-      // Nunca dejar que un problema de mensajería afecte la respuesta de
-      // creación de turno: se ignora acá a propósito. sendAppointmentCreatedMessage
-      // ya deja su propia traza en appointment_messages cuando puede.
     }
   }
 
@@ -156,6 +244,12 @@ export async function updateAppointment(formData: FormData) {
   if (existingError || !existing) redirect(`${returnTo}&error=Turno%20no%20encontrado`);
   if (existing.status === 'cancelled' || existing.status === 'cancelado') redirect(`${returnTo}&error=No%20se%20puede%20editar%20un%20turno%20cancelado`);
 
+  // NOTA (PARTE 4 del pedido, fase futura): si el turno es online y ya tiene
+  // external_calendar_event_id, acá es donde correspondería llamar a
+  // updateGoogleMeetForAppointment (lib/google/calendar.ts) para mover el
+  // evento de Google junto con el turno. No se implementa en esta tarea
+  // para no ampliar el alcance; la función ya existe y está lista para
+  // conectarse acá.
   const { error } = await supabase.from('appointments').update({
     patient_id: parsed.data.patient_id,
     service_id: parsed.data.service_id,
@@ -177,6 +271,10 @@ export async function cancelAppointment(formData: FormData) {
   const id = z.string().uuid().safeParse(formData.get('id'));
   if (!id.success) redirect(`${returnTo}&error=Turno%20inválido`);
 
+  // NOTA (PARTE 4 del pedido, fase futura): mismo comentario que en
+  // updateAppointment — acá es donde correspondería llamar a
+  // cancelGoogleMeetForAppointment si el turno cancelado tenía
+  // external_calendar_event_id. No implementado en esta tarea.
   const { error } = await supabase.from('appointments').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', id.data).eq('tenant_id', tenantId);
   if (error) redirect(`${returnTo}&error=${encodeURIComponent(error.message)}`);
   revalidatePath('/agenda');

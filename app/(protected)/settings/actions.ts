@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
+import { disconnectGoogleOAuthConnection } from '@/lib/google/oauth';
 
 const settingsSchema = z.object({
   display_name: z.string().trim().min(2).max(120),
@@ -61,4 +62,23 @@ export async function updateSettings(formData: FormData) {
   revalidatePath('/settings');
   revalidatePath('/agenda');
   redirect('/settings?ok=Configuración%20guardada');
+}
+
+/**
+ * Desconecta Google Calendar del profesional logueado. No revoca el acceso
+ * del lado de Google todavía (eso queda documentado como pendiente en el
+ * informe) — sólo invalida la conexión guardada en TurnIA, para que no se
+ * intente crear más Meets con un token que el profesional ya no quiere que
+ * usemos.
+ */
+export async function disconnectGoogleCalendar() {
+  const { user, tenantId } = await requireTenant();
+
+  const result = await disconnectGoogleOAuthConnection({ tenantId, userId: user.id });
+  if (!result.ok) {
+    redirect(`/settings?error=${encodeURIComponent(result.errorMessage)}#integraciones`);
+  }
+
+  revalidatePath('/settings');
+  redirect('/settings?ok=Google%20desconectado#integraciones');
 }

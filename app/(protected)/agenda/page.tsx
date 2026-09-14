@@ -95,7 +95,7 @@ export default async function AgendaPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const { supabase, tenantId } = await requireTenant();
+  const { supabase, user, tenantId } = await requireTenant();
   const view = ['day', 'week', 'month'].includes(String(params.view)) ? String(params.view) : 'day';
   const date = /^\d{4}-\d{2}-\d{2}$/.test(String(params.date)) ? String(params.date) : todayInMendoza();
   const editId = typeof params.edit === 'string' ? params.edit : undefined;
@@ -116,10 +116,10 @@ export default async function AgendaPage({
   const prevDate = view === 'day' ? addDays(date, -1) : view === 'week' ? addDays(date, -7) : shiftMonth(date, -1);
   const nextDate = view === 'day' ? addDays(date, 1) : view === 'week' ? addDays(date, 7) : shiftMonth(date, 1);
 
-  const [{ data: appointments, error: appointmentError }, { data: patients }, { data: services }] = await Promise.all([
+  const [{ data: appointments, error: appointmentError }, { data: patients }, { data: services }, { data: googleIntegration }] = await Promise.all([
     supabase
       .from('appointments')
-      .select('id, patient_id, service_id, starts_at, ends_at, modality, status, quoted_amount, currency')
+      .select('id, patient_id, service_id, starts_at, ends_at, modality, status, quoted_amount, currency, meeting_provider, meeting_url')
       .eq('tenant_id', tenantId)
       .gte('starts_at', startOfDayIso(rangeStart))
       .lte('starts_at', endOfDayIso(rangeEnd))
@@ -135,9 +135,21 @@ export default async function AgendaPage({
       .select('id, name, duration_minutes, price, currency')
       .eq('tenant_id', tenantId)
       .order('name'),
+    // Estado de Google Calendar del PROFESIONAL logueado (no del tenant
+    // entero — cada profesional conecta su propia cuenta). Sin fila todavía
+    // => nunca conectó, se trata igual que "not_connected".
+    supabase
+      .from('integration_status')
+      .select('status')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', user.id)
+      .eq('provider', 'google_calendar')
+      .maybeSingle(),
   ]);
 
   if (appointmentError) throw new Error(appointmentError.message);
+
+  const googleConnected = googleIntegration?.status === 'connected';
 
   const patientMap = new Map((patients ?? []).map((p) => [p.id, p]));
   const serviceMap = new Map((services ?? []).map((s) => [s.id, s]));
@@ -241,6 +253,13 @@ export default async function AgendaPage({
         <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>
           La reconstrucción usa la zona horaria del proyecto: America/Argentina/Buenos_Aires.
         </p>
+        {!googleConnected ? (
+          <p className="alert" style={{ marginTop: 10, fontSize: 13 }}>
+            Para generar enlaces de Google Meet automáticamente en turnos online, conectá tu cuenta de Google en{' '}
+            <Link href="/settings#integraciones">Configuración</Link>. Si creás un turno online sin Google conectado, el
+            turno se guarda igual pero sin enlace de videollamada.
+          </p>
+        ) : null}
       </div>
 
       <div className="card">
@@ -255,6 +274,7 @@ export default async function AgendaPage({
               const cancelled = isCancelled(a.status);
               const isNext = nextAppointment?.id === a.id;
               const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : ''].filter(Boolean).join(' ');
+              const isOnline = a.modality === 'online';
 
               return (
                 <div key={a.id} className={cardClass}>
@@ -268,6 +288,25 @@ export default async function AgendaPage({
                       <div className="muted" style={{ fontSize: 12 }}>
                         {service?.name ?? 'Servicio no disponible'} · {a.modality}
                       </div>
+                      {isOnline && !cancelled ? (
+                        a.meeting_url ? (
+                          <div className="nav" style={{ gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                            <a className="btn secondary" style={{ padding: '5px 10px', fontSize: 12 }} href={a.meeting_url} target="_blank" rel="noreferrer">
+                              Abrir videollamada
+                            </a>
+                            <input
+                              readOnly
+                              defaultValue={a.meeting_url}
+                              aria-label="Enlace de la videollamada (seleccionar y copiar manualmente)"
+                              style={{ fontSize: 12, padding: '5px 8px', width: 220, maxWidth: '100%' }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                            Sin enlace de Meet todavía{!googleConnected ? ' (Google no conectado)' : ''}.
+                          </div>
+                        )
+                      ) : null}
                     </div>
                     {isNext ? <span className="badge badge-confirmado">Próximo</span> : null}
                   </div>
