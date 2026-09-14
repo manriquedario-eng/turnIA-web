@@ -38,6 +38,10 @@ function advanceIso(baseIso: string, index: number, frequency: 'weekly' | 'biwee
   return value.toISOString();
 }
 
+function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string) {
+  return new Date(aStart) < new Date(bEnd) && new Date(aEnd) > new Date(bStart);
+}
+
 async function validatePatientAndService(tenantId: string, patientId: string, serviceId: string) {
   const { supabase } = await requireTenant();
   const [{ data: patient }, { data: service }] = await Promise.all([
@@ -88,6 +92,25 @@ export async function createRecurringAppointments(formData: FormData) {
     };
   });
 
+  const firstStart = rows[0]?.starts_at;
+  const lastEnd = rows.at(-1)?.ends_at;
+  if (!firstStart || !lastEnd) redirect('/planning?error=No%20se%20pudo%20generar%20la%20serie');
+
+  const { data: existing, error: existingError } = await supabase
+    .from('appointments')
+    .select('id, starts_at, ends_at')
+    .eq('tenant_id', tenantId)
+    .eq('professional_id', user.id)
+    .neq('status', 'cancelled')
+    .lt('starts_at', lastEnd)
+    .gt('ends_at', firstStart);
+  if (existingError) redirect(`/planning?error=${encodeURIComponent(existingError.message)}`);
+
+  const hasConflict = rows.some((candidate) =>
+    (existing ?? []).some((current) => overlaps(candidate.starts_at, candidate.ends_at, current.starts_at, current.ends_at)),
+  );
+  if (hasConflict) redirect('/planning?error=La%20serie%20se%20superpone%20con%20uno%20o%20más%20turnos%20existentes');
+
   const { error } = await supabase.from('appointments').insert(rows);
   if (error) redirect(`/planning?error=${encodeURIComponent(error.message)}`);
   revalidatePath('/agenda');
@@ -112,6 +135,19 @@ export async function addWaitlistEntry(formData: FormData) {
     const { data: service } = await supabase.from('services').select('id').eq('tenant_id', tenantId).eq('id', parsed.data.service_id).maybeSingle();
     if (!service) redirect('/planning?error=Servicio%20inválido');
   }
+
+  let duplicateQuery = supabase
+    .from('waitlist_entries')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('patient_id', parsed.data.patient_id)
+    .in('status', ['waiting', 'contacted']);
+  duplicateQuery = parsed.data.service_id
+    ? duplicateQuery.eq('service_id', parsed.data.service_id)
+    : duplicateQuery.is('service_id', null);
+  const { data: duplicate, error: duplicateError } = await duplicateQuery.limit(1).maybeSingle();
+  if (duplicateError) redirect(`/planning?error=${encodeURIComponent(duplicateError.message)}`);
+  if (duplicate) redirect('/planning?error=El%20paciente%20ya%20tiene%20una%20entrada%20activa%20equivalente');
 
   const { error } = await supabase.from('waitlist_entries').insert({
     tenant_id: tenantId,
