@@ -172,8 +172,19 @@ export async function completeGoogleOAuthConnection(params: {
       );
 
     if (connectionError) {
-      return { ok: false, reason: 'provider_error', errorMessage: 'No se pudo guardar la conexión de Google.' };
-    }
+  console.error('Google OAuth Supabase error:', {
+    code: connectionError.code,
+    message: connectionError.message,
+    details: connectionError.details,
+    hint: connectionError.hint,
+  });
+
+  return {
+    ok: false,
+    reason: 'provider_error',
+    errorMessage: 'No se pudo guardar la conexión de Google.',
+  };
+}
 
     await serviceClient.from('integration_status').upsert(
       {
