@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
-import { StatCard } from '@/components/ui/StatCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 const CANCELLED = new Set(['cancelled', 'cancelado']);
@@ -55,11 +54,24 @@ export default async function MetricsPage() {
         </div>
       </div>
 
-      <div className="grid">
-        <StatCard label="Saldo pendiente" value={`$${totalDebt.toLocaleString('es-AR')}`} />
-        <StatCard label="Cobrado registrado" value={`$${totalPaid.toLocaleString('es-AR')}`} />
-        <StatCard label="Tasa de cobranza" value={`${collectionRate.toFixed(1)}%`} />
-        <StatCard label="Ausentismo registrado" value={`${noShowRate.toFixed(1)}%`} hint={`${noShows} ausencias`} />
+      <div className="stat-strip">
+        <div className="stat-strip-item">
+          <span className="stat-strip-label">Pendiente actual</span>
+          <span className="stat-strip-value">${totalDebt.toLocaleString('es-AR')}</span>
+        </div>
+        <div className="stat-strip-item">
+          <span className="stat-strip-label">Cobrado registrado</span>
+          <span className="stat-strip-value">${totalPaid.toLocaleString('es-AR')}</span>
+        </div>
+        <div className="stat-strip-item">
+          <span className="stat-strip-label">Tasa de cobranza</span>
+          <span className="stat-strip-value">{collectionRate.toFixed(1)}%</span>
+        </div>
+        <div className="stat-strip-item">
+          <span className="stat-strip-label">Ausentismo</span>
+          <span className="stat-strip-value">{noShowRate.toFixed(1)}%</span>
+          <span className="stat-strip-hint">{noShows} ausencias</span>
+        </div>
       </div>
 
       <div className="card">

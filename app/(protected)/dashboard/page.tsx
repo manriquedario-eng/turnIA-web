@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
-import { StatCard } from '@/components/ui/StatCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 
@@ -53,18 +52,12 @@ export default async function DashboardPage() {
 
   const [
     profileResult,
-    patientsResult,
     appointmentsResult,
     paymentsResult,
     cashResult,
     waitlistResult,
   ] = await Promise.all([
     supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
-    supabase
-      .from('patients')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null),
     supabase
       .from('appointments')
       .select('id, patient_id, service_id, starts_at, ends_at, status, modality, quoted_amount, currency, patients(name), services(name)')
@@ -171,64 +164,65 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid">
-        <StatCard label="Turnos de hoy" value={activeAppointments.length} />
-        <StatCard label="Confirmados" value={confirmedAppointments.length} hint={`de ${activeAppointments.length} activos`} />
-        <StatCard label="Cancelados hoy" value={cancelledAppointments.length} />
-        <StatCard label="Cobrado hoy" value={`$${collectedToday.toLocaleString('es-AR')}`} />
-        <StatCard label="Pendiente de cobro (hoy)" value={`$${pendingToday.toLocaleString('es-AR')}`} />
+      <div className="stat-strip">
+        <div className="stat-strip-item">
+          <span className="stat-strip-label">Turnos de hoy</span>
+          <span className="stat-strip-value">{activeAppointments.length}</span>
+          <span className="stat-strip-hint">{confirmedAppointments.length} confirmados</span>
+        </div>
+        <div className="stat-strip-item">
+          <span className="stat-strip-label">Cancelados hoy</span>
+          <span className="stat-strip-value">{cancelledAppointments.length}</span>
+        </div>
+        <div className="stat-strip-item">
+          <span className="stat-strip-label">Cobrado hoy</span>
+          <span className="stat-strip-value">${collectedToday.toLocaleString('es-AR')}</span>
+        </div>
+        <div className="stat-strip-item">
+          <span className="stat-strip-label">Pendiente de cobro</span>
+          <span className="stat-strip-value">${pendingToday.toLocaleString('es-AR')}</span>
+        </div>
       </div>
 
       <div className="split-main-side">
-        <div className="card">
-          <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-            <div>
-              <h2 style={{ marginTop: 0 }}>Agenda de hoy</h2>
-              <p className="muted">{patientsResult.count ?? 0} pacientes activos en el consultorio.</p>
-            </div>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', padding: '18px 20px 0' }}>
+            <h2 style={{ marginTop: 0 }}>Agenda de hoy</h2>
             <Link className="btn secondary" href={`/agenda?view=day&date=${today}`}>Abrir agenda</Link>
           </div>
 
           {appointments.length === 0 ? (
-            <EmptyState title="No hay turnos registrados para hoy" description="Cuando crees un turno para hoy, va a aparecer acá." />
+            <div style={{ padding: '0 20px 20px' }}>
+              <EmptyState title="No hay turnos registrados para hoy" description="Cuando crees un turno para hoy, va a aparecer acá." />
+            </div>
           ) : (
-            <div className="stack" style={{ gap: 10, marginTop: 8 }}>
+            <div className="stack" style={{ gap: 8, padding: '14px 20px 20px' }}>
               {appointments.map((appointment: any) => {
                 const cancelled = isCancelled(appointment.status);
                 const isNext = nextAppointment?.id === appointment.id;
+                const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : ''].filter(Boolean).join(' ');
                 return (
-                  <div
-                    key={appointment.id}
-                    className="card"
-                    style={{
-                      padding: 14,
-                      borderColor: isNext ? 'var(--color-terracotta)' : undefined,
-                      boxShadow: isNext ? '0 0 0 1px var(--color-terracotta)' : undefined,
-                      opacity: cancelled ? 0.6 : 1,
-                    }}
-                  >
-                    <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                      <div className="nav" style={{ gap: 14 }}>
-                        <strong style={{ minWidth: 56 }}>{formatTime(appointment.starts_at)}</strong>
-                        <div>
-                          <div style={{ fontWeight: 600 }}>{appointment.patients?.name ?? 'Sin paciente'}</div>
-                          <div className="muted" style={{ fontSize: 12 }}>
-                            {appointment.services?.name ?? 'Sin servicio'} · {appointment.modality}
-                          </div>
+                  <div key={appointment.id} className={cardClass}>
+                    <div className="appointment-main">
+                      <div className="appointment-time">{formatTime(appointment.starts_at)}</div>
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{appointment.patients?.name ?? 'Sin paciente'}</div>
+                        <div className="muted" style={{ fontSize: 12 }}>
+                          {appointment.services?.name ?? 'Sin servicio'} · {appointment.modality}
                         </div>
-                        {isNext ? <span className="badge badge-confirmado">Próximo</span> : null}
                       </div>
-                      <div className="nav" style={{ gap: 12 }}>
-                        <span className="muted" style={{ fontSize: 13 }}>
-                          {appointment.quoted_amount != null ? `${appointment.currency ?? 'ARS'} ${Number(appointment.quoted_amount).toLocaleString('es-AR')}` : '—'}
-                        </span>
-                        <StatusBadge status={appointment.status} />
-                        {!cancelled ? (
-                          <Link href={`/agenda?view=day&date=${today}&edit=${appointment.id}`} style={{ fontSize: 13 }}>
-                            Editar
-                          </Link>
-                        ) : null}
-                      </div>
+                      {isNext ? <span className="badge badge-confirmado">Próximo</span> : null}
+                    </div>
+                    <div className="appointment-meta">
+                      <span className="muted" style={{ fontSize: 13 }}>
+                        {appointment.quoted_amount != null ? `${appointment.currency ?? 'ARS'} ${Number(appointment.quoted_amount).toLocaleString('es-AR')}` : '—'}
+                      </span>
+                      <StatusBadge status={appointment.status} />
+                      {!cancelled ? (
+                        <Link href={`/agenda?view=day&date=${today}&edit=${appointment.id}`} className="btn secondary" style={{ padding: '7px 12px', fontSize: 13 }}>
+                          Editar
+                        </Link>
+                      ) : null}
                     </div>
                   </div>
                 );

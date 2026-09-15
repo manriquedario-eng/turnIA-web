@@ -6,12 +6,12 @@ import { Topbar } from './Topbar';
 import { MobileTabbar } from './MobileTabbar';
 
 export function AppShell({
-  email,
+  name,
   role,
   logoutAction,
   children,
 }: {
-  email: string;
+  name: string;
   role: string;
   logoutAction: () => void | Promise<void>;
   children: React.ReactNode;
@@ -24,11 +24,11 @@ export function AppShell({
         open={mobileOpen}
         onClose={() => setMobileOpen(false)}
         logoutAction={logoutAction}
-        email={email}
+        name={name}
         role={role}
       />
       <div className="app-main">
-        <Topbar email={email} role={role} onMenuClick={() => setMobileOpen(true)} />
+        <Topbar name={name} role={role} onMenuClick={() => setMobileOpen(true)} />
         <main className="app-content">
           <div className="container">{children}</div>
         </main>

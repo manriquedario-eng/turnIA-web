@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireTenant } from '@/lib/auth/require-user';
-import { archivePatient, createManualFollowUp, updatePatient } from '../actions';
+import { archivePatient, createManualFollowUp, updatePatient, upsertPatientRecord } from '../actions';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { IconMail, IconPhone } from '@/components/ui/icons';
 import { Tabs } from '@/components/ui/Tabs';
+import { statusLabel, modalityLabel, paymentMethodLabel } from '@/lib/labels';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -53,7 +55,7 @@ export default async function PatientDetailPage({
       .maybeSingle(),
     supabase
       .from('patient_follow_ups')
-      .select('id,content,source_type,created_at,professional_id')
+      .select('id,content,source_type,created_at,professional_id,appointment_id')
       .eq('patient_id', id)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
@@ -86,26 +88,43 @@ export default async function PatientDetailPage({
 
   if (!patient) notFound();
 
+  // Sesiones vs. Seguimientos: misma tabla (patient_follow_ups). Se separan
+  // usando `source_type` + `appointment_id` juntos (no sólo presentación):
+  // - source_type = 'manual_session' o 'manual_follow_up' (valores nuevos) →
+  //   se respeta tal cual.
+  // - registros viejos (source_type = 'manual_text' u otro valor no
+  //   reconocido) → se clasifican por appointment_id, igual que antes, para
+  //   no perder ni reclasificar mal datos históricos.
+  // Ver el comentario en actions.ts → createManualFollowUp.
+  const appointmentById = new Map(appointments.map((a: any) => [a.id, a]));
+  function isSessionRow(f: any): boolean {
+    if (f.source_type === 'manual_session') return true;
+    if (f.source_type === 'manual_follow_up') return false;
+    return Boolean(f.appointment_id);
+  }
+  const sessionNotes = followUps.filter(isSessionRow);
+  const generalFollowUps = followUps.filter((f: any) => !isSessionRow(f));
+
   const timeline: TimelineItem[] = [
     ...appointments.map((item: any) => ({
       id: `appointment-${item.id}`,
       at: item.starts_at,
       type: 'Turno' as const,
-      title: `${item.services?.name ?? 'Servicio'} · ${item.status}`,
-      detail: `${item.modality}${item.quoted_amount != null ? ` · ${item.currency} ${item.quoted_amount}` : ''}`,
+      title: `${item.services?.name ?? 'Servicio'} · ${statusLabel(item.status)}`,
+      detail: `${modalityLabel(item.modality)}${item.quoted_amount != null ? ` · ${item.currency} ${item.quoted_amount}` : ''}`,
     })),
     ...payments.map((item: any) => ({
       id: `payment-${item.id}`,
       at: item.created_at,
       type: 'Pago' as const,
       title: `${item.currency} ${item.amount}`,
-      detail: item.method,
+      detail: paymentMethodLabel(item.method),
     })),
     ...followUps.map((item: any) => ({
       id: `followup-${item.id}`,
       at: item.created_at,
       type: 'Seguimiento' as const,
-      title: item.source_type === 'manual_text' ? 'Seguimiento manual' : item.source_type,
+      title: item.appointment_id ? 'Nota de sesión' : 'Seguimiento',
       detail: item.content,
     })),
     ...(record ? [{
@@ -139,7 +158,9 @@ export default async function PatientDetailPage({
   }, 0);
 
   const initials = patient.name.trim().slice(0, 2).toUpperCase();
-  const hasClinicalNotes = record && (record.reason || record.follow_up || record.background || record.notes || record.plan);
+  const todayForNewAppointment = nextAppointment
+    ? undefined
+    : new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
 
   return (
     <section className="stack">
@@ -147,57 +168,62 @@ export default async function PatientDetailPage({
 
       {query.error ? <p className="alert error">{query.error}</p> : null}
       {query.success === 'updated' ? <p className="alert success">Datos actualizados.</p> : null}
-      {query.success === 'followup' ? <p className="alert success">Seguimiento guardado.</p> : null}
+      {query.success === 'followup' ? <p className="alert success">Nota guardada.</p> : null}
+      {query.success === 'record' ? <p className="alert success">Ficha clínica actualizada.</p> : null}
 
-      <div className="card">
-        <div className="patient-header">
-          <div className="patient-header-identity">
-            <div className="patient-avatar-lg">{initials}</div>
-            <div>
-              <h1 style={{ marginBottom: 4 }}>{patient.name}</h1>
-              <div className="patient-contact-list">
-                {patient.phone ? <span><IconPhone size={14} /> {patient.phone}</span> : null}
-                {patient.email ? <span><IconMail size={14} /> {patient.email}</span> : null}
-                {patient.dni ? <span>DNI {patient.dni}</span> : null}
-                {patient.insurance_name ? <span>{patient.insurance_name}{patient.insurance_plan ? ` · ${patient.insurance_plan}` : ''}</span> : null}
-                {!patient.phone && !patient.email && !patient.dni && !patient.insurance_name ? <span>Sin datos de contacto cargados</span> : null}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '20px 20px 16px' }}>
+          <div className="patient-header">
+            <div className="patient-header-identity">
+              <div className="patient-avatar-lg">{initials}</div>
+              <div>
+                <h1 style={{ marginBottom: 4 }}>{patient.name}</h1>
+                <div className="patient-contact-list">
+                  {patient.phone ? <span><IconPhone size={14} /> {patient.phone}</span> : null}
+                  {patient.email ? <span><IconMail size={14} /> {patient.email}</span> : null}
+                  {!patient.phone && !patient.email ? <span>Sin datos de contacto cargados</span> : null}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="nav" style={{ flexWrap: 'wrap' }}>
-            <Link className="btn secondary" href="/agenda">Ver agenda</Link>
-            <Link className="btn secondary" href="/payments">Pagos y caja</Link>
+            <div className="nav" style={{ flexWrap: 'wrap' }}>
+              <Link
+                className="btn"
+                href={`/agenda?view=day&date=${todayForNewAppointment ?? ''}&new=1&patient=${patient.id}#turno-drawer`}
+              >
+                Nuevo turno
+              </Link>
+              <Link className="btn secondary" href="/payments">Registrar pago</Link>
+            </div>
           </div>
         </div>
 
-        <div className="grid" style={{ marginTop: 16 }}>
-          <div className="stat-card">
-            <span className="stat-label">Próximo turno</span>
+        <div className="stat-strip" style={{ border: 'none', borderRadius: 0, borderTop: '1px solid var(--color-border-soft)', boxShadow: 'none' }}>
+          <div className="stat-strip-item">
+            <span className="stat-strip-label">Próximo turno</span>
             {nextAppointment ? (
-              <>
-                <span className="stat-value" style={{ fontSize: 18 }}>{formatDateTime(nextAppointment.starts_at)}</span>
-                <StatusBadge status={nextAppointment.status} />
-              </>
+              <span className="nav" style={{ gap: 8 }}>
+                <span className="stat-strip-value" style={{ fontSize: 16 }}>{formatDateTime(nextAppointment.starts_at)}</span>
+                <StatusBadge status={nextAppointment.status} label={statusLabel(nextAppointment.status)} />
+              </span>
             ) : (
-              <span className="stat-hint">Sin turnos programados</span>
+              <span className="stat-strip-hint">Sin turnos programados</span>
             )}
           </div>
-          <div className="stat-card">
-            <span className="stat-label">Último turno</span>
+          <div className="stat-strip-item">
+            <span className="stat-strip-label">Último turno</span>
             {lastAppointment ? (
-              <>
-                <span className="stat-value" style={{ fontSize: 18 }}>{formatDateTime(lastAppointment.starts_at)}</span>
-                <StatusBadge status={lastAppointment.status} />
-              </>
+              <span className="nav" style={{ gap: 8 }}>
+                <span className="stat-strip-value" style={{ fontSize: 16 }}>{formatDateTime(lastAppointment.starts_at)}</span>
+                <StatusBadge status={lastAppointment.status} label={statusLabel(lastAppointment.status)} />
+              </span>
             ) : (
-              <span className="stat-hint">Sin turnos anteriores</span>
+              <span className="stat-strip-hint">Sin turnos anteriores</span>
             )}
           </div>
-          <div className="stat-card">
-            <span className="stat-label">Saldo pendiente</span>
-            <span className="stat-value">${balance.toLocaleString('es-AR')}</span>
-            <span className="stat-hint">Calculado con turnos y pagos registrados</span>
+          <div className="stat-strip-item">
+            <span className="stat-strip-label">Saldo pendiente</span>
+            <span className="stat-strip-value">${balance.toLocaleString('es-AR')}</span>
           </div>
         </div>
       </div>
@@ -205,6 +231,7 @@ export default async function PatientDetailPage({
       <Tabs
         tabs={[
           { id: 'clinica', label: 'Ficha clínica' },
+          { id: 'sesiones', label: 'Sesiones' },
           { id: 'actividad', label: 'Actividad' },
           { id: 'seguimientos', label: 'Seguimientos' },
           { id: 'datos', label: 'Datos' },
@@ -213,17 +240,91 @@ export default async function PatientDetailPage({
         <div data-tab="clinica">
           <div className="card">
             <h2 style={{ marginTop: 0 }}>Ficha clínica</h2>
-            {hasClinicalNotes ? (
-              <div className="stack" style={{ gap: 10 }}>
-                {record?.reason ? <div><strong>Motivo de consulta</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.reason}</p></div> : null}
-                {record?.background ? <div><strong>Antecedentes</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.background}</p></div> : null}
-                {record?.follow_up ? <div><strong>Seguimiento</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.follow_up}</p></div> : null}
-                {record?.plan ? <div><strong>Plan</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.plan}</p></div> : null}
-                {record?.notes ? <div><strong>Notas</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.notes}</p></div> : null}
+            <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+              Información clínica general del paciente. Se edita directamente acá.
+            </p>
+            {!record ? (
+              <p className="muted" style={{ fontSize: 13 }}>Todavía no hay información clínica registrada.</p>
+            ) : null}
+            <form action={upsertPatientRecord} className="stack">
+              <input type="hidden" name="patientId" value={patient.id} />
+              <label>
+                Motivo de consulta
+                <textarea name="reason" defaultValue={record?.reason ?? ''} rows={2} maxLength={10000} style={{ width: '100%' }} />
+              </label>
+              <label>
+                Antecedentes
+                <textarea name="background" defaultValue={record?.background ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
+              </label>
+              <label>
+                Plan / indicaciones
+                <textarea name="plan" defaultValue={record?.plan ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
+              </label>
+              <label>
+                Notas generales
+                <textarea name="notes" defaultValue={record?.notes ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
+              </label>
+              <div>
+                <button className="btn" type="submit">{record ? 'Guardar cambios' : 'Completar ficha clínica'}</button>
               </div>
-            ) : (
-              <EmptyState title="Todavía no hay ficha clínica" description="Se completa desde seguimientos o integraciones futuras." />
-            )}
+            </form>
+          </div>
+        </div>
+
+        <div data-tab="sesiones">
+          <div className="stack">
+            <div className="card">
+              <h2 style={{ marginTop: 0 }}>Registrar nota de sesión</h2>
+              <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+                Asociada a un turno concreto: evolución, indicaciones y próximos pasos de esa atención.
+              </p>
+              <form action={createManualFollowUp} className="stack">
+                <input type="hidden" name="patientId" value={patient.id} />
+                <label>
+                  Turno
+                  <select name="appointmentId" required defaultValue="">
+                    <option value="" disabled>Seleccionar turno</option>
+                    {appointments.map((a: any) => (
+                      <option key={a.id} value={a.id}>
+                        {formatDateTime(a.starts_at)} · {a.services?.name ?? 'Servicio'} · {statusLabel(a.status)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Notas de la sesión
+                  <textarea name="content" required minLength={2} maxLength={10000} rows={5} style={{ width: '100%' }} />
+                </label>
+                <div>
+                  <button className="btn" type="submit">Guardar sesión</button>
+                </div>
+              </form>
+            </div>
+
+            <div className="card">
+              <h2 style={{ marginTop: 0 }}>Historial de sesiones</h2>
+              {sessionNotes.length === 0 ? (
+                <EmptyState title="Todavía no hay sesiones registradas" description="Se completan desde el formulario de arriba, asociadas a un turno." />
+              ) : (
+                <div>
+                  {sessionNotes.map((item: any) => {
+                    const appt = appointmentById.get(item.appointment_id);
+                    return (
+                      <div key={item.id} className="timeline-item">
+                        <div className="timeline-marker type-turno" />
+                        <div className="timeline-body">
+                          <small className="muted">
+                            {appt ? formatDateTime(appt.starts_at) : formatDateTime(item.created_at)}
+                            {appt?.services?.name ? ` · ${appt.services.name}` : ''}
+                          </small>
+                          <p style={{ whiteSpace: 'pre-wrap', marginTop: 2, marginBottom: 0 }}>{item.content}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -254,6 +355,9 @@ export default async function PatientDetailPage({
           <div className="stack">
             <div className="card">
               <h2 style={{ marginTop: 0 }}>Nuevo seguimiento</h2>
+              <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+                Notas posteriores, controles, tareas o recordatorios que no están atados a un turno puntual.
+              </p>
               <form action={createManualFollowUp} className="stack">
                 <input type="hidden" name="patientId" value={patient.id} />
                 <label>
@@ -268,15 +372,15 @@ export default async function PatientDetailPage({
 
             <div className="card">
               <h2 style={{ marginTop: 0 }}>Historial de seguimientos</h2>
-              {followUps.length === 0 ? (
+              {generalFollowUps.length === 0 ? (
                 <EmptyState title="Todavía no hay seguimientos" />
               ) : (
                 <div>
-                  {followUps.map((item) => (
+                  {generalFollowUps.map((item: any) => (
                     <div key={item.id} className="timeline-item">
                       <div className="timeline-marker type-seguimiento" />
                       <div className="timeline-body">
-                        <small className="muted">{formatDateTime(item.created_at)} · {item.source_type === 'manual_text' ? 'Manual' : item.source_type}</small>
+                        <small className="muted">{formatDateTime(item.created_at)}</small>
                         <p style={{ whiteSpace: 'pre-wrap', marginTop: 2, marginBottom: 0 }}>{item.content}</p>
                       </div>
                     </div>
@@ -294,7 +398,7 @@ export default async function PatientDetailPage({
               <form action={updatePatient} className="form-grid">
                 <input type="hidden" name="id" value={patient.id} />
                 <label>Nombre<input name="name" defaultValue={patient.name} required minLength={2} maxLength={160} /></label>
-                <label>Teléfono<input name="phone" defaultValue={patient.phone ?? ''} maxLength={160} /></label>
+                <PhoneInput defaultValue={patient.phone ?? ''} />
                 <label>Email<input name="email" type="email" defaultValue={patient.email ?? ''} maxLength={200} /></label>
                 <label>DNI<input name="dni" defaultValue={patient.dni ?? ''} maxLength={160} /></label>
                 <label>Obra social<input name="insurance_name" defaultValue={patient.insurance_name ?? ''} maxLength={160} /></label>

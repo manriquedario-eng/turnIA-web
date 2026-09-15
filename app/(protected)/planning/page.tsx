@@ -3,6 +3,8 @@ import { requireTenant } from '@/lib/auth/require-user';
 import { addWaitlistEntry, createRecurringAppointments, updateWaitlistStatus } from './actions';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { PatientCombobox } from '@/components/agenda/PatientCombobox';
+import { RecurringAppointmentFields } from '@/components/planning/RecurringAppointmentFields';
 
 function todayLocal() {
   return new Intl.DateTimeFormat('en-CA', {
@@ -41,35 +43,24 @@ export default async function PlanningPage({ searchParams }: { searchParams: Pro
       {error ? <p className="alert error">{error}</p> : null}
 
       <div className="card">
-        <h2>Crear turnos recurrentes</h2>
-        <form action={createRecurringAppointments} className="form-grid">
-          <label>Paciente
-            <select name="patient_id" required defaultValue=""><option value="" disabled>Seleccionar paciente</option>{(patients ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
-          </label>
-          <label>Servicio
-            <select name="service_id" required defaultValue=""><option value="" disabled>Seleccionar servicio</option>{(services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name} · {s.duration_minutes} min</option>)}</select>
-          </label>
-          <label>Primer inicio<input name="starts_at_local" type="datetime-local" required defaultValue={`${date}T09:00`} /></label>
-          <label>Primer fin<input name="ends_at_local" type="datetime-local" required defaultValue={`${date}T09:30`} /></label>
-          <label>Frecuencia
-            <select name="frequency" defaultValue="weekly"><option value="weekly">Semanal</option><option value="biweekly">Cada 2 semanas</option><option value="monthly">Mensual</option></select>
-          </label>
-          <label>Cantidad<input name="occurrences" type="number" min="2" max="24" defaultValue="4" required /></label>
-          <label>Modalidad
-            <select name="modality" defaultValue="presencial"><option value="presencial">Presencial</option><option value="domicilio">Domicilio</option><option value="online">Online</option></select>
-          </label>
-          <label>Monto<input name="quoted_amount" type="number" min="0" step="0.01" placeholder="Usa el precio del servicio si se deja vacío" /></label>
+        <h2>Turnos recurrentes</h2>
+        <form action={createRecurringAppointments} className="stack">
+          <PatientCombobox />
+          <RecurringAppointmentFields services={(services ?? []).map((s) => ({ id: s.id, name: s.name, duration_minutes: s.duration_minutes }))} />
+          <div className="field-row">
+            <label>Modalidad
+              <select name="modality" defaultValue="presencial"><option value="presencial">Presencial</option><option value="domicilio">Domicilio</option><option value="online">Online</option></select>
+            </label>
+            <label>Monto<input name="quoted_amount" type="number" min="0" step="0.01" placeholder="Usa el precio del servicio si se deja vacío" /></label>
+          </div>
           <div><button className="btn" type="submit">Crear serie</button></div>
         </form>
-        <p className="muted" style={{ fontSize: 12 }}>Se crean entre 2 y 24 turnos en una única operación. No se modifica el esquema de turnos existente.</p>
       </div>
 
       <div className="card">
         <h2>Agregar a lista de espera</h2>
-        <form action={addWaitlistEntry} className="form-grid">
-          <label>Paciente
-            <select name="patient_id" required defaultValue=""><option value="" disabled>Seleccionar paciente</option>{(patients ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
-          </label>
+        <form action={addWaitlistEntry} className="stack">
+          <PatientCombobox />
           <label>Servicio preferido
             <select name="service_id" defaultValue=""><option value="">Cualquier servicio</option>{(services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
           </label>

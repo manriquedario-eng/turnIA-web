@@ -14,16 +14,16 @@ function titleFor(pathname: string | null) {
 }
 
 export function Topbar({
-  email,
+  name,
   role,
   onMenuClick,
 }: {
-  email: string;
+  name: string;
   role: string;
   onMenuClick: () => void;
 }) {
   const pathname = usePathname();
-  const initials = email.slice(0, 2).toUpperCase();
+  const initials = name.trim().slice(0, 2).toUpperCase();
   const today = new Intl.DateTimeFormat('es-AR', {
     timeZone: 'America/Argentina/Buenos_Aires',
     weekday: 'long',
@@ -47,7 +47,7 @@ export function Topbar({
 
       <div className="topbar-profile">
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontWeight: 600 }}>{email}</div>
+          <div style={{ fontWeight: 600 }}>{name}</div>
           <div className="muted" style={{ fontSize: 12, textTransform: 'capitalize' }}>{role}</div>
         </div>
         <div className="topbar-avatar">{initials}</div>

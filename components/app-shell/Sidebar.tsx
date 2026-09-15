@@ -9,17 +9,17 @@ export function Sidebar({
   open,
   onClose,
   logoutAction,
-  email,
+  name,
   role,
 }: {
   open: boolean;
   onClose: () => void;
   logoutAction: () => void | Promise<void>;
-  email: string;
+  name: string;
   role: string;
 }) {
   const pathname = usePathname();
-  const initials = email.slice(0, 2).toUpperCase();
+  const initials = name.trim().slice(0, 2).toUpperCase();
 
   return (
     <>
@@ -33,7 +33,7 @@ export function Sidebar({
         <div className="sidebar-profile">
           <div className="sidebar-profile-avatar">{initials}</div>
           <div className="sidebar-profile-copy">
-            <div className="sidebar-profile-name">{email}</div>
+            <div className="sidebar-profile-name">{name}</div>
             <div className="sidebar-profile-role">{role}</div>
           </div>
         </div>

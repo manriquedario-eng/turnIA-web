@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
 import { createPatient } from './actions';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { IconMail, IconPhone, IconPlus, IconSearch } from '@/components/ui/icons';
+import { PhoneInput } from '@/components/ui/PhoneInput';
+import { PatientRow } from '@/components/patients/PatientRow';
+import { IconPlus, IconSearch } from '@/components/ui/icons';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -73,52 +74,43 @@ export default async function PatientsPage({
       {params.success === 'created' ? <p className="alert success">Paciente creado correctamente.</p> : null}
       {params.success === 'archived' ? <p className="alert success">Paciente archivado correctamente.</p> : null}
 
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>Listado</h2>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {(patients ?? []).length === 0 ? (
-          <EmptyState title="Todavía no cargaste pacientes" description="Creá el primero con el formulario de abajo." />
+          <div style={{ padding: 20 }}>
+            <EmptyState title="Todavía no cargaste pacientes" description="Creá el primero con el formulario de abajo." />
+          </div>
         ) : (
-          <div className="stack" style={{ gap: 10, marginTop: 8 }}>
-            {(patients ?? []).map((patient) => {
-              const next = nextByPatient.get(patient.id);
-              const last = lastByPatient.get(patient.id);
-              const initials = patient.name.trim().slice(0, 2).toUpperCase();
-              return (
-                <div key={patient.id} className="patient-row">
-                  <div className="patient-row-main">
-                    <div className="patient-avatar">{initials}</div>
-                    <div style={{ minWidth: 0 }}>
-                      <Link href={`/patients/${patient.id}`} style={{ fontWeight: 700 }}>{patient.name}</Link>
-                      <div className="muted" style={{ fontSize: 13, display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 2 }}>
-                        {patient.phone ? <span><IconPhone size={13} /> {patient.phone}</span> : null}
-                        {patient.email ? <span><IconMail size={13} /> {patient.email}</span> : null}
-                        {!patient.phone && !patient.email ? <span>Sin datos de contacto</span> : null}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="patient-row-meta">
-                    <div style={{ textAlign: 'right', fontSize: 12 }}>
-                      {next ? (
-                        <div>
-                          <span className="muted">Próximo turno</span>{' '}
-                          <strong>{formatDate(next.starts_at)}</strong> <StatusBadge status={next.status} />
-                        </div>
-                      ) : last ? (
-                        <div className="muted">Último turno: {formatDate(last.starts_at)}</div>
-                      ) : (
-                        <div className="muted">Sin turnos</div>
-                      )}
-                    </div>
-                    <div className="nav" style={{ gap: 8 }}>
-                      <Link className="btn secondary" href={`/patients/${patient.id}`} style={{ padding: '7px 12px', fontSize: 13 }}>
-                        Abrir ficha
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div style={{ overflowX: 'auto' }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Paciente</th>
+                  <th>Contacto</th>
+                  <th>Próximo turno</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(patients ?? []).map((patient) => {
+                  const next = nextByPatient.get(patient.id);
+                  const last = lastByPatient.get(patient.id);
+                  return (
+                    <PatientRow
+                      key={patient.id}
+                      patient={{
+                        id: patient.id,
+                        name: patient.name,
+                        phone: patient.phone,
+                        email: patient.email,
+                        nextLabel: next ? formatDate(next.starts_at) : null,
+                        nextStatus: next ? next.status : null,
+                        lastLabel: last ? formatDate(last.starts_at) : null,
+                      }}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -127,7 +119,7 @@ export default async function PatientsPage({
         <h2 style={{ marginTop: 0 }}>Nuevo paciente</h2>
         <form action={createPatient} className="form-grid">
           <label>Nombre<input name="name" required minLength={2} maxLength={160} /></label>
-          <label>Teléfono<input name="phone" maxLength={160} /></label>
+          <PhoneInput />
           <label>Email<input name="email" type="email" maxLength={200} /></label>
           <label>DNI<input name="dni" maxLength={160} /></label>
           <label>Obra social<input name="insurance_name" maxLength={160} /></label>

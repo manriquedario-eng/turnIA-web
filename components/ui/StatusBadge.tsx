@@ -18,8 +18,20 @@ const VARIANTS: Record<string, string> = {
   completed: 'badge-completed',
 };
 
-export function StatusBadge({ status }: { status: string | null | undefined }) {
+export function StatusBadge({
+  status,
+  label,
+}: {
+  status: string | null | undefined;
+  /**
+   * Texto a mostrar en vez de `status` tal cual (ej. una traducción de
+   * `lib/labels.ts`). Opcional y sin valor por defecto propio: si no se
+   * pasa, el badge se comporta exactamente igual que antes en todas las
+   * pantallas que ya lo usan.
+   */
+  label?: string;
+}) {
   const value = (status ?? '').toLowerCase();
   const variant = VARIANTS[value] ?? 'badge-neutral';
-  return <span className={`badge ${variant}`}>{status || 'Sin estado'}</span>;
+  return <span className={`badge ${variant}`}>{label ?? (status || 'Sin estado')}</span>;
 }

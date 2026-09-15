@@ -7,25 +7,30 @@
    ========================================================================= */
 
 :root {
-  /* Paleta base */
-  --color-terracotta: #c1622d;
-  --color-terracotta-dark: #9c4a1f;
+  /* Paleta base — refinada para sentirse menos "panel administrativo" y más
+     producto premium: el terracota queda como acento (acciones, foco), no
+     como color dominante de superficie; se suma un ink profundo para
+     jerarquía tipográfica y un borde más discreto en toda la app. */
+  --color-terracotta: #b85a2a;
+  --color-terracotta-dark: #93441d;
   --color-terracotta-soft: #f3ddd0;
   --color-sand: #e9dcc7;
   --color-sand-soft: #f2e9db;
-  --color-cream: #faf6ef;
+  --color-cream: #faf8f4;
   --color-sage: #7c9473;
   --color-sage-dark: #5f7657;
   --color-sage-soft: #e6ecdf;
 
   /* Neutros cálidos */
-  --color-ink: #2b2420;
+  --color-ink: #241f1c;
+  --color-ink-deep: #1a1613;
   --color-ink-soft: #6b5f54;
   --color-ink-faint: #9b8f83;
   --color-surface: #ffffff;
-  --color-surface-sunken: #f7f2ea;
-  --color-border: #e8dfd2;
-  --color-border-soft: #f0e9dd;
+  --color-surface-sunken: #f7f3ec;
+  --color-surface-raised: #fffdfa;
+  --color-border: #e9e1d4;
+  --color-border-soft: #f1ebe0;
 
   /* Semánticos */
   --color-success: #5f7657;
@@ -80,16 +85,28 @@ select {
 }
 
 h1 {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
+  color: var(--color-ink-deep);
   margin: 0 0 4px;
 }
 
 h2 {
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: var(--color-ink-deep);
   margin: 0 0 12px;
+}
+
+h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 8px;
 }
 
 p {
@@ -157,10 +174,16 @@ p {
 
 .card {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-lg);
-  padding: 22px;
+  padding: 20px;
   box-shadow: var(--shadow-sm);
+}
+
+/* Superficie compacta y sin borde propio, para agrupar franjas de
+   indicadores (stat-strip) sin repetir el peso visual de .card. */
+.surface-flat {
+  background: transparent;
 }
 
 /* ---------- Buttons ---------- */
@@ -410,6 +433,170 @@ table tbody tr:hover {
 .stat-card .stat-hint {
   font-size: 12px;
   color: var(--color-ink-faint);
+}
+
+/* ---------- Franja compacta de indicadores ----------
+   Reemplaza filas de varios .stat-card grandes (Dashboard, Pagos,
+   Métricas) por una sola franja liviana: un número por indicador, sin
+   tarjeta propia, separados por un divisor sutil. Mucho menos peso visual
+   para datos que son, en esencia, un número y una etiqueta. */
+
+.stat-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.stat-strip-item {
+  flex: 1 1 160px;
+  padding: 16px 20px;
+  border-right: 1px solid var(--color-border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-strip-item:last-child {
+  border-right: none;
+}
+
+.stat-strip-item .stat-strip-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+}
+
+.stat-strip-item .stat-strip-value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-ink-deep);
+}
+
+.stat-strip-item .stat-strip-hint {
+  font-size: 11px;
+  color: var(--color-ink-faint);
+}
+
+@media (max-width: 720px) {
+  .stat-strip-item {
+    flex: 1 1 45%;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border-soft);
+  }
+}
+
+/* ---------- Integraciones — filas ---------- */
+
+.integration-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.integration-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 2px;
+  border-bottom: 1px solid var(--color-border-soft);
+  flex-wrap: wrap;
+}
+
+.integration-row:last-child {
+  border-bottom: none;
+}
+
+.integration-row-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  min-width: 200px;
+}
+
+.integration-row-desc {
+  color: var(--color-ink-soft);
+  font-size: 13px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.integration-row-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ---------- Tabla de pacientes (fila clickeable) ---------- */
+
+.row-link {
+  cursor: pointer;
+}
+
+.row-link:hover {
+  background: var(--color-surface-sunken);
+}
+
+.table-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--color-terracotta-soft);
+  color: var(--color-terracotta-dark);
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.table-cell-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.badge-archived {
+  background: var(--color-surface-sunken);
+  color: var(--color-ink-faint);
+  font-style: italic;
+}
+
+/* ---------- Teléfono (selector de prefijo + número) ---------- */
+
+.phone-input {
+  display: flex;
+  gap: 8px;
+}
+
+.phone-input select {
+  flex: 0 0 116px;
+  padding: 11px 8px;
+}
+
+.phone-input input {
+  flex: 1;
+  min-width: 0;
+}
+
+.phone-input-manual-toggle {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--color-ink-soft);
+  text-decoration: underline;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font-weight: 600;
 }
 
 /* ---------- Empty state ---------- */

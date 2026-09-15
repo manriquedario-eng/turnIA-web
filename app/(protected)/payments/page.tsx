@@ -1,6 +1,5 @@
 import { requireTenant } from '@/lib/auth/require-user';
 import { registerCashMovement, registerPayment } from './actions';
-import { StatCard } from '@/components/ui/StatCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 export default async function PaymentsPage({
@@ -20,7 +19,7 @@ export default async function PaymentsPage({
       .limit(50),
     supabase
       .from('payments')
-      .select('id, amount, currency, method, created_at, patient_id, appointment_id')
+      .select('id, amount, currency, method, created_at, patient_id, appointment_id, patients(name)')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(50),
@@ -51,9 +50,16 @@ export default async function PaymentsPage({
       {params.ok ? <p className="alert success">{params.ok}</p> : null}
       {params.error ? <p className="alert error">{params.error}</p> : null}
 
-      <div className="grid">
-        <StatCard label="Saldo de caja actual" value={`$${balance.toLocaleString('es-AR')}`} />
-        <StatCard label="Cobrado (últimos 50 pagos)" value={`$${collected.toLocaleString('es-AR')}`} />
+      <div className="stat-strip">
+        <div className="stat-strip-item">
+          <span className="stat-strip-label">Caja actual</span>
+          <span className="stat-strip-value">${balance.toLocaleString('es-AR')}</span>
+        </div>
+        <div className="stat-strip-item">
+          <span className="stat-strip-label">Cobrado</span>
+          <span className="stat-strip-value">${collected.toLocaleString('es-AR')}</span>
+          <span className="stat-strip-hint">últimos 50 pagos</span>
+        </div>
       </div>
 
       <div className="split-main-side">
@@ -112,18 +118,29 @@ export default async function PaymentsPage({
         </div>
 
         <div className="stack">
-          <section className="card">
-            <h2 style={{ marginTop: 0 }}>Últimos pagos</h2>
+          <section className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <h2 style={{ margin: '18px 20px 0' }}>Últimos pagos</h2>
             {(payments || []).length === 0 ? (
-              <EmptyState title="Sin pagos registrados" description="Los pagos que registres van a aparecer acá." />
+              <div style={{ padding: '0 20px 20px' }}>
+                <EmptyState title="Sin pagos registrados" description="Los pagos que registres van a aparecer acá." />
+              </div>
             ) : (
-              <div className="stack" style={{ gap: 8 }}>
-                {(payments || []).map((payment: any) => (
-                  <div key={payment.id} className="nav" style={{ justifyContent: 'space-between', fontSize: 13, paddingBottom: 8, borderBottom: '1px solid var(--color-border-soft)' }}>
-                    <strong>${Number(payment.amount).toLocaleString('es-AR')} {payment.currency}</strong>
-                    <span className="muted">{payment.method} · {new Date(payment.created_at).toLocaleString('es-AR')}</span>
-                  </div>
-                ))}
+              <div style={{ overflowX: 'auto', marginTop: 12, paddingBottom: 8 }}>
+                <table className="table">
+                  <thead>
+                    <tr><th>Fecha</th><th>Paciente</th><th>Medio</th><th>Importe</th></tr>
+                  </thead>
+                  <tbody>
+                    {(payments || []).map((payment: any) => (
+                      <tr key={payment.id}>
+                        <td className="muted">{new Date(payment.created_at).toLocaleString('es-AR')}</td>
+                        <td>{payment.patients?.name ?? 'Sin paciente'}</td>
+                        <td className="muted" style={{ textTransform: 'capitalize' }}>{payment.method}</td>
+                        <td><strong>${Number(payment.amount).toLocaleString('es-AR')} {payment.currency}</strong></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </section>

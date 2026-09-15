@@ -59,7 +59,10 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Sistema',
     items: [
       { href: '/settings', label: 'Configuración', icon: IconSettings },
-      { href: '/services', label: 'Servicios', icon: IconTag },
+      // Servicios vive dentro de Configuración (pestaña "Servicios") — la
+      // ruta /services sigue existiendo, sólo no es un ítem propio del
+      // sidebar de escritorio para no competir con Configuración.
+      { href: '/services', label: 'Servicios', icon: IconTag, hideOnDesktopSidebar: true },
     ],
   },
 ];

@@ -166,6 +166,10 @@ export default async function AgendaPage({
   const date = isValidDate(params.date) ? params.date : todayInMendoza();
   const editId = typeof params.edit === 'string' ? params.edit : undefined;
   const wantsNew = params.new === '1';
+  // Paciente preseleccionado al venir desde "Nuevo turno" en la ficha del
+  // paciente (?patient=<id>). Sólo aplica al crear, nunca pisa el paciente
+  // de un turno que se está editando.
+  const presetPatientId = typeof params.patient === 'string' ? params.patient : undefined;
   const slotDate = isValidDate(params.slot) ? params.slot : date;
   const todayDate = todayInMendoza();
 
@@ -196,11 +200,13 @@ export default async function AgendaPage({
       .gte('starts_at', startOfDayIso(rangeStart))
       .lte('starts_at', endOfDayIso(rangeEnd))
       .order('starts_at', { ascending: true }),
+    // Sin filtrar por deleted_at: un turno viejo puede pertenecer a un
+    // paciente ya archivado, y necesitamos poder mostrar su nombre (con la
+    // aclaración de que está archivado) en vez de "Paciente no disponible".
     supabase
       .from('patients')
-      .select('id, name, default_price')
+      .select('id, name, default_price, deleted_at')
       .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
       .order('name'),
     supabase
       .from('services')
@@ -253,7 +259,10 @@ export default async function AgendaPage({
   }
 
   function patientNameOf(a: AppointmentRow) {
-    return a.patient_id ? patientMap.get(a.patient_id)?.name ?? 'Sin paciente' : 'Sin paciente';
+    if (!a.patient_id) return 'Sin paciente';
+    const found = patientMap.get(a.patient_id);
+    if (!found) return 'Paciente archivado';
+    return found.deleted_at ? `${found.name} (archivado)` : found.name;
   }
 
   return (
@@ -400,7 +409,6 @@ export default async function AgendaPage({
             ) : (
               <div className="stack" style={{ gap: 10 }}>
                 {appointments.map((a) => {
-                  const patient = a.patient_id ? patientMap.get(a.patient_id) : undefined;
                   const service = a.service_id ? serviceMap.get(a.service_id) : undefined;
                   const cancelled = isCancelled(a.status);
                   const isNext = nextAppointment?.id === a.id;
@@ -414,7 +422,7 @@ export default async function AgendaPage({
                           {formatTime(a.starts_at)}–{formatTime(a.ends_at)}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 600 }}>{patient?.name ?? 'Paciente no disponible'}</div>
+                          <div style={{ fontWeight: 600 }}>{patientNameOf(a)}</div>
                           <div className="muted" style={{ fontSize: 12 }}>
                             {service?.name ?? 'Servicio no disponible'} · {a.modality}
                           </div>
@@ -487,8 +495,12 @@ export default async function AgendaPage({
 
                 <PatientCombobox
                   key={`patient-${editing?.id ?? `new-${drawerDate}`}`}
-                  defaultPatientId={editing?.patient_id ?? undefined}
-                  defaultPatientName={editing?.patient_id ? patientMap.get(editing.patient_id)?.name : undefined}
+                  defaultPatientId={editing?.patient_id ?? (!editing ? presetPatientId : undefined)}
+                  defaultPatientName={
+                    editing?.patient_id
+                      ? patientMap.get(editing.patient_id)?.name
+                      : (!editing && presetPatientId ? patientMap.get(presetPatientId)?.name : undefined)
+                  }
                 />
 
                 <AppointmentDateTimeFields
