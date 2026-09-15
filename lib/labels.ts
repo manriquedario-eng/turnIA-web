@@ -27,7 +27,7 @@ const STATUS_LABELS: Record<string, string> = {
   // texto humano en vez del valor interno crudo.
   waiting: 'En espera',
   contacted: 'Contactado',
-  booked: 'Turno asignado',
+  booked: 'Agendado',
 };
 
 const MODALITY_LABELS: Record<string, string> = {

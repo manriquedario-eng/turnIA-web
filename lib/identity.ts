@@ -1,26 +1,15 @@
 // Identidad del profesional para mostrar en Topbar/Sidebar/Dashboard.
-// Fuente de verdad: profiles.display_name. Si está vacío, el fallback NO
-// debe ser el email crudo (eso es justo lo que se pidió sacar de la UI) —
-// se deriva un nombre razonable de la parte local del email
-// ("dario.gomez@..." -> "Dario Gomez"). Si ni siquiera hay email, cae a un
-// genérico. Esto es sólo presentación: nunca se guarda nada nuevo en la base.
-export function resolveDisplayName(displayName: string | null | undefined, email: string | null | undefined): string {
+// Fuente de verdad: profiles.display_name (editable en Configuración →
+// "Nombre visible"). Si está vacío, el fallback es un genérico neutro
+// ("Profesional") — NUNCA el email crudo, y NUNCA un nombre inventado a
+// partir del email (eso daba resultados como "Manriquedario" a partir de
+// "manriquedario@gmail.com", que es justo lo que se pidió sacar). El
+// segundo parámetro de la función se ignora a propósito: se deja como
+// parámetro por compatibilidad con los llamadores existentes, que hoy le
+// siguen pasando `user.email`, pero ya no se usa para derivar nada.
+export function resolveDisplayName(displayName: string | null | undefined, _email?: string | null): string {
   const trimmed = (displayName ?? '').trim();
-  if (trimmed) return trimmed;
-
-  const local = (email ?? '').split('@')[0]?.trim();
-  if (local) {
-    const words = local.replace(/[._-]+/g, ' ').trim();
-    if (words) {
-      return words
-        .split(' ')
-        .filter(Boolean)
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ');
-    }
-  }
-
-  return 'Profesional';
+  return trimmed || 'Profesional';
 }
 
 const ROLE_LABELS: Record<string, string> = {

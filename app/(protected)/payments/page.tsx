@@ -1,6 +1,7 @@
 import { requireTenant } from '@/lib/auth/require-user';
 import { registerCashMovement, registerPayment } from './actions';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { paymentMethodLabel } from '@/lib/labels';
 
 export default async function PaymentsPage({
   searchParams,
@@ -117,53 +118,72 @@ export default async function PaymentsPage({
           </section>
         </div>
 
-        <div className="stack">
-          <section className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <h2 style={{ margin: '18px 20px 0' }}>Últimos pagos</h2>
-            {(payments || []).length === 0 ? (
-              <div style={{ padding: '0 20px 20px' }}>
-                <EmptyState title="Sin pagos registrados" description="Los pagos que registres van a aparecer acá." />
-              </div>
-            ) : (
-              <div style={{ overflowX: 'auto', marginTop: 12, paddingBottom: 8 }}>
-                <table className="table">
-                  <thead>
-                    <tr><th>Fecha</th><th>Paciente</th><th>Medio</th><th>Importe</th></tr>
-                  </thead>
-                  <tbody>
-                    {(payments || []).map((payment: any) => (
-                      <tr key={payment.id}>
-                        <td className="muted">{new Date(payment.created_at).toLocaleString('es-AR')}</td>
-                        <td>{payment.patients?.name ?? 'Sin paciente'}</td>
-                        <td className="muted" style={{ textTransform: 'capitalize' }}>{payment.method}</td>
-                        <td><strong>${Number(payment.amount).toLocaleString('es-AR')} {payment.currency}</strong></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          <section className="card">
-            <h2 style={{ marginTop: 0 }}>Últimos movimientos de caja</h2>
-            {(cashMovements || []).length === 0 ? (
-              <EmptyState title="Sin movimientos" description="Los movimientos manuales de caja van a aparecer acá." />
-            ) : (
-              <div className="stack" style={{ gap: 8 }}>
-                {(cashMovements || []).map((movement: any) => (
-                  <div key={movement.id} className="nav" style={{ justifyContent: 'space-between', fontSize: 13, paddingBottom: 8, borderBottom: '1px solid var(--color-border-soft)' }}>
-                    <strong style={{ color: movement.kind === 'in' ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                      {movement.kind === 'in' ? '+' : '-'}${Number(movement.amount).toLocaleString('es-AR')}
-                    </strong>
-                    <span className="muted">{movement.method} · {new Date(movement.created_at).toLocaleString('es-AR')}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+        <section className="card">
+          <h2 style={{ marginTop: 0 }}>Últimos movimientos de caja</h2>
+          {(cashMovements || []).length === 0 ? (
+            <EmptyState title="Sin movimientos" description="Los movimientos manuales de caja van a aparecer acá." />
+          ) : (
+            <div className="stack" style={{ gap: 8 }}>
+              {(cashMovements || []).map((movement: any) => (
+                <div key={movement.id} className="nav" style={{ justifyContent: 'space-between', fontSize: 13, paddingBottom: 8, borderBottom: '1px solid var(--color-border-soft)' }}>
+                  <strong style={{ color: movement.kind === 'in' ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                    {movement.kind === 'in' ? '+' : '-'}${Number(movement.amount).toLocaleString('es-AR')}
+                  </strong>
+                  <span className="muted">{paymentMethodLabel(movement.method)} · {new Date(movement.created_at).toLocaleString('es-AR')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
+
+      {/* Últimos pagos, a ancho completo debajo — en la columna angosta de
+          1fr de arriba la tabla (Fecha/Paciente/Medio/Importe) no entraba
+          bien y el importe quedaba cortado. Acá tiene todo el ancho del
+          contenedor. En mobile (≤640px) se reemplaza por una lista
+          compacta en vez de forzar la tabla a un scroll horizontal. */}
+      <section className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <h2 style={{ margin: '18px 20px 0' }}>Últimos pagos</h2>
+        {(payments || []).length === 0 ? (
+          <div style={{ padding: '0 20px 20px' }}>
+            <EmptyState title="Sin pagos registrados" description="Los pagos que registres van a aparecer acá." />
+          </div>
+        ) : (
+          <>
+            <div className="payments-table-wrap" style={{ marginTop: 12, paddingBottom: 8 }}>
+              <table className="table">
+                <thead>
+                  <tr><th>Fecha</th><th>Paciente</th><th>Medio</th><th>Importe</th></tr>
+                </thead>
+                <tbody>
+                  {(payments || []).map((payment: any) => (
+                    <tr key={payment.id}>
+                      <td className="muted">{new Date(payment.created_at).toLocaleString('es-AR')}</td>
+                      <td>{payment.patients?.name ?? 'Sin paciente'}</td>
+                      <td className="muted">{paymentMethodLabel(payment.method)}</td>
+                      <td><strong>${Number(payment.amount).toLocaleString('es-AR')} {payment.currency}</strong></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="payments-list-mobile" style={{ padding: '4px 20px 16px' }}>
+              {(payments || []).map((payment: any) => (
+                <div key={payment.id} className="payment-row-mobile">
+                  <div className="payment-row-mobile-top">
+                    <strong>{payment.patients?.name ?? 'Sin paciente'}</strong>
+                    <strong>${Number(payment.amount).toLocaleString('es-AR')} {payment.currency}</strong>
+                  </div>
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    {new Date(payment.created_at).toLocaleDateString('es-AR')} · {paymentMethodLabel(payment.method)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
     </section>
   );
 }

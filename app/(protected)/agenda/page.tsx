@@ -369,6 +369,11 @@ export default async function AgendaPage({
             {Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).map((cellDate) => {
               const dayAppts = appointmentsByDate.get(cellDate) ?? [];
               const isToday = cellDate === todayDate;
+              // Mismo tope y mismo patrón "+N más" que la vista Mes — una
+              // columna con muchos turnos ya no crece indefinidamente ni
+              // rompe el layout de la semana.
+              const visible = dayAppts.slice(0, 4);
+              const overflowCount = dayAppts.length - visible.length;
               return (
                 <div key={cellDate} className={`week-col ${isToday ? 'is-today' : ''}`}>
                   <div className="week-col-head">
@@ -385,16 +390,23 @@ export default async function AgendaPage({
                     {dayAppts.length === 0 ? (
                       <span className="week-col-empty">Sin turnos</span>
                     ) : (
-                      dayAppts.map((a) => (
-                        <Link
-                          key={a.id}
-                          href={`${returnTo}&edit=${a.id}#turno-drawer`}
-                          className={`week-chip ${isCancelled(a.status) ? 'is-cancelled' : ''}`}
-                        >
-                          <span className="week-chip-time">{formatTime(a.starts_at)}</span>
-                          <span className="week-chip-name">{patientNameOf(a)}</span>
-                        </Link>
-                      ))
+                      <>
+                        {visible.map((a) => (
+                          <Link
+                            key={a.id}
+                            href={`${returnTo}&edit=${a.id}#turno-drawer`}
+                            className={`month-chip ${isCancelled(a.status) ? 'is-cancelled' : ''}`}
+                            title={`${formatTime(a.starts_at)} · ${patientNameOf(a)}`}
+                          >
+                            {formatTime(a.starts_at)} {patientNameOf(a)}
+                          </Link>
+                        ))}
+                        {overflowCount > 0 ? (
+                          <Link href={`/agenda?view=day&date=${cellDate}`} className="month-chip-more">
+                            +{overflowCount} más
+                          </Link>
+                        ) : null}
+                      </>
                     )}
                   </div>
                 </div>

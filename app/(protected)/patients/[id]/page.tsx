@@ -159,6 +159,7 @@ export default async function PatientDetailPage({
   }, 0);
 
   const initials = patient.name.trim().slice(0, 2).toUpperCase();
+  const firstName = patient.name.trim().split(/\s+/)[0] || patient.name;
   const todayForNewAppointment = nextAppointment
     ? undefined
     : new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
@@ -283,7 +284,7 @@ export default async function PatientDetailPage({
             </div>
 
             <div className="card">
-              <h2 style={{ marginTop: 0 }}>Historial de sesiones</h2>
+              <h2 style={{ marginTop: 0 }}>Sesiones de {firstName}</h2>
               {sessionNotes.length === 0 ? (
                 <EmptyState title="Todavía no hay sesiones registradas" description="Se completan desde el formulario de arriba, asociadas a un turno." />
               ) : (
@@ -311,8 +312,8 @@ export default async function PatientDetailPage({
 
         <div data-tab="actividad">
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>Timeline del paciente</h2>
-            <p className="muted">Turnos, pagos, seguimientos y actualización de ficha en una sola línea de tiempo.</p>
+            <h2 style={{ marginTop: 0 }}>Actividad de {firstName}</h2>
+            <p className="muted">Turnos, pagos, seguimientos y actualización de ficha de {firstName} en una sola línea de tiempo.</p>
             {timeline.length === 0 ? (
               <EmptyState title="Todavía no hay actividad registrada" />
             ) : (
@@ -352,7 +353,7 @@ export default async function PatientDetailPage({
             </div>
 
             <div className="card">
-              <h2 style={{ marginTop: 0 }}>Historial de seguimientos</h2>
+              <h2 style={{ marginTop: 0 }}>Seguimientos de {firstName}</h2>
               {generalFollowUps.length === 0 ? (
                 <EmptyState title="Todavía no hay seguimientos" />
               ) : (

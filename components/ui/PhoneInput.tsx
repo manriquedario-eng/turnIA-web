@@ -63,7 +63,14 @@ export function PhoneInput({
   const countryPrefixField = manual ? '' : prefix;
 
   return (
-    <div style={{ display: 'grid', gap: 6 }}>
+    // OJO: este contenedor (no un <label>) es el que efectivamente ocupa la
+    // columna "Teléfono" dentro de .form-grid. La regla global `label {
+    // min-width: 0 }` NO lo alcanza porque esto es un <div> — por eso se le
+    // pone min-width:0 acá explícitamente, además de en la clase
+    // .phone-field (globals.css). Sin esto, el conjunto prefijo+número podía
+    // volver a desbordar sobre la columna vecina (el bug de Teléfono
+    // invadiendo Email) aunque el resto del grid ya estuviera blindado.
+    <div className="phone-field" style={{ display: 'grid', gap: 6, minWidth: 0, width: '100%' }}>
       <label htmlFor={`${name}-field`} style={{ display: 'block' }}>{label}</label>
       {manual ? (
         <input
