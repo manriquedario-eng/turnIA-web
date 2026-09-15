@@ -4,7 +4,7 @@ import { createPatient } from './actions';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { PatientRow } from '@/components/patients/PatientRow';
-import { IconPlus, IconSearch } from '@/components/ui/icons';
+import { IconPlus } from '@/components/ui/icons';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -65,7 +65,6 @@ export default async function PatientsPage({
           <p className="muted">{patients?.length ?? 0} pacientes activos en el consultorio.</p>
         </div>
         <div className="nav" style={{ flexWrap: 'wrap' }}>
-          <Link className="btn secondary" href="/search"><IconSearch size={16} /> Buscar paciente</Link>
           <Link className="btn" href="#nuevo-paciente"><IconPlus /> Nuevo paciente</Link>
         </div>
       </div>

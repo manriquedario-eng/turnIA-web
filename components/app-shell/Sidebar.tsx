@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { NAV_SECTIONS } from './nav-items';
 import { IconLogout } from '@/components/ui/icons';
+import { roleLabel } from '@/lib/identity';
 
 export function Sidebar({
   open,
@@ -34,7 +35,7 @@ export function Sidebar({
           <div className="sidebar-profile-avatar">{initials}</div>
           <div className="sidebar-profile-copy">
             <div className="sidebar-profile-name">{name}</div>
-            <div className="sidebar-profile-role">{role}</div>
+            {roleLabel(role) ? <div className="sidebar-profile-role">{roleLabel(role)}</div> : null}
           </div>
         </div>
 

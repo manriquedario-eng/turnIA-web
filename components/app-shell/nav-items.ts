@@ -45,7 +45,11 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/agenda', label: 'Agenda', icon: IconCalendar, mobile: true },
       { href: '/patients', label: 'Pacientes', icon: IconUsers, mobile: true },
-      { href: '/planning', label: 'Recurrentes y espera', icon: IconClock },
+      // Recurrentes y lista de espera sigue existiendo como ruta — ya no es
+      // un ítem propio y permanente del sidebar (conceptualmente es parte
+      // de Agenda). Se accede desde el header de Agenda. hideOnDesktopSidebar
+      // ya cubre exactamente este caso: no listar en desktop, ruta intacta.
+      { href: '/planning', label: 'Recurrentes y espera', icon: IconClock, hideOnDesktopSidebar: true },
     ],
   },
   {

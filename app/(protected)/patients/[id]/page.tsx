@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { IconMail, IconPhone } from '@/components/ui/icons';
 import { Tabs } from '@/components/ui/Tabs';
+import { ClinicalRecordCard } from '@/components/patients/ClinicalRecordCard';
 import { statusLabel, modalityLabel, paymentMethodLabel } from '@/lib/labels';
 
 const TZ = 'America/Argentina/Buenos_Aires';
@@ -243,31 +244,11 @@ export default async function PatientDetailPage({
             <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
               Información clínica general del paciente. Se edita directamente acá.
             </p>
-            {!record ? (
-              <p className="muted" style={{ fontSize: 13 }}>Todavía no hay información clínica registrada.</p>
-            ) : null}
-            <form action={upsertPatientRecord} className="stack">
-              <input type="hidden" name="patientId" value={patient.id} />
-              <label>
-                Motivo de consulta
-                <textarea name="reason" defaultValue={record?.reason ?? ''} rows={2} maxLength={10000} style={{ width: '100%' }} />
-              </label>
-              <label>
-                Antecedentes
-                <textarea name="background" defaultValue={record?.background ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
-              </label>
-              <label>
-                Plan / indicaciones
-                <textarea name="plan" defaultValue={record?.plan ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
-              </label>
-              <label>
-                Notas generales
-                <textarea name="notes" defaultValue={record?.notes ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
-              </label>
-              <div>
-                <button className="btn" type="submit">{record ? 'Guardar cambios' : 'Completar ficha clínica'}</button>
-              </div>
-            </form>
+            <ClinicalRecordCard
+              patientId={patient.id}
+              record={record ? { reason: record.reason ?? null, background: record.background ?? null, plan: record.plan ?? null, notes: record.notes ?? null } : null}
+              action={upsertPatientRecord}
+            />
           </div>
         </div>
 

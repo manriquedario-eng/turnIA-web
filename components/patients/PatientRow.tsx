@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { statusLabel } from '@/lib/labels';
 
 export type PatientRowData = {
   id: string;
@@ -55,7 +56,7 @@ export function PatientRow({ patient }: { patient: PatientRowData }) {
         )}
       </td>
       <td>
-        {patient.nextStatus ? <StatusBadge status={patient.nextStatus} /> : <span className="muted">—</span>}
+        {patient.nextStatus ? <StatusBadge status={patient.nextStatus} label={statusLabel(patient.nextStatus)} /> : <span className="muted">—</span>}
       </td>
     </tr>
   );

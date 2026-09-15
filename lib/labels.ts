@@ -23,6 +23,11 @@ const STATUS_LABELS: Record<string, string> = {
   no_show: 'Ausente',
   'no-show': 'Ausente',
   ausente: 'Ausente',
+  // Estados de la lista de espera (waitlist_entries.status) — misma idea,
+  // texto humano en vez del valor interno crudo.
+  waiting: 'En espera',
+  contacted: 'Contactado',
+  booked: 'Turno asignado',
 };
 
 const MODALITY_LABELS: Record<string, string> = {

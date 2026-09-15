@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { statusLabel, modalityLabel } from '@/lib/labels';
+import { resolveDisplayName } from '@/lib/identity';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -131,7 +133,7 @@ export default async function DashboardPage() {
   const waitlistPatientMap = new Map((waitlistPatientsResult.data ?? []).map((p) => [p.id, p.name]));
   const waitlistServiceMap = new Map((waitlistServicesResult.data ?? []).map((s) => [s.id, s.name]));
 
-  const displayName = profileResult.data?.display_name || user.email || 'profesional';
+  const displayName = resolveDisplayName(profileResult.data?.display_name, user.email);
 
   const opportunities: string[] = [];
   if (cancelledAppointments.length > 0) {
@@ -158,9 +160,9 @@ export default async function DashboardPage() {
         </div>
         <div className="nav" style={{ flexWrap: 'wrap' }}>
           <Link className="btn" href={`/agenda?view=day&date=${today}`}>Nuevo turno</Link>
-          <Link className="btn secondary" href="/patients">Nuevo paciente</Link>
-          <Link className="btn secondary" href="/payments">Registrar cobro</Link>
-          <Link className="btn secondary" href={`/agenda?view=day&date=${today}`}>Ver agenda</Link>
+          <Link className="btn-ghost" href="/patients">Nuevo paciente</Link>
+          <Link className="btn-ghost" href="/payments">Registrar cobro</Link>
+          <Link className="btn-ghost" href={`/agenda?view=day&date=${today}`}>Ver agenda</Link>
         </div>
       </div>
 
@@ -208,7 +210,7 @@ export default async function DashboardPage() {
                       <div>
                         <div style={{ fontWeight: 600 }}>{appointment.patients?.name ?? 'Sin paciente'}</div>
                         <div className="muted" style={{ fontSize: 12 }}>
-                          {appointment.services?.name ?? 'Sin servicio'} · {appointment.modality}
+                          {appointment.services?.name ?? 'Sin servicio'} · {modalityLabel(appointment.modality)}
                         </div>
                       </div>
                       {isNext ? <span className="badge badge-confirmado">Próximo</span> : null}
@@ -217,9 +219,9 @@ export default async function DashboardPage() {
                       <span className="muted" style={{ fontSize: 13 }}>
                         {appointment.quoted_amount != null ? `${appointment.currency ?? 'ARS'} ${Number(appointment.quoted_amount).toLocaleString('es-AR')}` : '—'}
                       </span>
-                      <StatusBadge status={appointment.status} />
+                      <StatusBadge status={appointment.status} label={statusLabel(appointment.status)} />
                       {!cancelled ? (
-                        <Link href={`/agenda?view=day&date=${today}&edit=${appointment.id}`} className="btn secondary" style={{ padding: '7px 12px', fontSize: 13 }}>
+                        <Link href={`/agenda?view=day&date=${today}&edit=${appointment.id}`} className="btn-ghost" style={{ fontSize: 13 }}>
                           Editar
                         </Link>
                       ) : null}
@@ -239,9 +241,9 @@ export default async function DashboardPage() {
                 <strong style={{ fontSize: 20 }}>{formatTime(nextAppointment.starts_at)}</strong>
                 <div style={{ fontWeight: 600 }}>{(nextAppointment as any).patients?.name ?? 'Sin paciente'}</div>
                 <div className="muted" style={{ fontSize: 13 }}>
-                  {(nextAppointment as any).services?.name ?? 'Sin servicio'} · {nextAppointment.modality}
+                  {(nextAppointment as any).services?.name ?? 'Sin servicio'} · {modalityLabel(nextAppointment.modality)}
                 </div>
-                <StatusBadge status={nextAppointment.status} />
+                <StatusBadge status={nextAppointment.status} label={statusLabel(nextAppointment.status)} />
               </div>
             ) : (
               <EmptyState title="No hay más turnos hoy" description="Ya pasaron todos los turnos activos del día." />

@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { IconMenu } from '@/components/ui/icons';
 import { NAV_SECTIONS } from './nav-items';
 import { GlobalSearch } from './GlobalSearch';
+import { roleLabel } from '@/lib/identity';
 
 const ALL_ITEMS = NAV_SECTIONS.flatMap((section) => section.items);
 
@@ -48,7 +49,7 @@ export function Topbar({
       <div className="topbar-profile">
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontWeight: 600 }}>{name}</div>
-          <div className="muted" style={{ fontSize: 12, textTransform: 'capitalize' }}>{role}</div>
+          {roleLabel(role) ? <div className="muted" style={{ fontSize: 11 }}>{roleLabel(role)}</div> : null}
         </div>
         <div className="topbar-avatar">{initials}</div>
       </div>

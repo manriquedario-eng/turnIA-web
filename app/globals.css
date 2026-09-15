@@ -141,7 +141,7 @@ p {
    Colapsa a una sola columna en pantallas angostas. */
 .split-main-side {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
@@ -238,6 +238,34 @@ button.danger:hover {
   background: #f0d2c9;
 }
 
+/* Acción secundaria de bajo peso visual (texto simple, sin fondo) — para
+   acciones que deben estar disponibles pero no competir con la acción
+   principal de la fila (ej. "Cancelar" en un turno, al lado de la hora y el
+   paciente, que son la información principal). */
+.btn-ghost,
+button.btn-ghost {
+  background: transparent;
+  color: var(--color-ink-soft);
+  padding: 7px 10px;
+  font-weight: 600;
+}
+
+.btn-ghost:hover,
+button.btn-ghost:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+}
+
+.btn-ghost.danger,
+button.btn-ghost.danger {
+  color: var(--color-danger);
+}
+
+.btn-ghost.danger:hover,
+button.btn-ghost.danger:hover {
+  background: var(--color-danger-bg);
+}
+
 /* ---------- Forms ---------- */
 
 .form-grid {
@@ -259,11 +287,23 @@ label {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-ink-soft);
+  /* Los <label> son casi siempre el hijo directo de un grid de formulario
+     (.form-grid, .drawer-form .field-row, etc.). Sin esto, un grid item
+     tiene min-width:auto por defecto — si su contenido (ej. el selector de
+     prefijo + input de PhoneInput) es más ancho que la columna, el navegador
+     lo deja desbordar VISUALMENTE sobre la columna vecina en vez de
+     achicarlo, aunque la columna ya tenga un ancho fijo. min-width:0 le dice
+     "podés ser más angosto que tu contenido", que es lo que permite que todo
+     lo de adentro (inputs, selects, el selector de prefijo de teléfono)
+     respete el ancho real de la columna. */
+  min-width: 0;
 }
 
 input,
 textarea,
 select {
+  width: 100%;
+  min-width: 0;
   padding: 11px 12px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -575,16 +615,40 @@ table tbody tr:hover {
 .phone-input {
   display: flex;
   gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .phone-input select {
-  flex: 0 0 116px;
+  /* Puede achicarse (a diferencia de flex:0 0 116px de antes) para que el
+     conjunto completo nunca fuerce el ancho de la columna "Teléfono" — se
+     apoya en min-width para no volverse ilegible. */
+  flex: 0 1 108px;
+  min-width: 84px;
+  width: auto;
   padding: 11px 8px;
 }
 
 .phone-input input {
-  flex: 1;
+  flex: 1 1 120px;
   min-width: 0;
+  width: auto;
+}
+
+@media (max-width: 360px) {
+  /* En pantallas muy angostas, el prefijo + número se apilan en vez de
+     seguir achicándose hasta ser ilegibles. */
+  .phone-input {
+    flex-wrap: wrap;
+  }
+
+  .phone-input select {
+    flex: 1 1 100%;
+  }
+
+  .phone-input input {
+    flex: 1 1 100%;
+  }
 }
 
 .phone-input-manual-toggle {
@@ -1788,7 +1852,21 @@ table tbody tr:hover {
   gap: 2px;
   border-bottom: 1px solid var(--color-border);
   overflow-x: auto;
+  overflow-y: hidden;
   margin-bottom: 16px;
+  /* overflow-x:auto sólo debería importar en mobile, cuando las pestañas no
+     entran en el ancho disponible. En desktop no hay nada que scrollear,
+     pero algunos navegadores igual reservan/pintan la barra de scroll del
+     contenedor (se veía como un control extraño a la derecha de las tabs).
+     Se oculta la barra nativa sin perder el scroll funcional en mobile. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tabs-strip::-webkit-scrollbar {
+  display: none;
+  height: 0;
+  width: 0;
 }
 
 .tabs-strip-btn {

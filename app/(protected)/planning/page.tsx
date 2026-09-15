@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { PatientCombobox } from '@/components/agenda/PatientCombobox';
 import { RecurringAppointmentFields } from '@/components/planning/RecurringAppointmentFields';
+import { statusLabel } from '@/lib/labels';
 
 function todayLocal() {
   return new Intl.DateTimeFormat('en-CA', {
@@ -80,7 +81,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: Pro
               <td>{entry.service_id ? serviceMap.get(entry.service_id) ?? 'Servicio no disponible' : 'Cualquiera'}</td>
               <td>{[entry.preferred_day, entry.preferred_time].filter(Boolean).join(' · ') || 'Sin preferencia'}</td>
               <td>{entry.notes || '—'}</td>
-              <td><StatusBadge status={entry.status} /></td>
+              <td><StatusBadge status={entry.status} label={statusLabel(entry.status)} /></td>
               <td><form action={updateWaitlistStatus} className="nav"><input type="hidden" name="id" value={entry.id} /><select name="status" defaultValue={entry.status}><option value="waiting">En espera</option><option value="contacted">Contactado</option><option value="booked">Turno asignado</option><option value="cancelled">Cancelado</option></select><button className="btn secondary" type="submit">Guardar</button></form></td>
             </tr>)}
           </tbody></table></div>

@@ -7,6 +7,7 @@ import { IconChevronLeft, IconChevronRight, IconClose, IconPlus } from '@/compon
 import { AppointmentDateTimeFields } from '@/components/agenda/AppointmentDateTimeFields';
 import { PatientCombobox } from '@/components/agenda/PatientCombobox';
 import { ModalityField } from '@/components/agenda/ModalityField';
+import { statusLabel, modalityLabel } from '@/lib/labels';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -273,7 +274,7 @@ export default async function AgendaPage({
           <p className="muted" style={{ textTransform: 'capitalize' }}>{periodLabel(view, date)}</p>
         </div>
         <div className="nav" style={{ flexWrap: 'wrap' }}>
-          <Link className="btn secondary" href="/planning">Recurrentes y espera</Link>
+          <Link className="btn-ghost" href="/planning">Recurrentes y lista de espera</Link>
           <Link className="btn" href={`${returnTo}&new=1#turno-drawer`}>
             <IconPlus /> Nuevo turno
           </Link>
@@ -424,7 +425,7 @@ export default async function AgendaPage({
                         <div>
                           <div style={{ fontWeight: 600 }}>{patientNameOf(a)}</div>
                           <div className="muted" style={{ fontSize: 12 }}>
-                            {service?.name ?? 'Servicio no disponible'} · {a.modality}
+                            {service?.name ?? 'Servicio no disponible'} · {modalityLabel(a.modality)}
                           </div>
                           {isOnline && !cancelled ? (
                             a.meeting_url ? (
@@ -453,16 +454,16 @@ export default async function AgendaPage({
                         <span className="muted" style={{ fontSize: 13, minWidth: 90, textAlign: 'right' }}>
                           {a.quoted_amount != null ? `${a.currency ?? 'ARS'} ${Number(a.quoted_amount).toLocaleString('es-AR')}` : '—'}
                         </span>
-                        <StatusBadge status={a.status} />
+                        <StatusBadge status={a.status} label={statusLabel(a.status)} />
                         {!cancelled ? (
-                          <div className="nav" style={{ gap: 10 }}>
-                            <Link href={`${returnTo}&edit=${a.id}#turno-drawer`} className="btn secondary" style={{ padding: '7px 12px', fontSize: 13 }}>
+                          <div className="nav" style={{ gap: 4 }}>
+                            <Link href={`${returnTo}&edit=${a.id}#turno-drawer`} className="btn-ghost" style={{ fontSize: 13 }}>
                               Editar
                             </Link>
                             <form action={cancelAppointment}>
                               <input type="hidden" name="id" value={a.id} />
                               <input type="hidden" name="return_to" value={returnTo} />
-                              <button className="btn danger" type="submit" style={{ padding: '7px 12px', fontSize: 13 }}>
+                              <button className="btn-ghost danger" type="submit" style={{ fontSize: 13 }}>
                                 Cancelar
                               </button>
                             </form>
