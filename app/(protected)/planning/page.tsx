@@ -1,5 +1,8 @@
+import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
 import { addWaitlistEntry, createRecurringAppointments, updateWaitlistStatus } from './actions';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 function todayLocal() {
   return new Intl.DateTimeFormat('en-CA', {
@@ -26,9 +29,12 @@ export default async function PlanningPage({ searchParams }: { searchParams: Pro
 
   return (
     <section className="stack">
-      <div>
-        <h1>Recurrentes y lista de espera</h1>
-        <p className="muted">Organización de turnos repetidos y pacientes pendientes de disponibilidad.</p>
+      <div className="page-header">
+        <div>
+          <h1>Recurrentes y lista de espera</h1>
+          <p className="muted">Organización de turnos repetidos y pacientes pendientes de disponibilidad.</p>
+        </div>
+        <Link className="btn secondary" href="/agenda">← Volver a la agenda</Link>
       </div>
 
       {ok ? <p className="alert success">{ok}</p> : null}
@@ -76,14 +82,14 @@ export default async function PlanningPage({ searchParams }: { searchParams: Pro
 
       <div className="card">
         <h2>Lista de espera</h2>
-        {(waitlist ?? []).length === 0 ? <p className="muted">No hay pacientes en espera.</p> : (
+        {(waitlist ?? []).length === 0 ? <EmptyState title="No hay pacientes en espera" description="Los que agregues arriba van a aparecer acá." /> : (
           <div style={{ overflowX: 'auto' }}><table className="table"><thead><tr><th>Paciente</th><th>Servicio</th><th>Preferencias</th><th>Notas</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
             {(waitlist ?? []).map((entry) => <tr key={entry.id}>
               <td>{patientMap.get(entry.patient_id) ?? 'Paciente no disponible'}</td>
               <td>{entry.service_id ? serviceMap.get(entry.service_id) ?? 'Servicio no disponible' : 'Cualquiera'}</td>
               <td>{[entry.preferred_day, entry.preferred_time].filter(Boolean).join(' · ') || 'Sin preferencia'}</td>
               <td>{entry.notes || '—'}</td>
-              <td>{entry.status}</td>
+              <td><StatusBadge status={entry.status} /></td>
               <td><form action={updateWaitlistStatus} className="nav"><input type="hidden" name="id" value={entry.id} /><select name="status" defaultValue={entry.status}><option value="waiting">En espera</option><option value="contacted">Contactado</option><option value="booked">Turno asignado</option><option value="cancelled">Cancelado</option></select><button className="btn secondary" type="submit">Guardar</button></form></td>
             </tr>)}
           </tbody></table></div>

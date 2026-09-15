@@ -4,6 +4,9 @@ import { cancelAppointment, createAppointment, updateAppointment } from './actio
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconChevronLeft, IconChevronRight, IconClose, IconPlus } from '@/components/ui/icons';
+import { AppointmentDateTimeFields } from '@/components/agenda/AppointmentDateTimeFields';
+import { PatientCombobox } from '@/components/agenda/PatientCombobox';
+import { ModalityField } from '@/components/agenda/ModalityField';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -119,10 +122,6 @@ function periodLabel(view: string, date: string) {
   return capitalize(new Intl.DateTimeFormat('es-AR', { timeZone: TZ, month: 'long', year: 'numeric' }).format(anchor));
 }
 
-function localInputToIsoValue(local: string) {
-  return new Date(`${local}:00-03:00`).toISOString();
-}
-
 function isCancelled(status: string | null) {
   return status === 'cancelled' || status === 'cancelado';
 }
@@ -230,6 +229,12 @@ export default async function AgendaPage({
   const editing = editId ? appointments.find((a) => a.id === editId) : undefined;
   const showDrawer = Boolean(editing) || wantsNew;
   const drawerDate = editing ? dateKeyInTz(editing.starts_at) : slotDate;
+  const [drawerDefaultDate, drawerDefaultTime] = (editing ? dateTimeLocal(editing.starts_at) : `${drawerDate}T09:00`).split('T');
+  // Duración ya guardada del turno (si se está editando) — se preserva salvo
+  // que la persona elija deliberadamente otro servicio en el drawer.
+  const initialDurationMinutes = editing
+    ? Math.round((new Date(editing.ends_at).getTime() - new Date(editing.starts_at).getTime()) / 60000)
+    : undefined;
   const returnTo = `/agenda?view=${view}&date=${date}`;
   const ok = typeof params.ok === 'string' ? params.ok : undefined;
   const error = typeof params.error === 'string' ? params.error : undefined;
@@ -258,16 +263,19 @@ export default async function AgendaPage({
           <h1>Agenda</h1>
           <p className="muted" style={{ textTransform: 'capitalize' }}>{periodLabel(view, date)}</p>
         </div>
-        <Link className="btn" href={`${returnTo}&new=1#turno-drawer`}>
-          <IconPlus /> Nuevo turno
-        </Link>
+        <div className="nav" style={{ flexWrap: 'wrap' }}>
+          <Link className="btn secondary" href="/planning">Recurrentes y espera</Link>
+          <Link className="btn" href={`${returnTo}&new=1#turno-drawer`}>
+            <IconPlus /> Nuevo turno
+          </Link>
+        </div>
       </div>
 
       {ok ? <p className="alert success">{ok}</p> : null}
       {error ? <p className="alert error">{error}</p> : null}
 
-      <div className="card">
-        <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: '16px 20px' }}>
           <div className="segmented">
             <Link href={`/agenda?view=day&date=${date}`} className={view === 'day' ? 'active' : ''}>Día</Link>
             <Link href={`/agenda?view=week&date=${date}`} className={view === 'week' ? 'active' : ''}>Semana</Link>
@@ -289,11 +297,9 @@ export default async function AgendaPage({
             </form>
           </div>
         </div>
-      </div>
 
-      {view === 'month' && monthGrid ? (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="month-grid">
+        {view === 'month' && monthGrid ? (
+          <div className="month-grid" style={{ border: 'none', borderRadius: 0 }}>
             <div className="month-grid-head">
               {WEEKDAY_LABELS.map((label) => <span key={label}>{label}</span>)}
             </div>
@@ -339,19 +345,17 @@ export default async function AgendaPage({
                       className="month-cell-fill"
                       aria-label={`Crear turno el ${cellDate}`}
                     >
-                      {' '}
+                      {' '}
                     </Link>
                   </div>
                 );
               })}
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {view === 'week' ? (
-        <div className="card">
-          <div className="week-grid">
+        {view === 'week' ? (
+          <div className="week-grid" style={{ borderTop: '1px solid var(--color-border-soft)', padding: '16px 20px 20px' }}>
             {Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).map((cellDate) => {
               const dayAppts = appointmentsByDate.get(cellDate) ?? [];
               const isToday = cellDate === todayDate;
@@ -387,85 +391,84 @@ export default async function AgendaPage({
               );
             })}
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {view === 'day' ? (
-        <div className="card">
-          <h2 style={{ marginTop: 0 }}>Turnos del día</h2>
-          {appointments.length === 0 ? (
-            <EmptyState title="No hay turnos en este período" description="Cargá un turno nuevo o probá con otra fecha." />
-          ) : (
-            <div className="stack" style={{ gap: 10, marginTop: 8 }}>
-              {appointments.map((a) => {
-                const patient = a.patient_id ? patientMap.get(a.patient_id) : undefined;
-                const service = a.service_id ? serviceMap.get(a.service_id) : undefined;
-                const cancelled = isCancelled(a.status);
-                const isNext = nextAppointment?.id === a.id;
-                const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : ''].filter(Boolean).join(' ');
-                const isOnline = a.modality === 'online';
+        {view === 'day' ? (
+          <div style={{ padding: '18px 20px 20px', borderTop: '1px solid var(--color-border-soft)' }}>
+            {appointments.length === 0 ? (
+              <EmptyState title="No hay turnos en este período" description="Cargá un turno nuevo o probá con otra fecha." />
+            ) : (
+              <div className="stack" style={{ gap: 10 }}>
+                {appointments.map((a) => {
+                  const patient = a.patient_id ? patientMap.get(a.patient_id) : undefined;
+                  const service = a.service_id ? serviceMap.get(a.service_id) : undefined;
+                  const cancelled = isCancelled(a.status);
+                  const isNext = nextAppointment?.id === a.id;
+                  const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : ''].filter(Boolean).join(' ');
+                  const isOnline = a.modality === 'online';
 
-                return (
-                  <div key={a.id} className={cardClass}>
-                    <div className="appointment-main">
-                      <div className="appointment-time">
-                        {formatTime(a.starts_at)}–{formatTime(a.ends_at)}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{patient?.name ?? 'Paciente no disponible'}</div>
-                        <div className="muted" style={{ fontSize: 12 }}>
-                          {service?.name ?? 'Servicio no disponible'} · {a.modality}
+                  return (
+                    <div key={a.id} className={cardClass}>
+                      <div className="appointment-main">
+                        <div className="appointment-time">
+                          {formatTime(a.starts_at)}–{formatTime(a.ends_at)}
                         </div>
-                        {isOnline && !cancelled ? (
-                          a.meeting_url ? (
-                            <div className="nav" style={{ gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                              <a className="btn secondary" style={{ padding: '5px 10px', fontSize: 12 }} href={a.meeting_url} target="_blank" rel="noreferrer">
-                                Abrir videollamada
-                              </a>
-                              <input
-                                readOnly
-                                defaultValue={a.meeting_url}
-                                aria-label="Enlace de la videollamada (seleccionar y copiar manualmente)"
-                                style={{ fontSize: 12, padding: '5px 8px', width: 220, maxWidth: '100%' }}
-                              />
-                            </div>
-                          ) : (
-                            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                              Sin enlace de Meet todavía{!googleConnected ? ' (Google no conectado)' : ''}.
-                            </div>
-                          )
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{patient?.name ?? 'Paciente no disponible'}</div>
+                          <div className="muted" style={{ fontSize: 12 }}>
+                            {service?.name ?? 'Servicio no disponible'} · {a.modality}
+                          </div>
+                          {isOnline && !cancelled ? (
+                            a.meeting_url ? (
+                              <div className="nav" style={{ gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                                <a className="btn secondary" style={{ padding: '5px 10px', fontSize: 12 }} href={a.meeting_url} target="_blank" rel="noreferrer">
+                                  Abrir videollamada
+                                </a>
+                                <input
+                                  readOnly
+                                  defaultValue={a.meeting_url}
+                                  aria-label="Enlace de la videollamada (seleccionar y copiar manualmente)"
+                                  style={{ fontSize: 12, padding: '5px 8px', width: 220, maxWidth: '100%' }}
+                                />
+                              </div>
+                            ) : (
+                              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                                Sin enlace de Meet todavía{!googleConnected ? ' (Google no conectado)' : ''}.
+                              </div>
+                            )
+                          ) : null}
+                        </div>
+                        {isNext ? <span className="badge badge-confirmado">Próximo</span> : null}
+                      </div>
+
+                      <div className="appointment-meta">
+                        <span className="muted" style={{ fontSize: 13, minWidth: 90, textAlign: 'right' }}>
+                          {a.quoted_amount != null ? `${a.currency ?? 'ARS'} ${Number(a.quoted_amount).toLocaleString('es-AR')}` : '—'}
+                        </span>
+                        <StatusBadge status={a.status} />
+                        {!cancelled ? (
+                          <div className="nav" style={{ gap: 10 }}>
+                            <Link href={`${returnTo}&edit=${a.id}#turno-drawer`} className="btn secondary" style={{ padding: '7px 12px', fontSize: 13 }}>
+                              Editar
+                            </Link>
+                            <form action={cancelAppointment}>
+                              <input type="hidden" name="id" value={a.id} />
+                              <input type="hidden" name="return_to" value={returnTo} />
+                              <button className="btn danger" type="submit" style={{ padding: '7px 12px', fontSize: 13 }}>
+                                Cancelar
+                              </button>
+                            </form>
+                          </div>
                         ) : null}
                       </div>
-                      {isNext ? <span className="badge badge-confirmado">Próximo</span> : null}
                     </div>
-
-                    <div className="appointment-meta">
-                      <span className="muted" style={{ fontSize: 13, minWidth: 90, textAlign: 'right' }}>
-                        {a.quoted_amount != null ? `${a.currency ?? 'ARS'} ${Number(a.quoted_amount).toLocaleString('es-AR')}` : '—'}
-                      </span>
-                      <StatusBadge status={a.status} />
-                      {!cancelled ? (
-                        <div className="nav" style={{ gap: 10 }}>
-                          <Link href={`${returnTo}&edit=${a.id}#turno-drawer`} className="btn secondary" style={{ padding: '7px 12px', fontSize: 13 }}>
-                            Editar
-                          </Link>
-                          <form action={cancelAppointment}>
-                            <input type="hidden" name="id" value={a.id} />
-                            <input type="hidden" name="return_to" value={returnTo} />
-                            <button className="btn danger" type="submit" style={{ padding: '7px 12px', fontSize: 13 }}>
-                              Cancelar
-                            </button>
-                          </form>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      ) : null}
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : null}
+      </div>
 
       <div id="turno-drawer">
         {showDrawer ? (
@@ -482,51 +485,27 @@ export default async function AgendaPage({
                 <input type="hidden" name="return_to" value={returnTo} />
                 {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
 
-                <label>Paciente
-                  <select name="patient_id" required defaultValue={editing?.patient_id ?? ''}>
-                    <option value="" disabled>Seleccionar paciente</option>
-                    {(patients ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                </label>
+                <PatientCombobox
+                  key={`patient-${editing?.id ?? `new-${drawerDate}`}`}
+                  defaultPatientId={editing?.patient_id ?? undefined}
+                  defaultPatientName={editing?.patient_id ? patientMap.get(editing.patient_id)?.name : undefined}
+                />
 
-                <label>Servicio
-                  <select name="service_id" required defaultValue={editing?.service_id ?? ''}>
-                    <option value="" disabled>Seleccionar servicio</option>
-                    {(services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name} · {s.duration_minutes} min</option>)}
-                  </select>
-                </label>
+                <AppointmentDateTimeFields
+                  key={editing?.id ?? `new-${drawerDate}`}
+                  services={(services ?? []).map((s) => ({ id: s.id, name: s.name, duration_minutes: s.duration_minutes }))}
+                  defaultServiceId={editing?.service_id ?? undefined}
+                  defaultDate={drawerDefaultDate}
+                  defaultTime={drawerDefaultTime}
+                  initialDurationMinutes={initialDurationMinutes}
+                />
 
-                <div className="field-row">
-                  <label>Inicio
-                    <input name="starts_at_local" type="datetime-local" required defaultValue={editing ? dateTimeLocal(editing.starts_at) : `${drawerDate}T09:00`} />
-                    <input name="starts_at" type="hidden" value={editing ? editing.starts_at : localInputToIsoValue(`${drawerDate}T09:00`)} />
-                  </label>
-
-                  <label>Fin
-                    <input name="ends_at_local" type="datetime-local" required defaultValue={editing ? dateTimeLocal(editing.ends_at) : `${drawerDate}T09:30`} />
-                    <input name="ends_at" type="hidden" value={editing ? editing.ends_at : localInputToIsoValue(`${drawerDate}T09:30`)} />
-                  </label>
-                </div>
-
-                <div className="field-row">
-                  <label>Modalidad
-                    <select name="modality" defaultValue={editing?.modality ?? 'presencial'}>
-                      <option value="presencial">Presencial</option>
-                      <option value="domicilio">Domicilio</option>
-                      <option value="online">Online</option>
-                    </select>
-                  </label>
-
-                  <label>Monto
-                    <input name="quoted_amount" type="number" min="0" step="0.01" defaultValue={editing?.quoted_amount ?? ''} />
-                  </label>
-                </div>
-
-                <p className="field-hint">
-                  {googleConnected
-                    ? 'Si elegís Online, se genera automáticamente un enlace de Google Meet.'
-                    : 'Para generar el enlace de Meet automáticamente en turnos online, conectá Google en Configuración. Si creás el turno igual, se guarda sin videollamada.'}
-                </p>
+                <ModalityField
+                  key={`modality-${editing?.id ?? `new-${drawerDate}`}`}
+                  defaultModality={editing?.modality ?? 'presencial'}
+                  defaultAmount={editing?.quoted_amount ?? ''}
+                  googleConnected={googleConnected}
+                />
 
                 <div className="drawer-footer">
                   <button className="btn" type="submit">{editing ? 'Guardar cambios' : 'Crear turno'}</button>

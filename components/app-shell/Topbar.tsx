@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { IconMenu } from '@/components/ui/icons';
 import { NAV_SECTIONS } from './nav-items';
+import { GlobalSearch } from './GlobalSearch';
 
 const ALL_ITEMS = NAV_SECTIONS.flatMap((section) => section.items);
 
@@ -41,6 +42,8 @@ export function Topbar({
           <div className="topbar-date" style={{ textTransform: 'capitalize' }}>{today}</div>
         </div>
       </div>
+
+      <GlobalSearch />
 
       <div className="topbar-profile">
         <div style={{ textAlign: 'right' }}>

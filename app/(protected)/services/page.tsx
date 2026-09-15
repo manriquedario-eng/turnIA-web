@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
 import { createService, updateService } from './actions';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -23,6 +24,12 @@ export default async function ServicesPage({ searchParams }: { searchParams: Sea
           <h1>Servicios</h1>
           <p className="muted">Administrá prestaciones, duración y valores.</p>
         </div>
+      </div>
+
+      <div className="section-tabs">
+        <Link href="/settings">Preferencias</Link>
+        <Link href="/settings#integraciones">Integraciones</Link>
+        <Link href="/services" className="active">Servicios</Link>
       </div>
 
       {params.ok ? <p className="alert success">{params.ok}</p> : null}

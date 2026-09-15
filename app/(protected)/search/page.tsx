@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 function safeTerm(value: string) {
   return value.replace(/[%_,()]/g, ' ').trim().slice(0, 100);
@@ -44,9 +45,11 @@ export default async function SearchPage({
 
   return (
     <section className="stack">
-      <div>
-        <h1>Búsqueda global</h1>
-        <p className="muted">Busca dentro del consultorio actual por paciente, teléfono, email, DNI, obra social o texto de seguimiento.</p>
+      <div className="page-header">
+        <div>
+          <h1>Búsqueda</h1>
+          <p className="muted">Buscá por paciente, teléfono, email, DNI, obra social o texto de seguimiento.</p>
+        </div>
       </div>
 
       <div className="card">
@@ -62,9 +65,9 @@ export default async function SearchPage({
         <>
           <div className="card">
             <h2>Pacientes</h2>
-            {patients.length === 0 ? <p className="muted">No se encontraron pacientes.</p> : (
+            {patients.length === 0 ? <EmptyState title="No se encontraron pacientes" /> : (
               <div style={{ overflowX: 'auto' }}>
-                <table>
+                <table className="table">
                   <thead><tr><th>Paciente</th><th>Teléfono</th><th>Email</th><th>DNI</th><th>Obra social</th></tr></thead>
                   <tbody>{patients.map((patient) => (
                     <tr key={patient.id}>
@@ -79,8 +82,8 @@ export default async function SearchPage({
 
           <div className="card">
             <h2>Seguimientos</h2>
-            {followUps.length === 0 ? <p className="muted">No se encontró ese texto en seguimientos.</p> : followUps.map((item) => (
-              <article key={item.id} style={{ padding: '12px 0', borderBottom: '1px solid #e5e7eb' }}>
+            {followUps.length === 0 ? <EmptyState title="No se encontró ese texto en seguimientos" /> : followUps.map((item) => (
+              <article key={item.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--color-border-soft)' }}>
                 <small className="muted">{new Date(item.created_at).toLocaleString('es-AR')} · {item.patients?.name ?? 'Paciente'}</small>
                 <p style={{ whiteSpace: 'pre-wrap' }}>{item.content}</p>
                 <Link href={`/patients/${item.patient_id}`}>Abrir paciente</Link>

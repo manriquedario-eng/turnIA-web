@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
 import { updateSettings, disconnectGoogleCalendar } from './actions';
 import { isGoogleOAuthConfigured } from '@/lib/google/oauth';
@@ -44,12 +45,18 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const emailConfigured = isEmailConfigured();
 
   return (
-    <section>
+    <section className="stack">
       <div className="page-header">
         <div>
           <h1>Configuración</h1>
           <p className="muted">Preferencias operativas del consultorio.</p>
         </div>
+      </div>
+
+      <div className="section-tabs">
+        <Link href="/settings" className="active">Preferencias</Link>
+        <Link href="/settings#integraciones">Integraciones</Link>
+        <Link href="/services">Servicios</Link>
       </div>
 
       {params?.ok ? <p className="alert success">{params.ok}</p> : null}

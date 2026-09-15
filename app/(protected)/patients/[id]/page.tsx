@@ -5,6 +5,7 @@ import { archivePatient, createManualFollowUp, updatePatient } from '../actions'
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconMail, IconPhone } from '@/components/ui/icons';
+import { Tabs } from '@/components/ui/Tabs';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -165,14 +166,12 @@ export default async function PatientDetailPage({
           </div>
 
           <div className="nav" style={{ flexWrap: 'wrap' }}>
-            <Link className="btn secondary" href="#editar-datos">Editar datos</Link>
-            <Link className="btn secondary" href="#nuevo-seguimiento">Nuevo seguimiento</Link>
             <Link className="btn secondary" href="/agenda">Ver agenda</Link>
             <Link className="btn secondary" href="/payments">Pagos y caja</Link>
           </div>
         </div>
 
-        <div className="grid" style={{ marginTop: 20 }}>
+        <div className="grid" style={{ marginTop: 16 }}>
           <div className="stat-card">
             <span className="stat-label">Próximo turno</span>
             {nextAppointment ? (
@@ -203,129 +202,152 @@ export default async function PatientDetailPage({
         </div>
       </div>
 
-      {hasClinicalNotes ? (
-        <div className="card">
-          <h2 style={{ marginTop: 0 }}>Ficha clínica</h2>
-          <div className="stack" style={{ gap: 10 }}>
-            {record?.reason ? <div><strong>Motivo de consulta</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.reason}</p></div> : null}
-            {record?.background ? <div><strong>Antecedentes</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.background}</p></div> : null}
-            {record?.follow_up ? <div><strong>Seguimiento</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.follow_up}</p></div> : null}
-            {record?.plan ? <div><strong>Plan</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.plan}</p></div> : null}
-            {record?.notes ? <div><strong>Notas</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.notes}</p></div> : null}
+      <Tabs
+        tabs={[
+          { id: 'clinica', label: 'Ficha clínica' },
+          { id: 'actividad', label: 'Actividad' },
+          { id: 'seguimientos', label: 'Seguimientos' },
+          { id: 'datos', label: 'Datos' },
+        ]}
+      >
+        <div data-tab="clinica">
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>Ficha clínica</h2>
+            {hasClinicalNotes ? (
+              <div className="stack" style={{ gap: 10 }}>
+                {record?.reason ? <div><strong>Motivo de consulta</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.reason}</p></div> : null}
+                {record?.background ? <div><strong>Antecedentes</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.background}</p></div> : null}
+                {record?.follow_up ? <div><strong>Seguimiento</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.follow_up}</p></div> : null}
+                {record?.plan ? <div><strong>Plan</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.plan}</p></div> : null}
+                {record?.notes ? <div><strong>Notas</strong><p style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{record.notes}</p></div> : null}
+              </div>
+            ) : (
+              <EmptyState title="Todavía no hay ficha clínica" description="Se completa desde seguimientos o integraciones futuras." />
+            )}
           </div>
         </div>
-      ) : null}
 
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>Timeline del paciente</h2>
-        <p className="muted">Turnos, pagos, seguimientos y actualización de ficha en una sola línea de tiempo.</p>
-        {timeline.length === 0 ? (
-          <EmptyState title="Todavía no hay actividad registrada" />
-        ) : (
-          <div>
-            {timeline.map((item) => (
-              <div key={item.id} className="timeline-item">
-                <div className={`timeline-marker ${TIMELINE_TYPE_CLASS[item.type]}`} />
-                <div className="timeline-body">
-                  <small className="muted">{formatDateTime(item.at)} · {item.type}</small>
-                  <p style={{ marginBottom: item.detail ? 4 : 0, marginTop: 2 }}><strong>{item.title}</strong></p>
-                  {item.detail ? <p style={{ whiteSpace: 'pre-wrap', marginTop: 0, fontSize: 14 }}>{item.detail}</p> : null}
-                </div>
+        <div data-tab="actividad">
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>Timeline del paciente</h2>
+            <p className="muted">Turnos, pagos, seguimientos y actualización de ficha en una sola línea de tiempo.</p>
+            {timeline.length === 0 ? (
+              <EmptyState title="Todavía no hay actividad registrada" />
+            ) : (
+              <div>
+                {timeline.map((item) => (
+                  <div key={item.id} className="timeline-item">
+                    <div className={`timeline-marker ${TIMELINE_TYPE_CLASS[item.type]}`} />
+                    <div className="timeline-body">
+                      <small className="muted">{formatDateTime(item.at)} · {item.type}</small>
+                      <p style={{ marginBottom: item.detail ? 4 : 0, marginTop: 2 }}><strong>{item.title}</strong></p>
+                      {item.detail ? <p style={{ whiteSpace: 'pre-wrap', marginTop: 0, fontSize: 14 }}>{item.detail}</p> : null}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
-      </div>
+        </div>
 
-      <div className="card" id="nuevo-seguimiento">
-        <h2 style={{ marginTop: 0 }}>Nuevo seguimiento</h2>
-        <form action={createManualFollowUp} className="stack">
-          <input type="hidden" name="patientId" value={patient.id} />
-          <label>
-            Nota de seguimiento
-            <textarea name="content" required minLength={2} maxLength={10000} rows={5} style={{ width: '100%' }} />
-          </label>
-          <div>
-            <button className="btn" type="submit">Guardar seguimiento</button>
-          </div>
-        </form>
-      </div>
-
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>Historial de seguimientos</h2>
-        {followUps.length === 0 ? (
-          <EmptyState title="Todavía no hay seguimientos" />
-        ) : (
-          <div>
-            {followUps.map((item) => (
-              <div key={item.id} className="timeline-item">
-                <div className="timeline-marker type-seguimiento" />
-                <div className="timeline-body">
-                  <small className="muted">{formatDateTime(item.created_at)} · {item.source_type === 'manual_text' ? 'Manual' : item.source_type}</small>
-                  <p style={{ whiteSpace: 'pre-wrap', marginTop: 2, marginBottom: 0 }}>{item.content}</p>
+        <div data-tab="seguimientos">
+          <div className="stack">
+            <div className="card">
+              <h2 style={{ marginTop: 0 }}>Nuevo seguimiento</h2>
+              <form action={createManualFollowUp} className="stack">
+                <input type="hidden" name="patientId" value={patient.id} />
+                <label>
+                  Nota de seguimiento
+                  <textarea name="content" required minLength={2} maxLength={10000} rows={5} style={{ width: '100%' }} />
+                </label>
+                <div>
+                  <button className="btn" type="submit">Guardar seguimiento</button>
                 </div>
-              </div>
-            ))}
+              </form>
+            </div>
+
+            <div className="card">
+              <h2 style={{ marginTop: 0 }}>Historial de seguimientos</h2>
+              {followUps.length === 0 ? (
+                <EmptyState title="Todavía no hay seguimientos" />
+              ) : (
+                <div>
+                  {followUps.map((item) => (
+                    <div key={item.id} className="timeline-item">
+                      <div className="timeline-marker type-seguimiento" />
+                      <div className="timeline-body">
+                        <small className="muted">{formatDateTime(item.created_at)} · {item.source_type === 'manual_text' ? 'Manual' : item.source_type}</small>
+                        <p style={{ whiteSpace: 'pre-wrap', marginTop: 2, marginBottom: 0 }}>{item.content}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
 
-      <div className="card" id="editar-datos">
-        <h2 style={{ marginTop: 0 }}>Datos del paciente</h2>
-        <form action={updatePatient} className="form-grid">
-          <input type="hidden" name="id" value={patient.id} />
-          <label>Nombre<input name="name" defaultValue={patient.name} required minLength={2} maxLength={160} /></label>
-          <label>Teléfono<input name="phone" defaultValue={patient.phone ?? ''} maxLength={160} /></label>
-          <label>Email<input name="email" type="email" defaultValue={patient.email ?? ''} maxLength={200} /></label>
-          <label>DNI<input name="dni" defaultValue={patient.dni ?? ''} maxLength={160} /></label>
-          <label>Obra social<input name="insurance_name" defaultValue={patient.insurance_name ?? ''} maxLength={160} /></label>
-          <label>Nº afiliado<input name="insurance_member_number" defaultValue={patient.insurance_member_number ?? ''} maxLength={160} /></label>
-          <label>Plan<input name="insurance_plan" defaultValue={patient.insurance_plan ?? ''} maxLength={160} /></label>
-          <label>Lugar de atención<input name="care_location" defaultValue={patient.care_location ?? ''} maxLength={160} /></label>
-          <label>Precio habitual<input name="default_price" type="number" min="0" step="0.01" defaultValue={patient.default_price ?? ''} /></label>
+        <div data-tab="datos">
+          <div className="stack">
+            <div className="card">
+              <h2 style={{ marginTop: 0 }}>Datos del paciente</h2>
+              <form action={updatePatient} className="form-grid">
+                <input type="hidden" name="id" value={patient.id} />
+                <label>Nombre<input name="name" defaultValue={patient.name} required minLength={2} maxLength={160} /></label>
+                <label>Teléfono<input name="phone" defaultValue={patient.phone ?? ''} maxLength={160} /></label>
+                <label>Email<input name="email" type="email" defaultValue={patient.email ?? ''} maxLength={200} /></label>
+                <label>DNI<input name="dni" defaultValue={patient.dni ?? ''} maxLength={160} /></label>
+                <label>Obra social<input name="insurance_name" defaultValue={patient.insurance_name ?? ''} maxLength={160} /></label>
+                <label>Nº afiliado<input name="insurance_member_number" defaultValue={patient.insurance_member_number ?? ''} maxLength={160} /></label>
+                <label>Plan<input name="insurance_plan" defaultValue={patient.insurance_plan ?? ''} maxLength={160} /></label>
+                <label>Lugar de atención<input name="care_location" defaultValue={patient.care_location ?? ''} maxLength={160} /></label>
+                <label>Precio habitual<input name="default_price" type="number" min="0" step="0.01" defaultValue={patient.default_price ?? ''} /></label>
 
-          <div style={{ gridColumn: '1 / -1' }}>
-            <h3 style={{ margin: '4px 0' }}>Comunicación y recordatorios</h3>
-            <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
-              Sin autorización explícita, no se enviará ningún mensaje automático en el futuro.
-              {(patient as any).whatsapp_consent_at
-                ? ` Autorización registrada el ${formatDateTime((patient as any).whatsapp_consent_at)}.`
-                : ''}
-            </p>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400 }}>
-              <input
-                type="checkbox"
-                name="whatsapp_consent"
-                style={{ width: 'auto' }}
-                defaultChecked={Boolean((patient as any).whatsapp_consent)}
-              />
-              Autoriza recibir mensajes por WhatsApp
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400, marginTop: 6 }}>
-              <input
-                type="checkbox"
-                name="appointment_reminders_opt_in"
-                style={{ width: 'auto' }}
-                defaultChecked={Boolean((patient as any).appointment_reminders_opt_in)}
-              />
-              Recibir recordatorios automáticos de turnos
-            </label>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <h3 style={{ margin: '4px 0' }}>Comunicación y recordatorios</h3>
+                  <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+                    Sin autorización explícita, no se enviará ningún mensaje automático en el futuro.
+                    {(patient as any).whatsapp_consent_at
+                      ? ` Autorización registrada el ${formatDateTime((patient as any).whatsapp_consent_at)}.`
+                      : ''}
+                  </p>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400 }}>
+                    <input
+                      type="checkbox"
+                      name="whatsapp_consent"
+                      style={{ width: 'auto' }}
+                      defaultChecked={Boolean((patient as any).whatsapp_consent)}
+                    />
+                    Autoriza recibir mensajes por WhatsApp
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400, marginTop: 6 }}>
+                    <input
+                      type="checkbox"
+                      name="appointment_reminders_opt_in"
+                      style={{ width: 'auto' }}
+                      defaultChecked={Boolean((patient as any).appointment_reminders_opt_in)}
+                    />
+                    Recibir recordatorios automáticos de turnos
+                  </label>
+                </div>
+
+                <div className="form-actions">
+                  <button className="btn" type="submit">Guardar cambios</button>
+                </div>
+              </form>
+            </div>
+
+            <div className="card">
+              <h2 style={{ marginTop: 0 }}>Archivar paciente</h2>
+              <p className="muted">No elimina físicamente los datos. Marca el paciente como archivado.</p>
+              <form action={archivePatient}>
+                <input type="hidden" name="id" value={patient.id} />
+                <button className="btn danger" type="submit">Archivar</button>
+              </form>
+            </div>
           </div>
-
-          <div className="form-actions">
-            <button className="btn" type="submit">Guardar cambios</button>
-          </div>
-        </form>
-      </div>
-
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>Archivar paciente</h2>
-        <p className="muted">No elimina físicamente los datos. Marca el paciente como archivado.</p>
-        <form action={archivePatient}>
-          <input type="hidden" name="id" value={patient.id} />
-          <button className="btn danger" type="submit">Archivar</button>
-        </form>
-      </div>
+        </div>
+      </Tabs>
     </section>
   );
 }

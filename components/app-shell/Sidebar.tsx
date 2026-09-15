@@ -39,10 +39,13 @@ export function Sidebar({
         </div>
 
         <nav className="sidebar-nav">
-          {NAV_SECTIONS.map((section) => (
+          {NAV_SECTIONS.map((section) => {
+            const items = section.items.filter((item) => !item.hideOnDesktopSidebar);
+            if (items.length === 0) return null;
+            return (
             <div key={section.label}>
               <div className="sidebar-section-label">{section.label}</div>
-              {section.items.map((item) => {
+              {items.map((item) => {
                 const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
                 const Icon = item.icon;
                 return (
@@ -58,7 +61,8 @@ export function Sidebar({
                 );
               })}
             </div>
-          ))}
+            );
+          })}
         </nav>
 
         <div className="sidebar-footer">

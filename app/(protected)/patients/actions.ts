@@ -5,6 +5,13 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
 import { normalizePhone } from '@/lib/phone';
+import { findDuplicatePatient } from '@/lib/patients/duplicate-check';
+
+function duplicateRedirectQuery(conflict: { field: 'email' | 'phone'; patientId: string; patientName: string }) {
+  const label = conflict.field === 'phone' ? 'teléfono' : 'email';
+  const message = `Ya existe un paciente con este ${label}: ${conflict.patientName}`;
+  return `error=${encodeURIComponent(message)}&duplicate_patient_id=${conflict.patientId}`;
+}
 
 const optionalText = z.preprocess(
   (value) => typeof value === 'string' && value.trim() === '' ? null : value,
@@ -67,6 +74,14 @@ export async function createPatient(formData: FormData) {
   const { supabase, tenantId } = await requireTenant();
   const { id: _id, ...payload } = parsed.data;
   const phoneNormalization = normalizePhone(payload.phone ?? null);
+
+  const duplicate = await findDuplicatePatient(supabase, {
+    tenantId,
+    email: payload.email ?? null,
+    phoneE164: phoneNormalization.e164,
+  });
+  if (duplicate) redirect(`/patients?${duplicateRedirectQuery(duplicate)}`);
+
   const { error } = await supabase.from('patients').insert({
     tenant_id: tenantId,
     ...payload,
@@ -91,6 +106,14 @@ export async function updatePatient(formData: FormData) {
   const { supabase, tenantId } = await requireTenant();
   const { id, ...payload } = parsed.data;
   const phoneNormalization = normalizePhone(payload.phone ?? null);
+
+  const duplicate = await findDuplicatePatient(supabase, {
+    tenantId,
+    email: payload.email ?? null,
+    phoneE164: phoneNormalization.e164,
+    excludePatientId: id,
+  });
+  if (duplicate) redirect(`/patients/${id}?${duplicateRedirectQuery(duplicate)}`);
 
   // El timestamp de consentimiento sólo se actualiza en una transición real
   // false -> true (se guarda cuándo se otorgó), y se limpia si se revoca.

@@ -16,6 +16,13 @@ export type NavItem = {
   icon: ComponentType<{ size?: number }>;
   /** Mostrar también en la barra inferior de móvil. */
   mobile?: boolean;
+  /**
+   * No listar en el sidebar de escritorio. La ruta sigue existiendo y el
+   * item sigue disponible para móvil / lookup de título — sólo se oculta
+   * como entrada de primer nivel en desktop porque ahora hay un buscador
+   * en vivo en el Topbar que cubre el mismo caso de uso más rápido.
+   */
+  hideOnDesktopSidebar?: boolean;
 };
 
 export type NavSection = {
@@ -30,7 +37,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Principal',
     items: [
       { href: '/dashboard', label: 'Inicio', icon: IconHome, mobile: true },
-      { href: '/search', label: 'Buscar', icon: IconSearch, mobile: true },
+      { href: '/search', label: 'Buscar', icon: IconSearch, mobile: true, hideOnDesktopSidebar: true },
     ],
   },
   {
@@ -39,7 +46,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/agenda', label: 'Agenda', icon: IconCalendar, mobile: true },
       { href: '/patients', label: 'Pacientes', icon: IconUsers, mobile: true },
       { href: '/planning', label: 'Recurrentes y espera', icon: IconClock },
-      { href: '/services', label: 'Servicios', icon: IconTag },
     ],
   },
   {
@@ -51,7 +57,10 @@ export const NAV_SECTIONS: NavSection[] = [
   },
   {
     label: 'Sistema',
-    items: [{ href: '/settings', label: 'Configuración', icon: IconSettings }],
+    items: [
+      { href: '/settings', label: 'Configuración', icon: IconSettings },
+      { href: '/services', label: 'Servicios', icon: IconTag },
+    ],
   },
 ];
 
