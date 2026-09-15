@@ -1,5 +1,7 @@
 import { requireTenant } from '@/lib/auth/require-user';
 import { registerCashMovement, registerPayment } from './actions';
+import { StatCard } from '@/components/ui/StatCard';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 export default async function PaymentsPage({
   searchParams,
@@ -35,99 +37,116 @@ export default async function PaymentsPage({
     return sum + (item.kind === 'in' ? amount : -amount);
   }, 0);
 
+  const collected = (payments || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
   return (
-    <div className="stack">
-      <div>
-        <h1>Pagos y Caja</h1>
-        <p className="muted">Registrá cobros de turnos y movimientos manuales de caja.</p>
+    <section className="stack">
+      <div className="page-header">
+        <div>
+          <h1>Pagos y caja</h1>
+          <p className="muted">Registrá cobros de turnos y movimientos manuales de caja.</p>
+        </div>
       </div>
 
-      {params.ok ? <div className="card">{params.ok}</div> : null}
-      {params.error ? <div className="card">Error: {params.error}</div> : null}
+      {params.ok ? <p className="alert success">{params.ok}</p> : null}
+      {params.error ? <p className="alert error">{params.error}</p> : null}
 
-      <div className="card">
-        <strong>Saldo de caja actual: ${balance.toLocaleString('es-AR')}</strong>
+      <div className="grid">
+        <StatCard label="Saldo de caja actual" value={`$${balance.toLocaleString('es-AR')}`} />
+        <StatCard label="Cobrado (últimos 50 pagos)" value={`$${collected.toLocaleString('es-AR')}`} />
       </div>
 
-      <section className="card stack">
-        <h2>Registrar pago</h2>
-        <form action={registerPayment} className="stack">
-          <label>
-            Turno
-            <select name="appointment_id" required defaultValue="">
-              <option value="" disabled>Seleccionar turno</option>
-              {(appointments || []).map((appointment: any) => (
-                <option key={appointment.id} value={appointment.id}>
-                  {new Date(appointment.starts_at).toLocaleString('es-AR')} · {appointment.patients?.name || 'Sin paciente'} · ${Number(appointment.quoted_amount || 0).toLocaleString('es-AR')}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Importe
-            <input name="amount" type="number" min="0.01" step="0.01" required />
-          </label>
-          <label>
-            Medio
-            <select name="method" defaultValue="efectivo">
-              <option value="efectivo">Efectivo</option>
-              <option value="transferencia">Transferencia</option>
-              <option value="tarjeta">Tarjeta</option>
-              <option value="otro">Otro</option>
-            </select>
-          </label>
-          <input name="idempotency_key" type="hidden" value={`payment-${crypto.randomUUID()}`} />
-          <button className="btn" type="submit">Registrar pago</button>
-        </form>
-      </section>
-
-      <section className="card stack">
-        <h2>Movimiento manual de caja</h2>
-        <form action={registerCashMovement} className="stack">
-          <label>
-            Tipo
-            <select name="kind" defaultValue="out">
-              <option value="in">Ingreso</option>
-              <option value="out">Egreso</option>
-            </select>
-          </label>
-          <label>
-            Importe
-            <input name="amount" type="number" min="0.01" step="0.01" required />
-          </label>
-          <label>
-            Medio / concepto breve
-            <input name="method" maxLength={60} required placeholder="efectivo, transferencia, insumo..." />
-          </label>
-          <button className="btn secondary" type="submit">Registrar movimiento</button>
-        </form>
-      </section>
-
-      <section className="card stack">
-        <h2>Últimos pagos</h2>
-        {(payments || []).length === 0 ? <p className="muted">Sin pagos registrados.</p> : (
-          <div className="stack">
-            {(payments || []).map((payment: any) => (
-              <div key={payment.id}>
-                <strong>${Number(payment.amount).toLocaleString('es-AR')} {payment.currency}</strong> · {payment.method} · {new Date(payment.created_at).toLocaleString('es-AR')}
+      <div className="split-main-side">
+        <div className="stack">
+          <section className="card">
+            <h2 style={{ marginTop: 0 }}>Registrar pago</h2>
+            <form action={registerPayment} className="form-grid">
+              <label>Turno
+                <select name="appointment_id" required defaultValue="">
+                  <option value="" disabled>Seleccionar turno</option>
+                  {(appointments || []).map((appointment: any) => (
+                    <option key={appointment.id} value={appointment.id}>
+                      {new Date(appointment.starts_at).toLocaleString('es-AR')} · {appointment.patients?.name || 'Sin paciente'} · ${Number(appointment.quoted_amount || 0).toLocaleString('es-AR')}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>Importe
+                <input name="amount" type="number" min="0.01" step="0.01" required />
+              </label>
+              <label>Medio
+                <select name="method" defaultValue="efectivo">
+                  <option value="efectivo">Efectivo</option>
+                  <option value="transferencia">Transferencia</option>
+                  <option value="tarjeta">Tarjeta</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </label>
+              <input name="idempotency_key" type="hidden" value={`payment-${crypto.randomUUID()}`} />
+              <div className="form-actions">
+                <button className="btn" type="submit">Registrar pago</button>
               </div>
-            ))}
-          </div>
-        )}
-      </section>
+            </form>
+          </section>
 
-      <section className="card stack">
-        <h2>Últimos movimientos de caja</h2>
-        {(cashMovements || []).length === 0 ? <p className="muted">Sin movimientos.</p> : (
-          <div className="stack">
-            {(cashMovements || []).map((movement: any) => (
-              <div key={movement.id}>
-                <strong>{movement.kind === 'in' ? '+' : '-'}${Number(movement.amount).toLocaleString('es-AR')}</strong> · {movement.method} · {new Date(movement.created_at).toLocaleString('es-AR')}
+          <section className="card">
+            <h2 style={{ marginTop: 0 }}>Movimiento manual de caja</h2>
+            <form action={registerCashMovement} className="form-grid">
+              <label>Tipo
+                <select name="kind" defaultValue="out">
+                  <option value="in">Ingreso</option>
+                  <option value="out">Egreso</option>
+                </select>
+              </label>
+              <label>Importe
+                <input name="amount" type="number" min="0.01" step="0.01" required />
+              </label>
+              <label>Medio / concepto breve
+                <input name="method" maxLength={60} required placeholder="efectivo, transferencia, insumo..." />
+              </label>
+              <div className="form-actions">
+                <button className="btn secondary" type="submit">Registrar movimiento</button>
               </div>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
+            </form>
+          </section>
+        </div>
+
+        <div className="stack">
+          <section className="card">
+            <h2 style={{ marginTop: 0 }}>Últimos pagos</h2>
+            {(payments || []).length === 0 ? (
+              <EmptyState title="Sin pagos registrados" description="Los pagos que registres van a aparecer acá." />
+            ) : (
+              <div className="stack" style={{ gap: 8 }}>
+                {(payments || []).map((payment: any) => (
+                  <div key={payment.id} className="nav" style={{ justifyContent: 'space-between', fontSize: 13, paddingBottom: 8, borderBottom: '1px solid var(--color-border-soft)' }}>
+                    <strong>${Number(payment.amount).toLocaleString('es-AR')} {payment.currency}</strong>
+                    <span className="muted">{payment.method} · {new Date(payment.created_at).toLocaleString('es-AR')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="card">
+            <h2 style={{ marginTop: 0 }}>Últimos movimientos de caja</h2>
+            {(cashMovements || []).length === 0 ? (
+              <EmptyState title="Sin movimientos" description="Los movimientos manuales de caja van a aparecer acá." />
+            ) : (
+              <div className="stack" style={{ gap: 8 }}>
+                {(cashMovements || []).map((movement: any) => (
+                  <div key={movement.id} className="nav" style={{ justifyContent: 'space-between', fontSize: 13, paddingBottom: 8, borderBottom: '1px solid var(--color-border-soft)' }}>
+                    <strong style={{ color: movement.kind === 'in' ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                      {movement.kind === 'in' ? '+' : '-'}${Number(movement.amount).toLocaleString('es-AR')}
+                    </strong>
+                    <span className="muted">{movement.method} · {new Date(movement.created_at).toLocaleString('es-AR')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+    </section>
   );
 }

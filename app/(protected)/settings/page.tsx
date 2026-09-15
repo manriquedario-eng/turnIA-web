@@ -99,61 +99,70 @@ export default async function SettingsPage({ searchParams }: PageProps) {
           Cada profesional conecta sus propias integraciones. Nada de esto se comparte entre consultorios.
         </p>
 
-        <div className="stack" style={{ gap: 16, marginTop: 12 }}>
-          <div className="integration-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div>
-              <strong>Google Calendar / Meet</strong>
-              <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
-                {googleConnected
-                  ? `Conectado${googleIntegration?.account_label ? ` como ${googleIntegration.account_label}` : ''}.`
-                  : googleConfigured
-                    ? 'No conectado. Conectá tu cuenta para generar Google Meet automáticamente en turnos online.'
-                    : 'La conexión con Google todavía no está configurada del lado del servidor (falta GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REDIRECT_URI o SUPABASE_SERVICE_ROLE_KEY).'}
-              </p>
-            </div>
-            {googleConnected ? (
-              <form action={disconnectGoogleCalendar}>
-                <button className="btn danger" type="submit" style={{ padding: '7px 12px', fontSize: 13 }}>
-                  Desconectar
-                </button>
-              </form>
-            ) : googleConfigured ? (
-              <a className="btn secondary" style={{ padding: '7px 12px', fontSize: 13 }} href="/api/google/oauth/connect">
-                Conectar Google
-              </a>
-            ) : (
-              <span className="btn secondary" aria-disabled="true" style={{ padding: '7px 12px', fontSize: 13, opacity: 0.5, cursor: 'not-allowed' }}>
-                Conectar Google
+        <div className="integration-grid" style={{ marginTop: 12 }}>
+          <div className="integration-card">
+            <div className="integration-card-head">
+              <span className="integration-card-name">Google Calendar / Meet</span>
+              <span className={`badge ${googleConnected ? 'badge-confirmado' : googleConfigured ? 'badge-pendiente' : 'badge-neutral'}`}>
+                {googleConnected ? 'Conectado' : googleConfigured ? 'No conectado' : 'No configurado'}
               </span>
-            )}
+            </div>
+            <p className="integration-card-desc">
+              Genera un enlace de Google Meet automáticamente al crear turnos online.
+            </p>
+            {googleConnected && googleIntegration?.account_label ? (
+              <span className="integration-card-account">Cuenta: {googleIntegration.account_label}</span>
+            ) : null}
+            {!googleConnected && !googleConfigured ? (
+              <span className="integration-card-account">
+                Falta configurar credenciales de Google del lado del servidor.
+              </span>
+            ) : null}
+            <div className="integration-card-action">
+              {googleConnected ? (
+                <form action={disconnectGoogleCalendar}>
+                  <button className="btn danger" type="submit" style={{ padding: '7px 12px', fontSize: 13 }}>
+                    Desconectar
+                  </button>
+                </form>
+              ) : googleConfigured ? (
+                <a className="btn secondary" style={{ padding: '7px 12px', fontSize: 13 }} href="/api/google/oauth/connect">
+                  Conectar Google
+                </a>
+              ) : (
+                <span className="btn secondary" aria-disabled="true" style={{ padding: '7px 12px', fontSize: 13, opacity: 0.5, cursor: 'not-allowed' }}>
+                  Conectar Google
+                </span>
+              )}
+            </div>
           </div>
 
-          <div className="integration-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div>
-              <strong>WhatsApp</strong>
-              <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
-                {whatsappConfigured
-                  ? 'Configurado a nivel plataforma. Los mensajes salen según el consentimiento de cada paciente.'
-                  : 'Todavía no configurado (faltan credenciales de Meta Cloud API en el servidor).'}
-              </p>
+          <div className="integration-card">
+            <div className="integration-card-head">
+              <span className="integration-card-name">WhatsApp</span>
+              <span className={`badge ${whatsappConfigured ? 'badge-confirmado' : 'badge-neutral'}`}>
+                {whatsappConfigured ? 'Activo' : 'No configurado'}
+              </span>
             </div>
-            <span className={`badge ${whatsappConfigured ? 'badge-confirmado' : ''}`}>
-              {whatsappConfigured ? 'Activo' : 'No configurado'}
-            </span>
+            <p className="integration-card-desc">
+              {whatsappConfigured
+                ? 'Configurado a nivel plataforma. Los mensajes salen según el consentimiento de cada paciente.'
+                : 'Todavía no configurado (faltan credenciales de Meta Cloud API en el servidor).'}
+            </p>
           </div>
 
-          <div className="integration-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div>
-              <strong>Email</strong>
-              <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
-                {emailConfigured
-                  ? 'Enviado por TurnIA — no necesitás conectar tu propia cuenta de correo.'
-                  : 'Enviado por TurnIA. Todavía no hay un proveedor de email transaccional configurado en el servidor.'}
-              </p>
+          <div className="integration-card">
+            <div className="integration-card-head">
+              <span className="integration-card-name">Email</span>
+              <span className={`badge ${emailConfigured ? 'badge-confirmado' : 'badge-neutral'}`}>
+                {emailConfigured ? 'Activo' : 'No configurado'}
+              </span>
             </div>
-            <span className={`badge ${emailConfigured ? 'badge-confirmado' : ''}`}>
-              {emailConfigured ? 'Activo' : 'No configurado'}
-            </span>
+            <p className="integration-card-desc">
+              {emailConfigured
+                ? 'Enviado por TurnIA — no necesitás conectar tu propia cuenta de correo.'
+                : 'Enviado por TurnIA. Todavía no hay un proveedor de email transaccional configurado en el servidor.'}
+            </p>
           </div>
         </div>
       </div>

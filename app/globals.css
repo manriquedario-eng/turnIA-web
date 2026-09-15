@@ -1058,3 +1058,431 @@ table tbody tr:hover {
     margin-right: 6px;
   }
 }
+
+/* =========================================================================
+   Agenda — vista Mes (grilla real) — Fase UI v2
+   ========================================================================= */
+
+.month-grid {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.month-grid-head {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--color-surface-sunken);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.month-grid-head span {
+  padding: 10px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-ink-soft);
+  text-align: center;
+}
+
+.month-grid-body {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.month-cell {
+  position: relative;
+  min-height: 108px;
+  padding: 6px 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-right: 1px solid var(--color-border-soft);
+  border-bottom: 1px solid var(--color-border-soft);
+  background: var(--color-surface);
+}
+
+.month-cell:nth-child(7n) {
+  border-right: none;
+}
+
+.month-cell.is-other-month {
+  background: var(--color-surface-sunken);
+}
+
+.month-cell.is-other-month .month-cell-daynum {
+  color: var(--color-ink-faint);
+}
+
+.month-cell-daynum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-ink);
+  flex-shrink: 0;
+}
+
+.month-cell-daynum:hover {
+  background: var(--color-surface-sunken);
+}
+
+.month-cell.is-today .month-cell-daynum {
+  background: var(--color-terracotta);
+  color: #fff;
+}
+
+.month-cell-appts {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: relative;
+  z-index: 1;
+}
+
+.month-chip {
+  display: block;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--color-sage-soft);
+  color: var(--color-sage-dark);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.month-chip:hover {
+  filter: brightness(0.97);
+}
+
+.month-chip.is-cancelled {
+  background: var(--color-surface-sunken);
+  color: var(--color-ink-faint);
+  text-decoration: line-through;
+}
+
+.month-chip-more {
+  display: block;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-terracotta);
+}
+
+.month-chip-more:hover {
+  text-decoration: underline;
+}
+
+.month-cell-fill {
+  flex: 1;
+  min-height: 6px;
+  border-radius: 6px;
+}
+
+.month-cell-fill:hover {
+  background: var(--color-surface-sunken);
+}
+
+@media (max-width: 900px) {
+  .month-cell {
+    min-height: 84px;
+    padding: 4px 3px 6px;
+  }
+
+  .month-grid-head span {
+    padding: 8px 2px;
+    font-size: 10px;
+  }
+
+  .month-chip,
+  .month-chip-more {
+    font-size: 10px;
+    padding: 1px 4px;
+  }
+}
+
+@media (max-width: 640px) {
+  .month-cell {
+    min-height: 64px;
+  }
+
+  .month-chip:nth-child(n+3) {
+    display: none;
+  }
+}
+
+/* =========================================================================
+   Agenda — vista Semana (columnas por día) — Fase UI v2
+   ========================================================================= */
+
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+
+.week-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.week-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+}
+
+.week-col.is-today .week-col-head {
+  background: var(--color-terracotta);
+  color: #fff;
+}
+
+.week-col-head-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.week-col.is-today .week-col-head-label {
+  color: #fff;
+}
+
+.week-col-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-ink-soft);
+  flex-shrink: 0;
+}
+
+.week-col.is-today .week-col-add {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.week-col-appts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 40px;
+}
+
+.week-chip {
+  display: block;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-sage-soft);
+  border: 1px solid transparent;
+}
+
+.week-chip:hover {
+  border-color: var(--color-sage-dark);
+}
+
+.week-chip.is-cancelled {
+  background: var(--color-surface-sunken);
+  opacity: 0.65;
+}
+
+.week-chip-time {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-sage-dark);
+}
+
+.week-chip.is-cancelled .week-chip-time {
+  color: var(--color-ink-faint);
+  text-decoration: line-through;
+}
+
+.week-chip-name {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.week-col-empty {
+  font-size: 11px;
+  color: var(--color-ink-faint);
+  padding: 6px 8px;
+}
+
+@media (max-width: 900px) {
+  .week-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .week-col-appts {
+    min-height: 0;
+  }
+}
+
+/* =========================================================================
+   Turno — panel lateral (drawer) — Fase UI v2
+   ========================================================================= */
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 36, 32, 0.35);
+  z-index: 60;
+}
+
+.drawer-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(440px, 100vw);
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--color-border-soft);
+  position: sticky;
+  top: 0;
+  background: var(--color-surface);
+  z-index: 1;
+}
+
+.drawer-header h2 {
+  margin: 0;
+}
+
+.drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-soft);
+  flex-shrink: 0;
+}
+
+.drawer-close:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+}
+
+.drawer-form {
+  padding: 20px 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.drawer-form .field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field-hint {
+  margin: -8px 0 0;
+  font-size: 12px;
+  color: var(--color-ink-soft);
+}
+
+.drawer-footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.drawer-footer .btn,
+.drawer-footer button {
+  flex: 1;
+}
+
+@media (max-width: 520px) {
+  .drawer-panel {
+    width: 100vw;
+  }
+
+  .drawer-form .field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================================
+   Integraciones — cards — Fase UI v2
+   ========================================================================= */
+
+.integration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.integration-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--color-surface);
+}
+
+.integration-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.integration-card-name {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.integration-card-desc {
+  font-size: 13px;
+  color: var(--color-ink-soft);
+  margin: 0;
+  flex: 1;
+}
+
+.integration-card-account {
+  font-size: 12px;
+  color: var(--color-ink-faint);
+}
+
+.integration-card-action {
+  margin-top: 4px;
+}
