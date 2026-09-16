@@ -8,6 +8,7 @@ import { PhoneInput } from '@/components/ui/PhoneInput';
 import { IconMail, IconPhone } from '@/components/ui/icons';
 import { Tabs } from '@/components/ui/Tabs';
 import { ClinicalRecordCard } from '@/components/patients/ClinicalRecordCard';
+import { ExportMenu, type ExportMenuItem } from '@/components/export/ExportMenu';
 import { statusLabel, modalityLabel, paymentMethodLabel } from '@/lib/labels';
 
 const TZ = 'America/Argentina/Buenos_Aires';
@@ -177,6 +178,46 @@ export default async function PatientDetailPage({
     return sum + Math.max(quoted - paid, 0);
   }, 0);
 
+  // PARTE 3 del pedido de exportación: acción "Exportar" en el header de la
+  // ficha, con las secciones pedidas y los 3 formatos para cada una.
+  const exportItems: ExportMenuItem[] = [
+    { label: 'Ficha completa', links: [
+      { format: 'pdf', href: `/api/export/patient/${patient.id}?section=full&format=pdf` },
+      { format: 'docx', href: `/api/export/patient/${patient.id}?section=full&format=docx` },
+      { format: 'xlsx', href: `/api/export/patient/${patient.id}?section=full&format=xlsx` },
+    ] },
+    { label: 'Ficha clínica', links: [
+      { format: 'pdf', href: `/api/export/patient/${patient.id}?section=clinical&format=pdf` },
+      { format: 'docx', href: `/api/export/patient/${patient.id}?section=clinical&format=docx` },
+      { format: 'xlsx', href: `/api/export/patient/${patient.id}?section=clinical&format=xlsx` },
+    ] },
+    { label: 'Sesiones', links: [
+      { format: 'pdf', href: `/api/export/patient/${patient.id}?section=sessions&format=pdf` },
+      { format: 'docx', href: `/api/export/patient/${patient.id}?section=sessions&format=docx` },
+      { format: 'xlsx', href: `/api/export/patient/${patient.id}?section=sessions&format=xlsx` },
+    ] },
+    { label: 'Seguimientos', links: [
+      { format: 'pdf', href: `/api/export/patient/${patient.id}?section=followups&format=pdf` },
+      { format: 'docx', href: `/api/export/patient/${patient.id}?section=followups&format=docx` },
+      { format: 'xlsx', href: `/api/export/patient/${patient.id}?section=followups&format=xlsx` },
+    ] },
+    { label: 'Actividad', links: [
+      { format: 'pdf', href: `/api/export/patient/${patient.id}?section=activity&format=pdf` },
+      { format: 'docx', href: `/api/export/patient/${patient.id}?section=activity&format=docx` },
+      { format: 'xlsx', href: `/api/export/patient/${patient.id}?section=activity&format=xlsx` },
+    ] },
+    { label: 'Datos', links: [
+      { format: 'pdf', href: `/api/export/patient/${patient.id}?section=data&format=pdf` },
+      { format: 'docx', href: `/api/export/patient/${patient.id}?section=data&format=docx` },
+      { format: 'xlsx', href: `/api/export/patient/${patient.id}?section=data&format=xlsx` },
+    ] },
+    { label: 'Pagos / estado de cuenta', links: [
+      { format: 'pdf', href: `/api/export/patient/${patient.id}?section=payments&format=pdf` },
+      { format: 'docx', href: `/api/export/patient/${patient.id}?section=payments&format=docx` },
+      { format: 'xlsx', href: `/api/export/patient/${patient.id}?section=payments&format=xlsx` },
+    ] },
+  ];
+
   const initials = patient.name.trim().slice(0, 2).toUpperCase();
   const firstName = patient.name.trim().split(/\s+/)[0] || patient.name;
   const todayForNewAppointment = nextAppointment
@@ -215,6 +256,7 @@ export default async function PatientDetailPage({
                 Nuevo turno
               </Link>
               <Link className="btn secondary" href="/payments">Registrar pago</Link>
+              <ExportMenu items={exportItems} />
             </div>
           </div>
         </div>

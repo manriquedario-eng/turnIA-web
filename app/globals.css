@@ -2423,3 +2423,121 @@ table tbody tr:hover {
 .dashboard-reminder-row.is-today .muted {
   color: var(--color-terracotta);
 }
+
+/* =========================================================================
+   Exportación (PDF / Word / Excel) — menú "Exportar" en ficha de paciente,
+   listado de pacientes, pagos y agenda.
+   ========================================================================= */
+
+.export-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.export-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.export-menu-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.export-menu-caret {
+  font-size: 10px;
+  color: var(--color-ink-faint);
+}
+
+.export-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 260px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+}
+
+.export-menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.export-menu-row:hover {
+  background: var(--color-surface-sunken);
+}
+
+.export-menu-row-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.export-menu-row-formats {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.export-menu-format-link {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-terracotta);
+  text-decoration: none;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.export-menu-format-link:hover,
+.export-menu-format-link:focus-visible {
+  background: var(--color-terracotta);
+  color: #fff;
+  border-color: var(--color-terracotta);
+}
+
+.export-menu-simple-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.export-menu-simple-link:hover,
+.export-menu-simple-link:focus-visible {
+  background: var(--color-surface-sunken);
+}
+
+/* Mobile: el popover flotante puede salirse de pantalla — pasa a ocupar el
+   ancho disponible, anclado bajo el botón, sin depender de hover (ya son
+   <a>/<summary>, tocables desde el vamos). */
+@media (max-width: 640px) {
+  .export-menu-panel {
+    left: 0;
+    right: 0;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .export-menu-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}

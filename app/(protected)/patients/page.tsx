@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { PatientRow } from '@/components/patients/PatientRow';
 import { IconPlus } from '@/components/ui/icons';
+import { SimpleExportMenu } from '@/components/export/ExportMenu';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -65,6 +66,12 @@ export default async function PatientsPage({
           <p className="muted">{patients?.length ?? 0} pacientes activos en el consultorio.</p>
         </div>
         <div className="nav" style={{ flexWrap: 'wrap' }}>
+          <SimpleExportMenu
+            links={[
+              { format: 'xlsx', href: '/api/export/patients?format=xlsx' },
+              { format: 'pdf', href: '/api/export/patients?format=pdf' },
+            ]}
+          />
           <Link className="btn" href="#nuevo-paciente"><IconPlus /> Nuevo paciente</Link>
         </div>
       </div>

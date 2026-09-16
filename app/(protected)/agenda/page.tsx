@@ -7,6 +7,7 @@ import { IconChevronLeft, IconChevronRight, IconClose, IconPlus } from '@/compon
 import { AppointmentDateTimeFields } from '@/components/agenda/AppointmentDateTimeFields';
 import { PatientCombobox } from '@/components/agenda/PatientCombobox';
 import { ModalityField } from '@/components/agenda/ModalityField';
+import { SimpleExportMenu } from '@/components/export/ExportMenu';
 import { statusLabel, modalityLabel } from '@/lib/labels';
 
 const TZ = 'America/Argentina/Buenos_Aires';
@@ -274,6 +275,13 @@ export default async function AgendaPage({
           <p className="muted" style={{ textTransform: 'capitalize' }}>{periodLabel(view, date)}</p>
         </div>
         <div className="nav" style={{ flexWrap: 'wrap' }}>
+          <SimpleExportMenu
+            buttonLabel="Exportar agenda"
+            links={[
+              { format: 'xlsx', href: `/api/export/agenda?view=${view}&date=${date}&format=xlsx` },
+              { format: 'pdf', href: `/api/export/agenda?view=${view}&date=${date}&format=pdf` },
+            ]}
+          />
           <Link className="btn-ghost" href="/planning">Recurrentes y lista de espera</Link>
           <Link className="btn" href={`${returnTo}&new=1#turno-drawer`}>
             <IconPlus /> Nuevo turno

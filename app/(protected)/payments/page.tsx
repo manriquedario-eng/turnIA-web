@@ -2,6 +2,7 @@ import { requireTenant } from '@/lib/auth/require-user';
 import { registerCashMovement, registerPayment } from './actions';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { paymentMethodLabel } from '@/lib/labels';
+import { SimpleExportMenu } from '@/components/export/ExportMenu';
 
 export default async function PaymentsPage({
   searchParams,
@@ -46,6 +47,12 @@ export default async function PaymentsPage({
           <h1>Pagos y caja</h1>
           <p className="muted">Registrá cobros de turnos y movimientos manuales de caja.</p>
         </div>
+        <SimpleExportMenu
+          links={[
+            { format: 'xlsx', href: '/api/export/payments?format=xlsx' },
+            { format: 'pdf', href: '/api/export/payments?format=pdf' },
+          ]}
+        />
       </div>
 
       {params.ok ? <p className="alert success">{params.ok}</p> : null}
