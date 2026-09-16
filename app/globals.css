@@ -660,11 +660,28 @@ table tbody tr:hover {
   }
 }
 
-.phone-input-prefix-toggle {
+/* Fila "Teléfono ............ Editar prefijo" — mismo alto que la fila de
+   texto de cualquier otro <label> del form-grid (Nombre/Email/DNI), para que
+   el bloque completo de Teléfono termine con la misma altura total que sus
+   vecinos y no empuje nada hacia abajo. */
+.phone-field-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.phone-field-label-row label {
   display: block;
+}
+
+.phone-input-prefix-toggle {
+  display: inline-block;
   width: fit-content;
-  margin-top: 4px;
+  flex-shrink: 0;
+  margin: 0;
   font-size: 11px;
+  font-family: var(--font-sans);
   color: var(--color-ink-soft);
   text-decoration: underline;
   cursor: pointer;
@@ -1391,6 +1408,129 @@ table tbody tr:hover {
   min-width: 0;
 }
 
+/* Fila de Actividad clickeable (sección 5 de la pasada de corrección): toda
+   la fila navega, no sólo el título. Mismo look que .timeline-item, más
+   affordances de que es una acción. */
+.timeline-item-link {
+  align-items: flex-start;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  margin: 0 -10px;
+  padding: 12px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.timeline-item-link:hover {
+  background: var(--color-surface-sunken);
+}
+
+.timeline-item-link:focus-visible {
+  outline: 2px solid var(--color-terracotta);
+  outline-offset: 2px;
+}
+
+.timeline-item-chevron {
+  flex-shrink: 0;
+  align-self: center;
+  color: var(--color-ink-faint);
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* =========================================================================
+   Dashboard — elementos accionables (PARTE 5 del pedido de corrección)
+   Filas/bloques que representan un recurso real (turno, paciente, pago
+   pendiente, lista de espera, aviso) usan este mismo lenguaje visual:
+   color heredado, sin subrayado, cursor pointer, hover sutil, foco visible
+   por teclado. Nada depende sólo de :hover — en mobile son <Link>/<a>
+   normales, tocables sin más.
+   ========================================================================= */
+
+.appointment-card-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.appointment-card-link:hover {
+  border-color: var(--color-ink-faint);
+  background: var(--color-surface-sunken);
+}
+
+.appointment-card-link:focus-visible {
+  outline: 2px solid var(--color-terracotta);
+  outline-offset: 2px;
+}
+
+.dashboard-next-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  margin: -4px -4px 0;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.dashboard-next-link:hover {
+  background: var(--color-surface-sunken);
+}
+
+.dashboard-next-link:focus-visible {
+  outline: 2px solid var(--color-terracotta);
+  outline-offset: 2px;
+}
+
+.dashboard-waitlist-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-radius: var(--radius-sm);
+}
+
+.dashboard-waitlist-row:hover {
+  background: var(--color-surface-sunken);
+}
+
+.dashboard-waitlist-row:focus-visible {
+  outline: 2px solid var(--color-terracotta);
+  outline-offset: 2px;
+}
+
+.dashboard-opportunities li {
+  margin-bottom: 6px;
+}
+
+.dashboard-opportunity-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  margin: 0 -10px;
+  border-radius: var(--radius-sm);
+}
+
+.dashboard-opportunity-link:hover {
+  background: var(--color-surface-sunken);
+}
+
+.dashboard-opportunity-link:focus-visible {
+  outline: 2px solid var(--color-terracotta);
+  outline-offset: 2px;
+}
+
 @media (max-width: 720px) {
   .form-grid {
     grid-template-columns: 1fr;
@@ -1475,13 +1615,17 @@ table tbody tr:hover {
 
 .month-cell {
   position: relative;
-  min-height: 108px;
-  padding: 6px 6px 8px;
+  min-height: 92px;
+  padding: 5px 5px 6px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  border-right: 1px solid var(--color-border-soft);
-  border-bottom: 1px solid var(--color-border-soft);
+  gap: 3px;
+  /* Bordes con --color-border (no --color-border-soft): el "soft" casi no
+     se distinguía del fondo y hacía que días vecinos se leyeran como un
+     mismo bloque. Ésta es la corrección concreta al problema reportado de
+     "los días parecen quedar agrupados". */
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
   background: var(--color-surface);
 }
 
@@ -1497,12 +1641,24 @@ table tbody tr:hover {
   color: var(--color-ink-faint);
 }
 
+/* Fila superior de cada celda del mes: número del día (texto plano, ya no
+   clickeable — así no se confunde con la acción de crear turno) + botón +
+   discreto a la derecha. Mismo patrón que .week-col-head/.week-col-add en
+   la vista Semana, para que el gesto sea consistente entre ambas vistas
+   (PARTE 1 del pedido). */
+.month-cell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
 .month-cell-daynum {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
@@ -1510,13 +1666,51 @@ table tbody tr:hover {
   flex-shrink: 0;
 }
 
-.month-cell-daynum:hover {
-  background: var(--color-surface-sunken);
-}
-
 .month-cell.is-today .month-cell-daynum {
   background: var(--color-terracotta);
   color: #fff;
+}
+
+.month-cell-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-ink-faint);
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.month-cell-add:hover,
+.month-cell-add:focus-visible {
+  opacity: 1;
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+}
+
+.month-cell.is-today .month-cell-add {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.month-cell.is-today .month-cell-add:hover,
+.month-cell.is-today .month-cell-add:focus-visible {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+/* En mobile/tablet no hay hover, así que el + tiene que ser visible y
+   tocable siempre (PARTE 12/13 del pedido: nada de acciones que dependan
+   sólo de hover). El valor por defecto ya es visible (opacity 0.7, no 0),
+   este bloque sólo sube el tamaño táctil mínimo. */
+@media (max-width: 900px) {
+  .month-cell-add {
+    width: 20px;
+    height: 20px;
+    opacity: 0.85;
+  }
 }
 
 .month-cell-appts {
@@ -1593,19 +1787,9 @@ table tbody tr:hover {
   text-decoration: underline;
 }
 
-.month-cell-fill {
-  flex: 1;
-  min-height: 6px;
-  border-radius: 6px;
-}
-
-.month-cell-fill:hover {
-  background: var(--color-surface-sunken);
-}
-
 @media (max-width: 900px) {
   .month-cell {
-    min-height: 84px;
+    min-height: 76px;
     padding: 4px 3px 6px;
   }
 
@@ -2040,4 +2224,202 @@ table tbody tr:hover {
 
 .integration-card-action {
   margin-top: 4px;
+}
+
+/* =========================================================================
+   Recordatorios personales del profesional (PARTE 6-9 del pedido) —
+   /reminders y la tarjeta correspondiente en el Dashboard.
+   ========================================================================= */
+
+.reminder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reminder-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.reminder-row:last-child {
+  border-bottom: none;
+}
+
+.reminder-row-main {
+  min-width: 180px;
+  flex: 1;
+}
+
+.reminder-row-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.reminder-row-desc {
+  font-size: 13px;
+  white-space: pre-wrap;
+  margin-top: 2px;
+}
+
+.reminder-row-time {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.reminder-row.tone-overdue .reminder-row-time {
+  color: var(--color-danger, #c0392b);
+  font-weight: 600;
+}
+
+.reminder-row.tone-today .reminder-row-time {
+  color: var(--color-terracotta);
+  font-weight: 600;
+}
+
+.reminder-row.tone-done {
+  opacity: 0.65;
+}
+
+.reminder-row.tone-done .reminder-row-title {
+  text-decoration: line-through;
+}
+
+.reminder-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.reminder-row-actions form {
+  display: inline-flex;
+}
+
+.reminder-row-actions .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.reminder-postpone {
+  position: relative;
+}
+
+.reminder-postpone summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.reminder-postpone summary::-webkit-details-marker {
+  display: none;
+}
+
+.reminder-postpone-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  /* En desktop, el popover de "Posponer" se posiciona flotando sobre la
+     fila para no empujar el resto de la lista; en mobile (ver media query
+     más abajo) pasa a ser parte normal del flujo, tocable sin problema. */
+  position: absolute;
+  right: 0;
+  z-index: 5;
+  min-width: 220px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.reminder-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.reminder-row-editing {
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin: 4px 0;
+}
+
+@media (max-width: 640px) {
+  .reminder-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reminder-row-actions {
+    justify-content: flex-start;
+  }
+
+  .reminder-postpone-form {
+    position: static;
+    box-shadow: none;
+    width: 100%;
+  }
+}
+
+/* Tarjeta de Recordatorios en el Dashboard */
+.dashboard-reminder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard-reminder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.dashboard-reminder-row:last-child {
+  border-bottom: none;
+}
+
+.dashboard-reminder-link {
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  margin: -4px -6px;
+  padding: 4px 6px;
+}
+
+.dashboard-reminder-link:hover {
+  background: var(--color-surface-sunken);
+}
+
+.dashboard-reminder-link:focus-visible {
+  outline: 2px solid var(--color-terracotta);
+  outline-offset: 2px;
+}
+
+.dashboard-reminder-row.is-overdue .muted {
+  color: var(--color-danger, #c0392b);
+}
+
+.dashboard-reminder-row.is-today .muted {
+  color: var(--color-terracotta);
 }

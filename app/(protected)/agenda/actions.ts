@@ -7,6 +7,7 @@ import { requireTenant } from '@/lib/auth/require-user';
 import { sendAppointmentCreatedMessage } from '@/lib/whatsapp/send-appointment-created';
 import { createGoogleMeetForAppointment } from '@/lib/google/calendar';
 import { sendAppointmentConfirmationEmail } from '@/lib/email/send-appointment-created';
+import { assertNoOverlap, assertNotInPast } from '@/lib/appointments/scheduling';
 
 const MESSAGING_TZ = 'America/Argentina/Buenos_Aires';
 
@@ -82,9 +83,31 @@ export async function createAppointment(formData: FormData) {
   const start = new Date(startsAt);
   const end = new Date(endsAt);
   if (end <= start) redirect(`${returnTo}&error=La%20hora%20de%20fin%20debe%20ser%20posterior`);
-  if (start.getTime() < Date.now() - 60_000) redirect(`${returnTo}&error=No%20se%20pueden%20crear%20turnos%20en%20el%20pasado`);
+
+  // PARTE 3: turno en el pasado — validado server-side contra la hora real
+  // del servidor, nunca contra el input del browser.
+  try {
+    assertNotInPast(startsAt);
+  } catch (err) {
+    redirect(`${returnTo}&error=${encodeURIComponent(err instanceof Error ? err.message : 'Fecha inválida')}`);
+  }
 
   const service = await validateRelations(tenantId, parsed.data.patient_id, parsed.data.service_id);
+
+  // PARTE 2 (bug crítico): un profesional no puede tener dos turnos activos
+  // que se superpongan en horario. Validado server-side, por tenant +
+  // profesional, ignorando turnos cancelados.
+  try {
+    await assertNoOverlap(supabase, {
+      tenantId,
+      professionalId: user.id,
+      startsAtIso: startsAt,
+      endsAtIso: endsAt,
+    });
+  } catch (err) {
+    redirect(`${returnTo}&error=${encodeURIComponent(err instanceof Error ? err.message : 'No se pudo validar el horario')}`);
+  }
+
   const { data: created, error } = await supabase.from('appointments').insert({
     tenant_id: tenantId,
     patient_id: parsed.data.patient_id,
@@ -180,6 +203,24 @@ export async function createAppointment(formData: FormData) {
 
     // 6) Email de confirmación — aislado, nunca afecta al turno ya creado.
     if (patient) {
+      // El link público (Confirmar/Cancelar/Reprogramar) depende de la
+      // columna `public_token`, agregada en la migración
+      // 20260916140000_appointments_public_token.sql. Si esa migración
+      // todavía no se aplicó en esta base, este select falla — se aísla en
+      // su propio try/catch para que el email salga igual, sin los botones
+      // de acción, en vez de romper toda la creación del turno.
+      let publicToken: string | null = null;
+      try {
+        const { data: tokenRow } = await supabase
+          .from('appointments')
+          .select('public_token')
+          .eq('id', created.id)
+          .maybeSingle();
+        publicToken = (tokenRow as { public_token?: string } | null)?.public_token ?? null;
+      } catch {
+        publicToken = null;
+      }
+
       try {
         await sendAppointmentConfirmationEmail({
           supabase,
@@ -193,6 +234,7 @@ export async function createAppointment(formData: FormData) {
           timeLabel,
           modality: parsed.data.modality,
           meetingUrl,
+          publicToken,
         });
       } catch {
         // sendAppointmentConfirmationEmail ya no debería lanzar nunca; se
@@ -239,10 +281,33 @@ export async function updateAppointment(formData: FormData) {
   const endsAt = toMendozaIso(parsed.data.ends_at_local);
   if (new Date(endsAt) <= new Date(startsAt)) redirect(`${returnTo}&error=La%20hora%20de%20fin%20debe%20ser%20posterior`);
 
+  // PARTE 3: reprogramar a fecha/hora pasada tampoco está permitido.
+  try {
+    assertNotInPast(startsAt);
+  } catch (err) {
+    redirect(`${returnTo}&error=${encodeURIComponent(err instanceof Error ? err.message : 'Fecha inválida')}`);
+  }
+
   await validateRelations(tenantId, parsed.data.patient_id, parsed.data.service_id);
-  const { data: existing, error: existingError } = await supabase.from('appointments').select('id, status').eq('id', parsed.data.id).eq('tenant_id', tenantId).maybeSingle();
+  const { data: existing, error: existingError } = await supabase.from('appointments').select('id, status, professional_id').eq('id', parsed.data.id).eq('tenant_id', tenantId).maybeSingle();
   if (existingError || !existing) redirect(`${returnTo}&error=Turno%20no%20encontrado`);
   if (existing.status === 'cancelled' || existing.status === 'cancelado') redirect(`${returnTo}&error=No%20se%20puede%20editar%20un%20turno%20cancelado`);
+
+  // PARTE 2 (bug crítico): mismo chequeo de solapamiento que al crear,
+  // excluyendo el propio turno (para que editar sin cambiar horario no se
+  // detecte a sí mismo como conflicto) y usando el profesional dueño del
+  // turno (no se reasigna profesional desde este form).
+  try {
+    await assertNoOverlap(supabase, {
+      tenantId,
+      professionalId: existing.professional_id,
+      startsAtIso: startsAt,
+      endsAtIso: endsAt,
+      excludeAppointmentId: parsed.data.id,
+    });
+  } catch (err) {
+    redirect(`${returnTo}&error=${encodeURIComponent(err instanceof Error ? err.message : 'No se pudo validar el horario')}`);
+  }
 
   // NOTA (PARTE 4 del pedido, fase futura): si el turno es online y ya tiene
   // external_calendar_event_id, acá es donde correspondería llamar a

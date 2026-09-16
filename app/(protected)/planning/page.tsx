@@ -72,7 +72,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: Pro
         </form>
       </div>
 
-      <div className="card">
+      <div className="card" id="lista-de-espera">
         <h2>Lista de espera</h2>
         {(waitlist ?? []).length === 0 ? <EmptyState title="No hay pacientes en espera" description="Los que agregues arriba van a aparecer acá." /> : (
           <div style={{ overflowX: 'auto' }}><table className="table"><thead><tr><th>Paciente</th><th>Servicio</th><th>Preferencias</th><th>Notas</th><th>Estado</th><th>Acción</th></tr></thead><tbody>

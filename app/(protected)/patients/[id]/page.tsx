@@ -18,6 +18,11 @@ type TimelineItem = {
   type: 'Turno' | 'Pago' | 'Seguimiento' | 'Ficha';
   title: string;
   detail?: string;
+  /** A dónde navega la fila al hacer click — siempre dentro del paciente
+      actual (tab de esta misma página) o, para Turno, al turno concreto en
+      Agenda. Nunca se pierde patient_id ni se muestra info de otro
+      paciente. */
+  href: string;
 };
 
 function isCancelled(status: string | null) {
@@ -26,6 +31,10 @@ function isCancelled(status: string | null) {
 
 function formatDateTime(iso: string) {
   return new Intl.DateTimeFormat('es-AR', { timeZone: TZ, dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso));
+}
+
+function dateKeyInTz(iso: string) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
 }
 
 const TIMELINE_TYPE_CLASS: Record<TimelineItem['type'], string> = {
@@ -113,6 +122,8 @@ export default async function PatientDetailPage({
       type: 'Turno' as const,
       title: `${item.services?.name ?? 'Servicio'} · ${statusLabel(item.status)}`,
       detail: `${modalityLabel(item.modality)}${item.quoted_amount != null ? ` · ${item.currency} ${item.quoted_amount}` : ''}`,
+      // Turno concreto en Agenda — nunca la agenda general.
+      href: `/agenda?view=day&date=${dateKeyInTz(item.starts_at)}&edit=${item.id}#turno-drawer`,
     })),
     ...payments.map((item: any) => ({
       id: `payment-${item.id}`,
@@ -120,6 +131,9 @@ export default async function PatientDetailPage({
       type: 'Pago' as const,
       title: `${item.currency} ${item.amount}`,
       detail: paymentMethodLabel(item.method),
+      // No hay todavía una vista de detalle de un pago individual — se
+      // lleva a Pagos y caja, la sección donde se gestionan.
+      href: '/payments',
     })),
     ...followUps.map((item: any) => ({
       id: `followup-${item.id}`,
@@ -127,6 +141,10 @@ export default async function PatientDetailPage({
       type: 'Seguimiento' as const,
       title: item.appointment_id ? 'Nota de sesión' : 'Seguimiento',
       detail: item.content,
+      // Nota de sesión → tab Sesiones; seguimiento general → tab
+      // Seguimientos. Ambos, del mismo paciente (misma página, sólo cambia
+      // el tab vía hash).
+      href: item.appointment_id ? '#sesiones' : '#seguimientos',
     })),
     ...(record ? [{
       id: `record-${record.id}`,
@@ -134,6 +152,7 @@ export default async function PatientDetailPage({
       type: 'Ficha' as const,
       title: 'Ficha del paciente actualizada',
       detail: record.reason || record.follow_up || record.notes || record.plan || undefined,
+      href: '#clinica',
     }] : []),
   ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
@@ -319,14 +338,15 @@ export default async function PatientDetailPage({
             ) : (
               <div>
                 {timeline.map((item) => (
-                  <div key={item.id} className="timeline-item">
+                  <Link key={item.id} href={item.href} className="timeline-item timeline-item-link">
                     <div className={`timeline-marker ${TIMELINE_TYPE_CLASS[item.type]}`} />
                     <div className="timeline-body">
                       <small className="muted">{formatDateTime(item.at)} · {item.type}</small>
                       <p style={{ marginBottom: item.detail ? 4 : 0, marginTop: 2 }}><strong>{item.title}</strong></p>
                       {item.detail ? <p style={{ whiteSpace: 'pre-wrap', marginTop: 0, fontSize: 14 }}>{item.detail}</p> : null}
                     </div>
-                  </div>
+                    <span className="timeline-item-chevron" aria-hidden="true">›</span>
+                  </Link>
                 ))}
               </div>
             )}

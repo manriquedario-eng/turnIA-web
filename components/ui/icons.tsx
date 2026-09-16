@@ -143,6 +143,23 @@ export function IconMail({ size = 16 }: IconProps) {
   );
 }
 
+export function IconBell({ size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" {...base}>
+      <path d="M5 8.5a5 5 0 0 1 10 0c0 3 1 4 1.5 4.7H3.5C4 12.5 5 11.5 5 8.5Z" />
+      <path d="M8.3 16a1.8 1.8 0 0 0 3.4 0" />
+    </svg>
+  );
+}
+
+export function IconCheck({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" {...base}>
+      <path d="M4 10.5 8 14.5 16 5.5" />
+    </svg>
+  );
+}
+
 export function IconLogout({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" {...base}>

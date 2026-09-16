@@ -36,6 +36,11 @@ export type SendAppointmentConfirmationEmailInput = {
   timeLabel: string;
   modality: 'presencial' | 'domicilio' | 'online';
   meetingUrl: string | null;
+  /** Token público del turno (columna `appointments.public_token`), para
+      armar los links de Confirmar/Cancelar/Reprogramar. `null` cuando la
+      migración que agrega esa columna todavía no corrió — en ese caso el
+      email sale igual, simplemente sin esos tres botones. */
+  publicToken?: string | null;
 };
 
 export type SendAppointmentConfirmationEmailResult =
@@ -58,6 +63,19 @@ function modalityLabel(modality: SendAppointmentConfirmationEmailInput['modality
   return 'Presencial';
 }
 
+// Base pública para armar los links de Confirmar/Cancelar/Reprogramar
+// (/t/[token]). Nueva variable de entorno de esta pasada — server-side,
+// nunca hardcodeada:
+//   APP_URL   ej. "https://turnia.app" (sin barra final)
+// Si no está configurada, se cae a VERCEL_URL (la provee Vercel solo, sin
+// que Dario tenga que cargar nada — pero apunta al deploy, no a un dominio
+// propio) y, en desarrollo local, a localhost:3000.
+function publicAppUrl(): string {
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return 'http://localhost:3000';
+}
+
 /**
  * Compone el asunto/html/texto del email. Deliberadamente minimalista (sin
  * diseñador visual): preparado para branding de TurnIA sin bloquear esta
@@ -71,15 +89,17 @@ function buildAppointmentConfirmationEmail(input: {
   timeLabel: string;
   modality: SendAppointmentConfirmationEmailInput['modality'];
   meetingUrl: string | null;
+  publicToken: string | null;
 }) {
-  const subject = 'Confirmación de tu turno';
+  const subject = `Turno con ${input.professionalName} — ${input.dateLabel}`;
   const modalityText = modalityLabel(input.modality);
   const isOnline = input.modality === 'online' && Boolean(input.meetingUrl);
+  const publicUrl = input.publicToken ? `${publicAppUrl()}/t/${input.publicToken}` : null;
 
   const lines = [
     `Hola ${input.patientName},`,
     '',
-    `Tu turno con ${input.professionalName} quedó confirmado.`,
+    `Tu turno con ${input.professionalName} quedó agendado.`,
     '',
     `Fecha: ${input.dateLabel}`,
     `Hora: ${input.timeLabel}`,
@@ -88,25 +108,51 @@ function buildAppointmentConfirmationEmail(input: {
   if (isOnline && input.meetingUrl) {
     lines.push('', `Ingresá a la videollamada: ${input.meetingUrl}`);
   }
+  if (publicUrl) {
+    lines.push('', `Confirmar, cancelar o solicitar otro horario: ${publicUrl}`);
+  }
   lines.push('', 'Este es un mensaje automático de TurnIA.');
   const text = lines.join('\n');
 
   const meetingBlock = isOnline && input.meetingUrl
-    ? `<p style="margin:24px 0;"><a href="${escapeHtml(input.meetingUrl)}" style="background:#111827;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;display:inline-block;">Ingresar a la videollamada</a></p>`
+    ? `<p style="margin:24px 0;"><a href="${escapeHtml(input.meetingUrl)}" style="background:#111827;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;display:inline-block;">Unirse a Google Meet</a></p>`
+    : '';
+
+  // Confirmar / Reprogramar / Cancelar (PARTE 15/18-20 del pedido) — sólo
+  // se incluyen si tenemos un `public_token` (la migración que lo agrega
+  // podría no estar aplicada todavía). Cancelar apunta a la página pública
+  // con confirmación previa, nunca cancela directo por abrir el link.
+  const actionsBlock = publicUrl
+    ? `
+      <table style="width:100%;border-collapse:collapse;margin:24px 0;">
+        <tr>
+          <td style="padding:4px;">
+            <a href="${escapeHtml(publicUrl)}" style="display:block;text-align:center;background:#111827;color:#ffffff;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Confirmar turno</a>
+          </td>
+          <td style="padding:4px;">
+            <a href="${escapeHtml(publicUrl)}?action=reschedule" style="display:block;text-align:center;background:#f3f4f6;color:#111827;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Reprogramar</a>
+          </td>
+          <td style="padding:4px;">
+            <a href="${escapeHtml(publicUrl)}?action=cancel" style="display:block;text-align:center;background:#f3f4f6;color:#b91c1c;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Cancelar</a>
+          </td>
+        </tr>
+      </table>
+    `
     : '';
 
   const html = `
     <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px;margin:0 auto;color:#111827;">
       <p style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;margin-bottom:24px;">TurnIA</p>
-      <h1 style="font-size:20px;margin:0 0 16px;">Confirmación de tu turno</h1>
+      <h1 style="font-size:20px;margin:0 0 16px;">Tu turno quedó agendado</h1>
       <p>Hola ${escapeHtml(input.patientName)},</p>
-      <p>Tu turno con <strong>${escapeHtml(input.professionalName)}</strong> quedó confirmado.</p>
+      <p>Tu turno con <strong>${escapeHtml(input.professionalName)}</strong> quedó agendado.</p>
       <table style="width:100%;border-collapse:collapse;margin:16px 0;">
         <tr><td style="padding:6px 0;color:#6b7280;">Fecha</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(input.dateLabel)}</td></tr>
         <tr><td style="padding:6px 0;color:#6b7280;">Hora</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(input.timeLabel)}</td></tr>
         <tr><td style="padding:6px 0;color:#6b7280;">Modalidad</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(modalityText)}</td></tr>
       </table>
       ${meetingBlock}
+      ${actionsBlock}
       <p style="font-size:12px;color:#9ca3af;margin-top:32px;">Este es un mensaje automático de TurnIA.</p>
     </div>
   `.trim();
@@ -135,6 +181,7 @@ export async function sendAppointmentConfirmationEmail(
     timeLabel: input.timeLabel,
     modality: input.modality,
     meetingUrl: input.meetingUrl,
+    publicToken: input.publicToken ?? null,
   });
 
   try {

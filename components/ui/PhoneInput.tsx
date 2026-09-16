@@ -83,7 +83,20 @@ export function PhoneInput({
     // pone min-width:0 acá explícitamente, además de en la clase
     // .phone-field (globals.css).
     <div className="phone-field" style={{ display: 'grid', gap: 6, minWidth: 0, width: '100%' }}>
-      <label htmlFor={`${name}-field`} style={{ display: 'block' }}>{label}</label>
+      {/* Mismas dos "filas" que cualquier otro <label> del form-grid (texto +
+          input) — "Editar prefijo" va EN la fila del texto, no debajo del
+          input, para que Teléfono termine exactamente a la misma altura que
+          Nombre/Email/DNI y no empuje nada hacia abajo. */}
+      <div className="phone-field-label-row">
+        <label htmlFor={`${name}-field`}>{label}</label>
+        <button
+          type="button"
+          className="phone-input-prefix-toggle"
+          onClick={() => setEditingPrefix((v) => !v)}
+        >
+          {editingPrefix ? 'Listo' : 'Editar prefijo'}
+        </button>
+      </div>
       <div className="phone-input">
         {editingPrefix ? (
           <select
@@ -110,13 +123,6 @@ export function PhoneInput({
           maxLength={40}
         />
       </div>
-      <button
-        type="button"
-        className="phone-input-prefix-toggle"
-        onClick={() => setEditingPrefix((v) => !v)}
-      >
-        {editingPrefix ? 'Listo' : 'Editar prefijo'}
-      </button>
       <input type="hidden" name={name} value={combined} />
       <input type="hidden" name={`${name}_country_prefix`} value={prefix} />
     </div>

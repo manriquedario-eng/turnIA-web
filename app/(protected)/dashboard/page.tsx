@@ -4,6 +4,15 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { statusLabel, modalityLabel } from '@/lib/labels';
 import { resolveDisplayName } from '@/lib/identity';
+import { setReminderStatus } from '@/app/(protected)/reminders/actions';
+import { IconCheck } from '@/components/ui/icons';
+
+// PARTE 5 del pedido: todo bloque del Dashboard que representa un recurso
+// existente (turno, paciente, pago pendiente, lista de espera, aviso) debe
+// ser accionable — nunca texto muerto con apariencia de botón/aviso.
+function appointmentHref(today: string, appointmentId: string) {
+  return `/agenda?view=day&date=${today}&edit=${appointmentId}#turno-drawer`;
+}
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -26,6 +35,17 @@ function formatTime(iso: string) {
     timeZone: TZ,
     hour: '2-digit', minute: '2-digit',
   }).format(new Date(iso));
+}
+
+function dateKeyInTz(iso: string) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date(iso));
+}
+
+function formatReminderDateTime(iso: string) {
+  return new Intl.DateTimeFormat('es-AR', { timeZone: TZ, dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso));
 }
 
 function isCancelled(status: string | null) {
@@ -58,6 +78,7 @@ export default async function DashboardPage() {
     paymentsResult,
     cashResult,
     waitlistResult,
+    remindersResult,
   ] = await Promise.all([
     supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
     supabase
@@ -86,6 +107,18 @@ export default async function DashboardPage() {
       .eq('status', 'waiting')
       .order('created_at', { ascending: true })
       .limit(5),
+    // PARTE 7-8 del pedido: recordatorios personales del profesional,
+    // sólo los propios (filtro explícito además de la RLS — ver
+    // reminders/actions.ts). Sólo pendientes acá; "realizados" vive en
+    // /reminders.
+    supabase
+      .from('professional_reminders')
+      .select('id, title, description, remind_at, status')
+      .eq('tenant_id', tenantId)
+      .eq('professional_id', user.id)
+      .eq('status', 'pending')
+      .order('remind_at', { ascending: true })
+      .limit(20),
   ]);
 
   const appointments = appointmentsResult.data ?? [];
@@ -135,18 +168,49 @@ export default async function DashboardPage() {
 
   const displayName = resolveDisplayName(profileResult.data?.display_name, user.email);
 
-  const opportunities: string[] = [];
+  // Si la migración de professional_reminders todavía no se aplicó en esta
+  // base, remindersResult.error viene seteado (tabla inexistente) — se trata
+  // como "sin recordatorios todavía" en vez de romper el Dashboard entero.
+  const reminders = (remindersResult.error ? [] : remindersResult.data ?? []) as {
+    id: string;
+    title: string;
+    description: string | null;
+    remind_at: string;
+    status: string;
+  }[];
+  const reminderOverdue = reminders.filter((r) => new Date(r.remind_at).getTime() < now.getTime());
+  const reminderToday = reminders.filter((r) => new Date(r.remind_at).getTime() >= now.getTime() && dateKeyInTz(r.remind_at) === today);
+  const reminderUpcoming = reminders.filter((r) => new Date(r.remind_at).getTime() >= now.getTime() && dateKeyInTz(r.remind_at) !== today);
+  const remindersToShow = [...reminderOverdue, ...reminderToday, ...reminderUpcoming].slice(0, 5);
+
+  // PARTE 5: cada aviso de "Pendientes y oportunidades" referencia un
+  // recurso real (turnos cancelados de hoy, cobros pendientes, lista de
+  // espera) — así que cada uno lleva a la sección correspondiente en vez de
+  // ser texto suelto.
+  const opportunities: { text: string; href: string }[] = [];
   if (cancelledAppointments.length > 0) {
-    opportunities.push(`${cancelledAppointments.length} turno${cancelledAppointments.length === 1 ? '' : 's'} cancelado${cancelledAppointments.length === 1 ? '' : 's'} hoy: podés ofrecer ese horario a alguien en lista de espera.`);
+    opportunities.push({
+      text: `${cancelledAppointments.length} turno${cancelledAppointments.length === 1 ? '' : 's'} cancelado${cancelledAppointments.length === 1 ? '' : 's'} hoy: podés ofrecer ese horario a alguien en lista de espera.`,
+      href: '/planning#lista-de-espera',
+    });
   }
   if (pendingToday > 0) {
-    opportunities.push(`Tenés $${pendingToday.toLocaleString('es-AR')} pendiente de cobro por los turnos de hoy.`);
+    opportunities.push({
+      text: `Tenés $${pendingToday.toLocaleString('es-AR')} pendiente de cobro por los turnos de hoy.`,
+      href: '/payments',
+    });
   }
   if (waitlist.length > 0) {
-    opportunities.push(`${waitlist.length} paciente${waitlist.length === 1 ? '' : 's'} esperando disponibilidad.`);
+    opportunities.push({
+      text: `${waitlist.length} paciente${waitlist.length === 1 ? '' : 's'} esperando disponibilidad.`,
+      href: '/planning#lista-de-espera',
+    });
   }
   if (appointments.length === 0) {
-    opportunities.push('No tenés turnos cargados para hoy. Podés crear uno o revisar la lista de espera.');
+    opportunities.push({
+      text: 'No tenés turnos cargados para hoy. Podés crear uno o revisar la lista de espera.',
+      href: `/agenda?view=day&date=${today}&new=1#turno-drawer`,
+    });
   }
 
   return (
@@ -162,6 +226,7 @@ export default async function DashboardPage() {
           <Link className="btn" href={`/agenda?view=day&date=${today}`}>Nuevo turno</Link>
           <Link className="btn-ghost" href="/patients">Nuevo paciente</Link>
           <Link className="btn-ghost" href="/payments">Registrar cobro</Link>
+          <Link className="btn-ghost" href="/reminders">Nuevo recordatorio</Link>
           <Link className="btn-ghost" href={`/agenda?view=day&date=${today}`}>Ver agenda</Link>
         </div>
       </div>
@@ -202,9 +267,9 @@ export default async function DashboardPage() {
               {appointments.map((appointment: any) => {
                 const cancelled = isCancelled(appointment.status);
                 const isNext = nextAppointment?.id === appointment.id;
-                const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : ''].filter(Boolean).join(' ');
-                return (
-                  <div key={appointment.id} className={cardClass}>
+                const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : '', !cancelled ? 'appointment-card-link' : ''].filter(Boolean).join(' ');
+                const inner = (
+                  <>
                     <div className="appointment-main">
                       <div className="appointment-time">{formatTime(appointment.starts_at)}</div>
                       <div>
@@ -220,13 +285,18 @@ export default async function DashboardPage() {
                         {appointment.quoted_amount != null ? `${appointment.currency ?? 'ARS'} ${Number(appointment.quoted_amount).toLocaleString('es-AR')}` : '—'}
                       </span>
                       <StatusBadge status={appointment.status} label={statusLabel(appointment.status)} />
-                      {!cancelled ? (
-                        <Link href={`/agenda?view=day&date=${today}&edit=${appointment.id}`} className="btn-ghost" style={{ fontSize: 13 }}>
-                          Editar
-                        </Link>
-                      ) : null}
+                      {!cancelled ? <span className="timeline-item-chevron" aria-hidden="true">›</span> : null}
                     </div>
-                  </div>
+                  </>
+                );
+                // Turno no cancelado → toda la fila es un link a la agenda (editar
+                // ese turno concreto). Cancelado → sin acción (no se puede editar).
+                return cancelled ? (
+                  <div key={appointment.id} className={cardClass}>{inner}</div>
+                ) : (
+                  <Link key={appointment.id} href={appointmentHref(today, appointment.id)} className={cardClass}>
+                    {inner}
+                  </Link>
                 );
               })}
             </div>
@@ -237,14 +307,19 @@ export default async function DashboardPage() {
           <div className="card">
             <h2 style={{ marginTop: 0 }}>Próximo paciente</h2>
             {nextAppointment ? (
-              <div className="stack" style={{ gap: 4 }}>
-                <strong style={{ fontSize: 20 }}>{formatTime(nextAppointment.starts_at)}</strong>
-                <div style={{ fontWeight: 600 }}>{(nextAppointment as any).patients?.name ?? 'Sin paciente'}</div>
-                <div className="muted" style={{ fontSize: 13 }}>
-                  {(nextAppointment as any).services?.name ?? 'Sin servicio'} · {modalityLabel(nextAppointment.modality)}
+              <Link href={appointmentHref(today, nextAppointment.id)} className="dashboard-next-link">
+                <div className="stack" style={{ gap: 4 }}>
+                  <strong style={{ fontSize: 20 }}>{formatTime(nextAppointment.starts_at)}</strong>
+                  <div style={{ fontWeight: 600 }}>{(nextAppointment as any).patients?.name ?? 'Sin paciente'}</div>
+                  <div className="muted" style={{ fontSize: 13 }}>
+                    {(nextAppointment as any).services?.name ?? 'Sin servicio'} · {modalityLabel(nextAppointment.modality)}
+                  </div>
+                  <div className="nav" style={{ justifyContent: 'space-between' }}>
+                    <StatusBadge status={nextAppointment.status} label={statusLabel(nextAppointment.status)} />
+                    <span className="timeline-item-chevron" aria-hidden="true">›</span>
+                  </div>
                 </div>
-                <StatusBadge status={nextAppointment.status} label={statusLabel(nextAppointment.status)} />
-              </div>
+              </Link>
             ) : (
               <EmptyState title="No hay más turnos hoy" description="Ya pasaron todos los turnos activos del día." />
             )}
@@ -260,19 +335,66 @@ export default async function DashboardPage() {
             ) : (
               <div className="stack" style={{ gap: 10 }}>
                 {waitlist.map((entry) => (
-                  <div key={entry.id} style={{ paddingBottom: 8, borderBottom: '1px solid var(--color-border-soft)' }}>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>
-                      {waitlistPatientMap.get(entry.patient_id) ?? 'Paciente no disponible'}
+                  <Link
+                    key={entry.id}
+                    href="/planning#lista-de-espera"
+                    className="dashboard-waitlist-row"
+                    style={{ paddingBottom: 8, borderBottom: '1px solid var(--color-border-soft)' }}
+                    aria-label={`Ver en lista de espera: ${waitlistPatientMap.get(entry.patient_id) ?? 'Paciente no disponible'}`}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>
+                        {waitlistPatientMap.get(entry.patient_id) ?? 'Paciente no disponible'}
+                      </div>
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        {entry.service_id ? waitlistServiceMap.get(entry.service_id) ?? 'Servicio no disponible' : 'Cualquier servicio'}
+                        {entry.preferred_day || entry.preferred_time
+                          ? ` · ${[entry.preferred_day, entry.preferred_time].filter(Boolean).join(' ')}`
+                          : ''}
+                      </div>
                     </div>
-                    <div className="muted" style={{ fontSize: 12 }}>
-                      {entry.service_id ? waitlistServiceMap.get(entry.service_id) ?? 'Servicio no disponible' : 'Cualquier servicio'}
-                      {entry.preferred_day || entry.preferred_time
-                        ? ` · ${[entry.preferred_day, entry.preferred_time].filter(Boolean).join(' ')}`
-                        : ''}
-                    </div>
-                  </div>
+                    <span className="timeline-item-chevron" aria-hidden="true">›</span>
+                  </Link>
                 ))}
               </div>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="nav" style={{ justifyContent: 'space-between' }}>
+              <h2 style={{ marginTop: 0 }}>Recordatorios</h2>
+              <Link className="muted" style={{ fontSize: 12 }} href="/reminders">Ver todos →</Link>
+            </div>
+            {remindersToShow.length === 0 ? (
+              <EmptyState title="Sin recordatorios pendientes" description="Tu agenda personal — llamadas, trámites, lo que necesites no olvidar." />
+            ) : (
+              <ul className="dashboard-reminder-list">
+                {remindersToShow.map((reminder) => {
+                  const overdue = new Date(reminder.remind_at).getTime() < now.getTime();
+                  const isToday = dateKeyInTz(reminder.remind_at) === today;
+                  return (
+                    <li key={reminder.id} className={`dashboard-reminder-row ${overdue ? 'is-overdue' : isToday ? 'is-today' : ''}`}>
+                      <Link href={`/reminders?edit=${reminder.id}`} className="dashboard-reminder-link">
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>{reminder.title}</div>
+                          <div className="muted" style={{ fontSize: 12 }}>
+                            {overdue ? 'Vencido · ' : isToday ? 'Hoy · ' : ''}
+                            {formatReminderDateTime(reminder.remind_at)}
+                          </div>
+                        </div>
+                      </Link>
+                      <form action={setReminderStatus}>
+                        <input type="hidden" name="id" value={reminder.id} />
+                        <input type="hidden" name="status" value="done" />
+                        <input type="hidden" name="return_to" value="/dashboard" />
+                        <button className="btn-ghost" type="submit" aria-label="Marcar como realizado" title="Marcar como realizado">
+                          <IconCheck size={14} />
+                        </button>
+                      </form>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
         </div>
@@ -283,9 +405,14 @@ export default async function DashboardPage() {
         {opportunities.length === 0 ? (
           <p className="muted">Sin pendientes detectados para hoy. Buen trabajo.</p>
         ) : (
-          <ul style={{ margin: 0, paddingLeft: 20 }}>
-            {opportunities.map((text) => (
-              <li key={text} style={{ marginBottom: 6 }}>{text}</li>
+          <ul className="dashboard-opportunities" style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
+            {opportunities.map((item) => (
+              <li key={item.text}>
+                <Link href={item.href} className="dashboard-opportunity-link">
+                  <span>{item.text}</span>
+                  <span className="timeline-item-chevron" aria-hidden="true">›</span>
+                </Link>
+              </li>
             ))}
           </ul>
         )}

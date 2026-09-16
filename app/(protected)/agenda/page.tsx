@@ -326,13 +326,21 @@ export default async function AgendaPage({
                     key={cellDate}
                     className={['month-cell', isOtherMonth ? 'is-other-month' : '', isToday ? 'is-today' : ''].filter(Boolean).join(' ')}
                   >
-                    <Link
-                      href={`${returnTo}&new=1&slot=${cellDate}#turno-drawer`}
-                      className="month-cell-daynum"
-                      aria-label={`Crear turno el ${cellDate}`}
-                    >
-                      {dayNumber}
-                    </Link>
+                    <div className="month-cell-head">
+                      <span className="month-cell-daynum">{dayNumber}</span>
+                      {/* PARTE 1: acción + discreta en CADA celda del mes, igual que en
+                          Semana (.week-col-add) — funciona haya o no turnos ese día, y
+                          no se confunde con el número del día (que ahora es texto plano,
+                          ya no un link). Abre "Nuevo turno" con la fecha de la celda
+                          precargada vía ?slot=, mismo mecanismo que ya usa Semana. */}
+                      <Link
+                        href={`${returnTo}&new=1&slot=${cellDate}#turno-drawer`}
+                        className="month-cell-add"
+                        aria-label={`Crear turno el ${cellDate}`}
+                      >
+                        <IconPlus size={12} />
+                      </Link>
+                    </div>
                     <div className="month-cell-appts">
                       {visible.map((a) => {
                         const isOnline = a.modality === 'online' && !isCancelled(a.status);
@@ -366,13 +374,6 @@ export default async function AgendaPage({
                         </Link>
                       ) : null}
                     </div>
-                    <Link
-                      href={`${returnTo}&new=1&slot=${cellDate}#turno-drawer`}
-                      className="month-cell-fill"
-                      aria-label={`Crear turno el ${cellDate}`}
-                    >
-                      {' '}
-                    </Link>
                   </div>
                 );
               })}

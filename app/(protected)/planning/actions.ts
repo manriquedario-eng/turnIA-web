@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
+import { assertNoOverlap, assertNotInPast } from '@/lib/appointments/scheduling';
 
 const localDateTime = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 
@@ -66,7 +67,12 @@ export async function createRecurringAppointments(formData: FormData) {
   const startsAt = toMendozaIso(parsed.data.starts_at_local);
   const endsAt = toMendozaIso(parsed.data.ends_at_local);
   if (new Date(endsAt) <= new Date(startsAt)) redirect('/planning?error=La%20hora%20de%20fin%20debe%20ser%20posterior');
-  if (new Date(startsAt).getTime() < Date.now() - 60_000) redirect('/planning?error=La%20primera%20fecha%20debe%20ser%20futura');
+
+  try {
+    assertNotInPast(startsAt);
+  } catch (err) {
+    redirect(`/planning?error=${encodeURIComponent(err instanceof Error ? err.message : 'La primera fecha debe ser futura')}`);
+  }
 
   const service = await validatePatientAndService(tenantId, parsed.data.patient_id, parsed.data.service_id);
   const durationMs = new Date(endsAt).getTime() - new Date(startsAt).getTime();
@@ -87,6 +93,32 @@ export async function createRecurringAppointments(formData: FormData) {
       professional_id: user.id,
     };
   });
+
+  // PARTE 2 (bug crítico), extendido a turnos recurrentes: cada ocurrencia
+  // se valida contra turnos activos existentes Y contra las ocurrencias
+  // anteriores de esta misma serie (para no crear una serie que se
+  // superpone consigo misma, p. ej. una frecuencia mal elegida con una
+  // duración larga). Se valida TODA la serie antes de insertar nada — o se
+  // crea completa, o no se crea ninguna ocurrencia.
+  for (let i = 0; i < rows.length; i += 1) {
+    const candidate = rows[i];
+    try {
+      assertNotInPast(candidate.starts_at);
+      await assertNoOverlap(supabase, {
+        tenantId,
+        professionalId: user.id,
+        startsAtIso: candidate.starts_at,
+        endsAtIso: candidate.ends_at,
+      });
+    } catch (err) {
+      const baseMessage = err instanceof Error ? err.message : 'No se pudo validar el horario';
+      redirect(`/planning?error=${encodeURIComponent(`Turno ${i + 1} de ${rows.length}: ${baseMessage}`)}`);
+    }
+    const overlapsEarlierOccurrence = rows.slice(0, i).some((other) => other.starts_at < candidate.ends_at && other.ends_at > candidate.starts_at);
+    if (overlapsEarlierOccurrence) {
+      redirect(`/planning?error=${encodeURIComponent(`Turno ${i + 1} de ${rows.length} se superpone con otra ocurrencia de la misma serie.`)}`);
+    }
+  }
 
   const { error } = await supabase.from('appointments').insert(rows);
   if (error) redirect(`/planning?error=${encodeURIComponent(error.message)}`);
