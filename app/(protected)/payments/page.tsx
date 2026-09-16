@@ -49,8 +49,9 @@ export default async function PaymentsPage({
         </div>
         <SimpleExportMenu
           links={[
-            { format: 'xlsx', href: '/api/export/payments?format=xlsx' },
             { format: 'pdf', href: '/api/export/payments?format=pdf' },
+            { format: 'docx', href: '/api/export/payments?format=docx' },
+            { format: 'xlsx', href: '/api/export/payments?format=xlsx' },
           ]}
         />
       </div>

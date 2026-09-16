@@ -278,8 +278,9 @@ export default async function AgendaPage({
           <SimpleExportMenu
             buttonLabel="Exportar agenda"
             links={[
-              { format: 'xlsx', href: `/api/export/agenda?view=${view}&date=${date}&format=xlsx` },
               { format: 'pdf', href: `/api/export/agenda?view=${view}&date=${date}&format=pdf` },
+              { format: 'docx', href: `/api/export/agenda?view=${view}&date=${date}&format=docx` },
+              { format: 'xlsx', href: `/api/export/agenda?view=${view}&date=${date}&format=xlsx` },
             ]}
           />
           <Link className="btn-ghost" href="/planning">Recurrentes y lista de espera</Link>

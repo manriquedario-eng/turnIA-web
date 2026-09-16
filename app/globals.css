@@ -2439,11 +2439,6 @@ table tbody tr:hover {
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  list-style: none;
-}
-
-.export-menu-trigger::-webkit-details-marker {
-  display: none;
 }
 
 .export-menu-caret {
@@ -2451,12 +2446,20 @@ table tbody tr:hover {
   color: var(--color-ink-faint);
 }
 
+/* El panel ya NO es descendiente del botón en el DOM: se renderiza vía
+   portal a document.body (components/export/ExportMenu.tsx) para no
+   quedar nunca recortado por un ancestro con overflow/stacking context
+   propio (p. ej. el card con overflow:hidden de patients/[id]). Por eso
+   acá sólo van estilos visuales — la posición (position:fixed +
+   top/left/right/bottom) la calcula JS por instancia y se aplica inline.
+   max-height + overflow-y son el "min(70vh, ...) con scroll interno"
+   pedido explícitamente, para cuando hay muchas opciones o poca altura de
+   pantalla; JS además recorta ese máximo al espacio real disponible. */
 .export-menu-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 20;
+  z-index: 1000;
   min-width: 260px;
+  max-height: min(70vh, 420px);
+  overflow-y: auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -2524,15 +2527,13 @@ table tbody tr:hover {
   background: var(--color-surface-sunken);
 }
 
-/* Mobile: el popover flotante puede salirse de pantalla — pasa a ocupar el
-   ancho disponible, anclado bajo el botón, sin depender de hover (ya son
-   <a>/<summary>, tocables desde el vamos). */
+/* Mobile: el ancho/posición del panel ya lo calcula JS (inline style, ver
+   ExportMenu.tsx) — acá sólo queda el ajuste puramente visual de las filas
+   con sección (ExportMenu), que en una columna angosta se leen mejor
+   apiladas que en una fila con las tres siglas de formato apretadas. */
 @media (max-width: 640px) {
   .export-menu-panel {
-    left: 0;
-    right: 0;
     min-width: 0;
-    width: 100%;
   }
 
   .export-menu-row {

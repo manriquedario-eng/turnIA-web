@@ -3,75 +3,19 @@
 // LibreOffice y Word Online. Usa el paquete `docx` (genera OOXML real, no
 // HTML renombrado).
 
-import {
-  Document,
-  HeadingLevel,
-  Packer,
-  Paragraph,
-  ShadingType,
-  Table,
-  TableCell,
-  TableRow,
-  TextRun,
-  WidthType,
-} from 'docx';
+import type { Paragraph, Table } from 'docx';
 import type { PatientExportData, PatientExportSection } from '../types';
 import { formatExportCurrency, formatExportDate, formatExportDateTime, textOrDash, textOrEmptyNote } from '../format';
 import { modalityLabel, statusLabel, paymentMethodLabel } from '@/lib/labels';
-
-const HEADER_SHADING = { type: ShadingType.SOLID, color: 'EFE7DE', fill: 'EFE7DE' };
-
-function headerCell(text: string) {
-  return new TableCell({
-    shading: HEADER_SHADING,
-    children: [new Paragraph({ children: [new TextRun({ text, bold: true, size: 20 })] })],
-  });
-}
-
-function bodyCell(text: string) {
-  return new TableCell({ children: [new Paragraph({ children: [new TextRun({ text, size: 20 })] })] });
-}
-
-function simpleTable(headers: string[], rows: string[][]) {
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [
-      new TableRow({ children: headers.map(headerCell), tableHeader: true }),
-      ...rows.map((row) => new TableRow({ children: row.map(bodyCell) })),
-    ],
-  });
-}
+import { buildDocHeader, emptyNote, packDocument, sectionHeading, simpleTable } from './shared';
+import { Paragraph as DocxParagraph, TextRun } from 'docx';
 
 export async function buildPatientDocx(data: PatientExportData, sections: Set<PatientExportSection>): Promise<Buffer> {
   const wantsAll = sections.has('full');
-  const children: (Paragraph | Table)[] = [];
-
-  children.push(
-    new Paragraph({ text: 'TurnIA', heading: HeadingLevel.HEADING_3, spacing: { after: 40 } }),
-    new Paragraph({
-      children: [new TextRun({ text: `Ficha de ${data.patient.name}`, bold: true, size: 32 })],
-      spacing: { after: 80 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: [data.professional.displayName, data.professional.profession, data.professional.licenseNumber ? `Mat. ${data.professional.licenseNumber}` : null]
-            .filter(Boolean)
-            .join(' · '),
-          size: 18,
-          color: '6B6157',
-        }),
-      ],
-      spacing: { after: 40 },
-    }),
-    new Paragraph({
-      children: [new TextRun({ text: `Generado el ${formatExportDateTime(data.generatedAt)}`, size: 16, color: '928A7E' })],
-      spacing: { after: 200 },
-    }),
-  );
+  const children: (Paragraph | Table)[] = buildDocHeader(`Ficha de ${data.patient.name}`, data.professional, data.generatedAt);
 
   if (wantsAll || sections.has('data')) {
-    children.push(new Paragraph({ text: 'Datos del paciente', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 100 } }));
+    children.push(sectionHeading('Datos del paciente'));
     const p = data.patient;
     children.push(
       simpleTable(
@@ -90,7 +34,7 @@ export async function buildPatientDocx(data: PatientExportData, sections: Set<Pa
       ),
     );
 
-    children.push(new Paragraph({ text: 'Resumen', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 100 } }));
+    children.push(sectionHeading('Resumen'));
     children.push(
       simpleTable(
         ['Campo', 'Valor'],
@@ -104,14 +48,14 @@ export async function buildPatientDocx(data: PatientExportData, sections: Set<Pa
   }
 
   if (wantsAll || sections.has('clinical')) {
-    children.push(new Paragraph({ text: 'Ficha clínica', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 100 } }));
+    children.push(sectionHeading('Ficha clínica'));
     if (!data.clinicalRecord) {
-      children.push(new Paragraph({ text: 'Sin información registrada.', spacing: { after: 100 } }));
+      children.push(emptyNote());
     } else {
       const r = data.clinicalRecord;
       const block = (label: string, value: string | null) => [
-        new Paragraph({ children: [new TextRun({ text: label, bold: true, size: 20 })], spacing: { before: 100 } }),
-        new Paragraph({ text: textOrEmptyNote(value), spacing: { after: 60 } }),
+        new DocxParagraph({ children: [new TextRun({ text: label, bold: true, size: 20 })], spacing: { before: 100 } }),
+        new DocxParagraph({ text: textOrEmptyNote(value), spacing: { after: 60 } }),
       ];
       children.push(
         ...block('Motivo', r.reason),
@@ -120,14 +64,19 @@ export async function buildPatientDocx(data: PatientExportData, sections: Set<Pa
         ...block('Notas', r.notes),
         ...block('Plan', r.plan),
       );
-      children.push(new Paragraph({ children: [new TextRun({ text: `Última actualización: ${formatExportDateTime(r.updatedAt)}`, italics: true, size: 18 })], spacing: { before: 100 } }));
+      children.push(
+        new DocxParagraph({
+          children: [new TextRun({ text: `Última actualización: ${formatExportDateTime(r.updatedAt)}`, italics: true, size: 18 })],
+          spacing: { before: 100 },
+        }),
+      );
     }
   }
 
   if (wantsAll || sections.has('sessions')) {
-    children.push(new Paragraph({ text: 'Sesiones', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 100 } }));
+    children.push(sectionHeading('Sesiones'));
     if (data.sessions.length === 0) {
-      children.push(new Paragraph({ text: 'Sin información registrada.' }));
+      children.push(emptyNote());
     } else {
       children.push(
         simpleTable(
@@ -139,9 +88,9 @@ export async function buildPatientDocx(data: PatientExportData, sections: Set<Pa
   }
 
   if (wantsAll || sections.has('followups')) {
-    children.push(new Paragraph({ text: 'Seguimientos', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 100 } }));
+    children.push(sectionHeading('Seguimientos'));
     if (data.followUps.length === 0) {
-      children.push(new Paragraph({ text: 'Sin información registrada.' }));
+      children.push(emptyNote());
     } else {
       children.push(
         simpleTable(
@@ -153,9 +102,9 @@ export async function buildPatientDocx(data: PatientExportData, sections: Set<Pa
   }
 
   if (wantsAll || sections.has('payments')) {
-    children.push(new Paragraph({ text: 'Pagos / estado de cuenta', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 100 } }));
+    children.push(sectionHeading('Pagos / estado de cuenta'));
     if (data.payments.length === 0) {
-      children.push(new Paragraph({ text: 'Sin información registrada.' }));
+      children.push(emptyNote());
     } else {
       children.push(
         simpleTable(
@@ -172,9 +121,9 @@ export async function buildPatientDocx(data: PatientExportData, sections: Set<Pa
   }
 
   if (wantsAll || sections.has('activity')) {
-    children.push(new Paragraph({ text: 'Actividad', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 100 } }));
+    children.push(sectionHeading('Actividad'));
     if (data.activity.length === 0) {
-      children.push(new Paragraph({ text: 'Sin información registrada.' }));
+      children.push(emptyNote());
     } else {
       children.push(
         simpleTable(
@@ -185,16 +134,5 @@ export async function buildPatientDocx(data: PatientExportData, sections: Set<Pa
     }
   }
 
-  const doc = new Document({
-    creator: 'TurnIA',
-    title: `Ficha de ${data.patient.name}`,
-    sections: [
-      {
-        properties: {},
-        children,
-      },
-    ],
-  });
-
-  return Packer.toBuffer(doc);
+  return packDocument(`Ficha de ${data.patient.name}`, children);
 }

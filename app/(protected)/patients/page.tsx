@@ -68,8 +68,9 @@ export default async function PatientsPage({
         <div className="nav" style={{ flexWrap: 'wrap' }}>
           <SimpleExportMenu
             links={[
-              { format: 'xlsx', href: '/api/export/patients?format=xlsx' },
               { format: 'pdf', href: '/api/export/patients?format=pdf' },
+              { format: 'docx', href: '/api/export/patients?format=docx' },
+              { format: 'xlsx', href: '/api/export/patients?format=xlsx' },
             ]}
           />
           <Link className="btn" href="#nuevo-paciente"><IconPlus /> Nuevo paciente</Link>

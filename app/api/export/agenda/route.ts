@@ -1,5 +1,6 @@
-// Exportación de Agenda — Excel o PDF, según vista (día/semana/mes) y fecha
-// ancla (PARTE 10). No incluye meeting_url (a propósito, ver
+// Exportación de Agenda — Excel, PDF o Word, según vista (día/semana/mes) y
+// fecha ancla (PARTE 10 original; Word agregado en la pasada de corrección
+// de PARTE 3). No incluye meeting_url (a propósito, ver
 // lib/export/authorize.ts).
 
 import { type NextRequest } from 'next/server';
@@ -9,6 +10,7 @@ import { fetchAgendaExportData } from '@/lib/export/authorize';
 import { buildExportFilename } from '@/lib/export/filename';
 import { exportErrorResponse, exportFileResponse, logExportError, parseExportFormat } from '@/lib/export/response';
 import { buildAgendaWorkbook } from '@/lib/export/xlsx/agenda';
+import { buildAgendaDocx } from '@/lib/export/docx/agenda';
 import { renderAgendaPdf } from '@/lib/export/pdf/render';
 
 export const dynamic = 'force-dynamic';
@@ -21,8 +23,8 @@ export async function GET(request: NextRequest) {
   const { supabase, user, tenantId } = await requireTenant();
   const { searchParams } = new URL(request.url);
 
-  const format = parseExportFormat(searchParams.get('format'), ['xlsx', 'pdf']);
-  if (!format) return exportErrorResponse('Formato inválido. Usá xlsx o pdf.', 400);
+  const format = parseExportFormat(searchParams.get('format'), ['xlsx', 'pdf', 'docx']);
+  if (!format) return exportErrorResponse('Formato inválido. Usá pdf, docx o xlsx.', 400);
 
   const viewParsed = viewSchema.safeParse(searchParams.get('view') || 'day');
   if (!viewParsed.success) return exportErrorResponse('Vista inválida.', 400);
@@ -34,7 +36,9 @@ export async function GET(request: NextRequest) {
 
   let buffer: Buffer;
   try {
-    buffer = format === 'xlsx' ? await buildAgendaWorkbook(data) : await renderAgendaPdf(data);
+    if (format === 'xlsx') buffer = await buildAgendaWorkbook(data);
+    else if (format === 'docx') buffer = await buildAgendaDocx(data);
+    else buffer = await renderAgendaPdf(data);
   } catch (err) {
     logExportError(`agenda — vista ${viewParsed.data} — fecha ${dateParsed.data} — formato ${format}`, err);
     return exportErrorResponse('No pudimos generar el archivo. Intentá nuevamente.', 500);
