@@ -96,6 +96,35 @@ function buildGeneric(rawDigits: string, countryCode: string): string | null {
   return `+${e164Digits}`;
 }
 
+// Descompone un E.164 ya guardado (`phone_e164`, por ejemplo "+5492616807361")
+// en prefijo conocido + número local, para precargar `PhoneInput` sin el bug
+// de `splitExisting` (que comparaba contra el texto combinado y confundía
+// "+54 9..." con "+54..." por la falta de espacio en el E.164 compacto).
+// Trabaja siempre sobre dígitos, nunca sobre substrings con espacios.
+export function decomposeE164(e164: string | null | undefined): { prefix: KnownCountryPrefix; local: string } | null {
+  const trimmed = (e164 ?? '').trim();
+  if (!trimmed.startsWith('+')) return null;
+  const digits = trimmed.slice(1);
+  if (!/^\d{8,15}$/.test(digits)) return null;
+
+  if (digits.startsWith('54')) {
+    const rest = digits.slice(2);
+    if (rest.startsWith('9')) {
+      return { prefix: '+54 9', local: rest.slice(1) };
+    }
+    return { prefix: '+54', local: rest };
+  }
+
+  for (const prefix of ['+598', '+595', '+56', '+34', '+1'] as const) {
+    const countryCode = GENERIC_COUNTRY_CODES[prefix];
+    if (countryCode && digits.startsWith(countryCode)) {
+      return { prefix, local: digits.slice(countryCode.length) };
+    }
+  }
+
+  return null;
+}
+
 export function normalizePhone(
   rawInput: string | null | undefined,
   options?: {

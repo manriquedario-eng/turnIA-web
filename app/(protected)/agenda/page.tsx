@@ -334,16 +334,32 @@ export default async function AgendaPage({
                       {dayNumber}
                     </Link>
                     <div className="month-cell-appts">
-                      {visible.map((a) => (
-                        <Link
-                          key={a.id}
-                          href={`${returnTo}&edit=${a.id}#turno-drawer`}
-                          className={`month-chip ${isCancelled(a.status) ? 'is-cancelled' : ''}`}
-                          title={`${formatTime(a.starts_at)} · ${patientNameOf(a)}`}
-                        >
-                          {formatTime(a.starts_at)} {patientNameOf(a)}
-                        </Link>
-                      ))}
+                      {visible.map((a) => {
+                        const isOnline = a.modality === 'online' && !isCancelled(a.status);
+                        const hasMeet = isOnline && !!a.meeting_url;
+                        return (
+                          <div key={a.id} className="month-chip-row">
+                            <Link
+                              href={`${returnTo}&edit=${a.id}#turno-drawer`}
+                              className={`month-chip ${isCancelled(a.status) ? 'is-cancelled' : ''}`}
+                              title={`${formatTime(a.starts_at)} · ${patientNameOf(a)}${isOnline ? ' · Online' : ''}`}
+                            >
+                              {formatTime(a.starts_at)} {patientNameOf(a)}{isOnline ? ' · Online' : ''}
+                            </Link>
+                            {hasMeet ? (
+                              <a
+                                href={a.meeting_url!}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="month-chip-meet"
+                                aria-label="Abrir Google Meet"
+                              >
+                                Meet
+                              </a>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                       {overflowCount > 0 ? (
                         <Link href={`/agenda?view=day&date=${cellDate}`} className="month-chip-more">
                           +{overflowCount} más
@@ -391,16 +407,32 @@ export default async function AgendaPage({
                       <span className="week-col-empty">Sin turnos</span>
                     ) : (
                       <>
-                        {visible.map((a) => (
-                          <Link
-                            key={a.id}
-                            href={`${returnTo}&edit=${a.id}#turno-drawer`}
-                            className={`month-chip ${isCancelled(a.status) ? 'is-cancelled' : ''}`}
-                            title={`${formatTime(a.starts_at)} · ${patientNameOf(a)}`}
-                          >
-                            {formatTime(a.starts_at)} {patientNameOf(a)}
-                          </Link>
-                        ))}
+                        {visible.map((a) => {
+                          const isOnline = a.modality === 'online' && !isCancelled(a.status);
+                          const hasMeet = isOnline && !!a.meeting_url;
+                          return (
+                            <div key={a.id} className="month-chip-row">
+                              <Link
+                                href={`${returnTo}&edit=${a.id}#turno-drawer`}
+                                className={`month-chip ${isCancelled(a.status) ? 'is-cancelled' : ''}`}
+                                title={`${formatTime(a.starts_at)} · ${patientNameOf(a)}${isOnline ? ' · Online' : ''}`}
+                              >
+                                {formatTime(a.starts_at)} {patientNameOf(a)}{isOnline ? ' · Online' : ''}
+                              </Link>
+                              {hasMeet ? (
+                                <a
+                                  href={a.meeting_url!}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="month-chip-meet"
+                                  aria-label="Abrir Google Meet"
+                                >
+                                  Meet
+                                </a>
+                              ) : null}
+                            </div>
+                          );
+                        })}
                         {overflowCount > 0 ? (
                           <Link href={`/agenda?view=day&date=${cellDate}`} className="month-chip-more">
                             +{overflowCount} más

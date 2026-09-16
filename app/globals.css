@@ -650,7 +650,8 @@ table tbody tr:hover {
     flex-wrap: wrap;
   }
 
-  .phone-input select {
+  .phone-input select,
+  .phone-input-prefix-static {
     flex: 1 1 100%;
   }
 
@@ -659,18 +660,40 @@ table tbody tr:hover {
   }
 }
 
-.phone-input-manual-toggle {
+.phone-input-prefix-toggle {
   display: block;
   width: fit-content;
   margin-top: 4px;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--color-ink-soft);
   text-decoration: underline;
   cursor: pointer;
   background: none;
   border: none;
   padding: 0;
-  font-weight: 600;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+.phone-input-prefix-toggle:hover {
+  opacity: 1;
+}
+
+/* Prefijo mostrado como texto fijo (no editable) hasta que se toca "Editar
+   prefijo" — mismo espacio aproximado que el <select> que reemplaza, para
+   que el toggle no salte de ancho ni empuje el número. */
+.phone-input-prefix-static {
+  flex: 0 1 108px;
+  min-width: 84px;
+  display: flex;
+  align-items: center;
+  padding: 11px 8px;
+  border: 1px solid var(--color-border, #d9d9e3);
+  border-radius: 8px;
+  background: var(--color-surface-muted, #f4f4f7);
+  color: var(--color-ink-soft);
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 /* ---------- Pagos: lista responsive (reemplaza tabla en mobile) ---------- */
@@ -896,6 +919,19 @@ table tbody tr:hover {
    saltar directo a él — el salto de anchor posiciona el elemento pegado al
    borde superior del viewport, que es exactamente donde está el topbar. */
 [id] {
+  scroll-margin-top: calc(var(--topbar-height) + 16px);
+}
+
+/* Mismo resguardo que [id] de arriba, pero para elementos que el navegador
+   puede llevar a la vista sin que sean el destino de un anchor con "#"
+   (por ejemplo, el salto automático a un campo inválido al enviar un
+   formulario, o la restauración de scroll del navegador): ningún
+   título/métrica/card/formulario debe terminar tapado por el topbar
+   sticky. No agrega espacio visual — scroll-margin sólo afecta el punto de
+   scroll, no el layout. */
+.card,
+.stat-strip,
+.page-header {
   scroll-margin-top: calc(var(--topbar-height) + 16px);
 }
 
@@ -1515,6 +1551,36 @@ table tbody tr:hover {
   text-decoration: line-through;
 }
 
+/* Fila que agrupa el chip de turno (Link, abre el drawer) + el link "Meet"
+   (elemento hermano, no anidado — un <a> dentro de otro <a>/<Link> sería
+   HTML inválido). Sólo se agrega el segundo elemento cuando hay
+   meeting_url; si no, la fila sólo tiene el chip de siempre. */
+.month-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.month-chip-row .month-chip {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.month-chip-meet {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-terracotta);
+  text-decoration: underline;
+  white-space: nowrap;
+  padding: 2px 2px;
+}
+
+.month-chip-meet:hover {
+  opacity: 0.8;
+}
+
 .month-chip-more {
   display: block;
   padding: 2px 6px;
@@ -1560,7 +1626,7 @@ table tbody tr:hover {
     min-height: 64px;
   }
 
-  .month-chip:nth-child(n+3) {
+  .month-chip-row:nth-child(n+3) {
     display: none;
   }
 }

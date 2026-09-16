@@ -15,7 +15,10 @@ export default async function SettingsPage({ searchParams }: PageProps) {
 
   const [{ data: profile }, { data: settings }, { data: googleIntegration }] = await Promise.all([
     supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
-    supabase.from('settings').select('preferences').eq('tenant_id', tenantId).maybeSingle(),
+    // `profile` acá es la columna jsonb existente de `settings` (datos del
+    // profesional/consultorio) — no confundir con la tabla `profiles`
+    // (arriba). Ya existía en el schema, sólo no se usaba para nada.
+    supabase.from('settings').select('preferences, profile').eq('tenant_id', tenantId).maybeSingle(),
     supabase
       .from('integration_status')
       .select('status, account_label, connected_at')
@@ -28,6 +31,9 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const preferences = settings?.preferences && typeof settings.preferences === 'object'
     ? settings.preferences as Record<string, unknown>
     : {};
+  const professionalProfile = settings?.profile && typeof settings.profile === 'object'
+    ? settings.profile as Record<string, unknown>
+    : {};
 
   const defaultModality = typeof preferences.default_modality === 'string'
     ? preferences.default_modality
@@ -38,6 +44,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const workdayEnd = typeof preferences.workday_end === 'string'
     ? preferences.workday_end
     : '18:00';
+
+  const text = (key: string) => (typeof professionalProfile[key] === 'string' ? professionalProfile[key] as string : '');
 
   const googleConnected = googleIntegration?.status === 'connected';
   const googleConfigured = isGoogleOAuthConfigured();
@@ -58,42 +66,67 @@ export default async function SettingsPage({ searchParams }: PageProps) {
 
       <SettingsTabs
         preferencias={
-          <div className="card">
-            <form action={updateSettings} className="form-grid">
-              <label>
-                Nombre visible
-                <input
-                  name="display_name"
-                  defaultValue={profile?.display_name || ''}
-                  minLength={2}
-                  maxLength={120}
-                  required
-                />
-              </label>
+          <div className="stack">
+            <div className="card">
+              <h2 style={{ marginTop: 0 }}>Datos profesionales</h2>
+              <form action={updateSettings} className="form-grid">
+                <label>
+                  Nombre visible
+                  <input
+                    name="display_name"
+                    defaultValue={profile?.display_name || ''}
+                    placeholder="Ej. Darío Manrique"
+                    minLength={2}
+                    maxLength={120}
+                    required
+                    aria-describedby="display-name-hint"
+                  />
+                </label>
+                <p id="display-name-hint" className="field-hint" style={{ gridColumn: '1 / -1', margin: '-10px 0 0' }}>
+                  Este nombre se mostrará en TurnIA y en las comunicaciones.
+                </p>
 
-              <label>
-                Modalidad predeterminada
-                <select name="default_modality" defaultValue={defaultModality}>
-                  <option value="presencial">Presencial</option>
-                  <option value="domicilio">Domicilio</option>
-                  <option value="online">Online</option>
-                </select>
-              </label>
+                <label>Profesión / especialidad<input name="profession" defaultValue={text('profession')} placeholder="Ej. Psicóloga clínica" maxLength={200} /></label>
+                <label>Matrícula profesional<input name="license_number" defaultValue={text('license_number')} placeholder="Ej. MP 12345" maxLength={200} /></label>
+                <label>Colegio / entidad profesional<input name="professional_college" defaultValue={text('professional_college')} maxLength={200} /></label>
+                <label>CUIT<input name="cuit" defaultValue={text('cuit')} placeholder="Ej. 20-12345678-9" maxLength={200} /></label>
+                <label>Razón social<input name="business_name" defaultValue={text('business_name')} maxLength={200} /></label>
+                <label>Condición fiscal<input name="tax_condition" defaultValue={text('tax_condition')} placeholder="Ej. Monotributista" maxLength={200} /></label>
 
-              <label>
-                Inicio de jornada
-                <input name="workday_start" type="time" defaultValue={workdayStart} required />
-              </label>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <h3 style={{ margin: '16px 0 0' }}>Datos de contacto</h3>
+                </div>
+                <label>Teléfono profesional<input name="professional_phone" defaultValue={text('professional_phone')} maxLength={200} /></label>
+                <label>Email profesional<input name="professional_email" type="email" defaultValue={text('professional_email')} maxLength={200} /></label>
+                <label>Dirección del consultorio<input name="office_address" defaultValue={text('office_address')} maxLength={200} /></label>
+                <label>Localidad<input name="locality" defaultValue={text('locality')} maxLength={200} /></label>
+                <label>Provincia<input name="province" defaultValue={text('province')} maxLength={200} /></label>
 
-              <label>
-                Fin de jornada
-                <input name="workday_end" type="time" defaultValue={workdayEnd} required />
-              </label>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <h3 style={{ margin: '16px 0 0' }}>Preferencias operativas</h3>
+                </div>
+                <label>
+                  Modalidad predeterminada
+                  <select name="default_modality" defaultValue={defaultModality}>
+                    <option value="presencial">Presencial</option>
+                    <option value="domicilio">Domicilio</option>
+                    <option value="online">Online</option>
+                  </select>
+                </label>
+                <label>
+                  Inicio de jornada
+                  <input name="workday_start" type="time" defaultValue={workdayStart} required />
+                </label>
+                <label>
+                  Fin de jornada
+                  <input name="workday_end" type="time" defaultValue={workdayEnd} required />
+                </label>
 
-              <div>
-                <button className="btn" type="submit">Guardar configuración</button>
-              </div>
-            </form>
+                <div className="form-actions">
+                  <button className="btn" type="submit">Guardar configuración</button>
+                </div>
+              </form>
+            </div>
           </div>
         }
         integraciones={

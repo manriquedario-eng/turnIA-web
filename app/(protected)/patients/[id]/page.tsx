@@ -380,7 +380,7 @@ export default async function PatientDetailPage({
               <form action={updatePatient} className="form-grid">
                 <input type="hidden" name="id" value={patient.id} />
                 <label>Nombre<input name="name" defaultValue={patient.name} required minLength={2} maxLength={160} /></label>
-                <PhoneInput defaultValue={patient.phone ?? ''} />
+                <PhoneInput defaultValue={patient.phone ?? ''} defaultE164={patient.phone_e164 ?? null} />
                 <label>Email<input name="email" type="email" defaultValue={patient.email ?? ''} maxLength={200} /></label>
                 <label>DNI<input name="dni" defaultValue={patient.dni ?? ''} maxLength={160} /></label>
                 <label>Obra social<input name="insurance_name" defaultValue={patient.insurance_name ?? ''} maxLength={160} /></label>

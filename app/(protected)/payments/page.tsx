@@ -85,6 +85,8 @@ export default async function PaymentsPage({
                 <select name="method" defaultValue="efectivo">
                   <option value="efectivo">Efectivo</option>
                   <option value="transferencia">Transferencia</option>
+                  <option value="mercado_pago">Mercado Pago</option>
+                  <option value="virtual_wallet">Billetera virtual</option>
                   <option value="tarjeta">Tarjeta</option>
                   <option value="otro">Otro</option>
                 </select>
@@ -124,7 +126,7 @@ export default async function PaymentsPage({
             <EmptyState title="Sin movimientos" description="Los movimientos manuales de caja van a aparecer acá." />
           ) : (
             <div className="stack" style={{ gap: 8 }}>
-              {(cashMovements || []).map((movement: any) => (
+              {(cashMovements || []).slice(0, 10).map((movement: any) => (
                 <div key={movement.id} className="nav" style={{ justifyContent: 'space-between', fontSize: 13, paddingBottom: 8, borderBottom: '1px solid var(--color-border-soft)' }}>
                   <strong style={{ color: movement.kind === 'in' ? 'var(--color-success)' : 'var(--color-danger)' }}>
                     {movement.kind === 'in' ? '+' : '-'}${Number(movement.amount).toLocaleString('es-AR')}
@@ -134,6 +136,11 @@ export default async function PaymentsPage({
               ))}
             </div>
           )}
+          {(cashMovements || []).length > 10 ? (
+            <p className="muted" style={{ fontSize: 12, marginTop: 8, marginBottom: 0 }}>
+              Mostrando los últimos 10 movimientos.
+            </p>
+          ) : null}
         </section>
       </div>
 

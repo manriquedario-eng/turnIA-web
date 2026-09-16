@@ -45,6 +45,15 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   tarjeta: 'Tarjeta',
   transfer: 'Transferencia',
   transferencia: 'Transferencia',
+  mercado_pago: 'Mercado Pago',
+  'mercado pago': 'Mercado Pago',
+  mercadopago: 'Mercado Pago',
+  virtual_wallet: 'Billetera virtual',
+  'virtual wallet': 'Billetera virtual',
+  billetera_virtual: 'Billetera virtual',
+  'billetera virtual': 'Billetera virtual',
+  other: 'Otro',
+  otro: 'Otro',
   insumo: 'Insumo',
 };
 
