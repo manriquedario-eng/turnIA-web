@@ -67,6 +67,7 @@ export function PatientDocument({ data, sections }: { data: PatientExportData; s
               <>
                 <TextBlock label="Motivo" value={data.clinicalRecord.reason} />
                 <TextBlock label="Antecedentes" value={data.clinicalRecord.background} />
+                <TextBlock label="Diagnóstico" value={data.clinicalRecord.diagnosis} />
                 <TextBlock label="Seguimiento" value={data.clinicalRecord.followUp} />
                 <TextBlock label="Notas" value={data.clinicalRecord.notes} />
                 <TextBlock label="Plan" value={data.clinicalRecord.plan} />

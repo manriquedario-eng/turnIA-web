@@ -59,6 +59,7 @@ export async function buildPatientWorkbook(data: PatientExportData, sections: Se
     const rows: [string, string][] = [
       ['Motivo', textOrDash(r.reason)],
       ['Antecedentes', textOrDash(r.background)],
+      ['Diagnóstico', textOrDash(r.diagnosis)],
       ['Seguimiento', textOrDash(r.followUp)],
       ['Notas', textOrDash(r.notes)],
       ['Plan', textOrDash(r.plan)],

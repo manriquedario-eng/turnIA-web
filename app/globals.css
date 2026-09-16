@@ -1,46 +1,53 @@
 /* =========================================================================
-   TurnIA — Sistema visual (Fase 5A)
-   Paleta cálida: terracota / arena / crema / salvia / neutros cálidos.
+   TurnIA — Sistema visual (Fase UI v3 — rediseño integral)
+   Paleta: slate claro + índigo como color primario dominante, con un acento
+   teal muy moderado para casos puntuales (p. ej. "Completado"). Reemplaza
+   por completo la identidad terracota/marrón/beige anterior — sin restos
+   de esos tonos salvo donde el color semántico (warning) todavía cae en la
+   familia ámbar por convención, ahora con un ámbar limpio, no marrón.
    Mantiene los nombres de clase usados por las páginas existentes
    (card, btn, nav, table, form-grid, alert, muted, grid, stack...) para
-   no requerir cambios en la lógica de negocio de cada pantalla.
+   no requerir cambios en la lógica de negocio de cada pantalla — sólo se
+   renombraron/revalorizaron las variables de color (PARTE 20 del pedido de
+   rediseño: tokens centralizados, nada de hex sueltos por los componentes).
    ========================================================================= */
 
 :root {
-  /* Paleta base — refinada para sentirse menos "panel administrativo" y más
-     producto premium: el terracota queda como acento (acciones, foco), no
-     como color dominante de superficie; se suma un ink profundo para
-     jerarquía tipográfica y un borde más discreto en toda la app. */
-  --color-terracotta: #b85a2a;
-  --color-terracotta-dark: #93441d;
-  --color-terracotta-soft: #f3ddd0;
-  --color-sand: #e9dcc7;
-  --color-sand-soft: #f2e9db;
-  --color-cream: #faf8f4;
-  --color-sage: #7c9473;
-  --color-sage-dark: #5f7657;
-  --color-sage-soft: #e6ecdf;
+  /* Color primario — índigo, único color dominante de la app (PARTE 2 del
+     pedido: "un color primario dominante", nada de arcoíris). */
+  --color-primary: #4f46e5;
+  --color-primary-strong: #4338ca;
+  --color-primary-soft: #eef2ff;
+  --color-primary-soft-strong: #e0e7ff;
 
-  /* Neutros cálidos */
-  --color-ink: #241f1c;
-  --color-ink-deep: #1a1613;
-  --color-ink-soft: #6b5f54;
-  --color-ink-faint: #9b8f83;
+  /* Acento secundario, muy moderado — sólo para "Completado" y casos
+     puntuales donde conviene diferenciarse del primario (PARTE 2/10). */
+  --color-accent: #0f9d8a;
+  --color-accent-soft: #e3f7f4;
+
+  /* Fondo y superficies — blanco / slate muy claro, nada de beige/crema. */
+  --color-bg: #f8fafc;
   --color-surface: #ffffff;
-  --color-surface-sunken: #f7f3ec;
-  --color-surface-raised: #fffdfa;
-  --color-border: #e9e1d4;
-  --color-border-soft: #f1ebe0;
+  --color-surface-sunken: #f1f5f9;
+  --color-surface-raised: #ffffff;
+  --color-border: #e2e8f0;
+  --color-border-soft: #edf1f5;
 
-  /* Semánticos */
-  --color-success: #5f7657;
-  --color-success-bg: #e6ecdf;
-  --color-warning: #b8823a;
-  --color-warning-bg: #f6ead2;
-  --color-danger: #b3452f;
-  --color-danger-bg: #f7e3dd;
-  --color-info: #5c7a8a;
-  --color-info-bg: #e3ebee;
+  /* Texto — slate oscuro / azul carbón, sin calidez marrón. */
+  --color-text: #1e293b;
+  --color-text-strong: #0f172a;
+  --color-text-muted: #64748b;
+  --color-text-faint: #94a3b8;
+
+  /* Semánticos — saturación moderada, nunca marrón/terracota. */
+  --color-success: #15803d;
+  --color-success-bg: #e7f7ec;
+  --color-warning: #d97706;
+  --color-warning-bg: #fef3c7;
+  --color-danger: #dc2626;
+  --color-danger-bg: #fee2e2;
+  --color-info: #0284c7;
+  --color-info-bg: #e0f2fe;
 
   /* Layout */
   --sidebar-width: 248px;
@@ -48,10 +55,10 @@
   --topbar-height: 64px;
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 18px;
-  --shadow-sm: 0 1px 2px rgba(43, 36, 32, 0.06);
-  --shadow-md: 0 6px 20px rgba(43, 36, 32, 0.08);
-  --shadow-lg: 0 16px 40px rgba(43, 36, 32, 0.14);
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 6px 20px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.16);
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
@@ -67,8 +74,8 @@ body {
   margin: 0;
   padding: 0;
   font-family: var(--font-sans);
-  background: var(--color-cream);
-  color: var(--color-ink);
+  background: var(--color-bg);
+  color: var(--color-text);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -88,7 +95,7 @@ h1 {
   font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.015em;
-  color: var(--color-ink-deep);
+  color: var(--color-text-strong);
   margin: 0 0 4px;
 }
 
@@ -96,14 +103,14 @@ h2 {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.005em;
-  color: var(--color-ink-deep);
+  color: var(--color-text-strong);
   margin: 0 0 12px;
 }
 
 h3 {
   font-size: 13px;
   font-weight: 700;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin: 0 0 8px;
@@ -114,7 +121,7 @@ p {
 }
 
 .muted {
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
 }
 
 /* ---------- Layout primitives ---------- */
@@ -197,7 +204,7 @@ button {
   border: 0;
   border-radius: var(--radius-sm);
   padding: 11px 18px;
-  background: var(--color-terracotta);
+  background: var(--color-primary);
   color: #fff;
   font-weight: 600;
   font-size: 14px;
@@ -207,7 +214,7 @@ button {
 
 .btn:hover,
 button:hover {
-  background: var(--color-terracotta-dark);
+  background: var(--color-primary-strong);
 }
 
 .btn:active,
@@ -218,7 +225,7 @@ button:active {
 .btn.secondary,
 button.secondary {
   background: var(--color-surface);
-  color: var(--color-ink);
+  color: var(--color-text);
   border: 1px solid var(--color-border);
 }
 
@@ -235,7 +242,7 @@ button.danger {
 
 .btn.danger:hover,
 button.danger:hover {
-  background: #f0d2c9;
+  background: #fecaca;
 }
 
 /* Acción secundaria de bajo peso visual (texto simple, sin fondo) — para
@@ -245,7 +252,7 @@ button.danger:hover {
 .btn-ghost,
 button.btn-ghost {
   background: transparent;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   padding: 7px 10px;
   font-weight: 600;
 }
@@ -253,7 +260,7 @@ button.btn-ghost {
 .btn-ghost:hover,
 button.btn-ghost:hover {
   background: var(--color-surface-sunken);
-  color: var(--color-ink);
+  color: var(--color-text);
 }
 
 .btn-ghost.danger,
@@ -286,7 +293,7 @@ label {
   gap: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   /* Los <label> son casi siempre el hijo directo de un grid de formulario
      (.form-grid, .drawer-form .field-row, etc.). Sin esto, un grid item
      tiene min-width:auto por defecto — si su contenido (ej. el selector de
@@ -308,7 +315,7 @@ select {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: #fff;
-  color: var(--color-ink);
+  color: var(--color-text);
   font-weight: 400;
 }
 
@@ -316,8 +323,8 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--color-terracotta);
-  box-shadow: 0 0 0 3px var(--color-terracotta-soft);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
 .field {
@@ -348,7 +355,7 @@ table td {
 
 .table th,
 table th {
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   font-weight: 600;
   font-size: 12px;
   text-transform: uppercase;
@@ -388,7 +395,7 @@ table tbody tr:hover {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: radial-gradient(circle at top, var(--color-sand-soft), var(--color-cream) 60%);
+  background: radial-gradient(circle at top, var(--color-primary-soft), var(--color-bg) 60%);
 }
 
 .login-card {
@@ -415,11 +422,18 @@ table tbody tr:hover {
 }
 
 .badge-pendiente,
-.badge-pending,
-.badge-programado,
-.badge-scheduled {
+.badge-pending {
   background: var(--color-warning-bg);
   color: var(--color-warning);
+}
+
+/* Agendado/Programado (turno recién creado, sin confirmar todavía) —
+   índigo suave, distinto de Pendiente (PARTE 10 del pedido de rediseño:
+   "Agendado: azul / índigo suave", separado de amarillo=Pendiente). */
+.badge-programado,
+.badge-scheduled {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
 }
 
 .badge-cancelado,
@@ -436,13 +450,13 @@ table tbody tr:hover {
 
 .badge-completado,
 .badge-completed {
-  background: var(--color-sage-soft);
-  color: var(--color-sage-dark);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
 }
 
 .badge-neutral {
   background: var(--color-surface-sunken);
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
 }
 
 /* ---------- Stat cards ---------- */
@@ -459,7 +473,7 @@ table tbody tr:hover {
 }
 
 .stat-card .stat-label {
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   font-size: 13px;
   font-weight: 600;
 }
@@ -472,7 +486,7 @@ table tbody tr:hover {
 
 .stat-card .stat-hint {
   font-size: 12px;
-  color: var(--color-ink-faint);
+  color: var(--color-text-faint);
 }
 
 /* ---------- Franja compacta de indicadores ----------
@@ -508,19 +522,19 @@ table tbody tr:hover {
 .stat-strip-item .stat-strip-label {
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
 }
 
 .stat-strip-item .stat-strip-value {
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.01em;
-  color: var(--color-ink-deep);
+  color: var(--color-text-strong);
 }
 
 .stat-strip-item .stat-strip-hint {
   font-size: 11px;
-  color: var(--color-ink-faint);
+  color: var(--color-text-faint);
 }
 
 @media (max-width: 720px) {
@@ -561,7 +575,7 @@ table tbody tr:hover {
 }
 
 .integration-row-desc {
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   font-size: 13px;
   flex: 1;
   min-width: 220px;
@@ -591,8 +605,8 @@ table tbody tr:hover {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: var(--color-terracotta-soft);
-  color: var(--color-terracotta-dark);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
   font-weight: 700;
   font-size: 12px;
   flex-shrink: 0;
@@ -606,7 +620,7 @@ table tbody tr:hover {
 
 .badge-archived {
   background: var(--color-surface-sunken);
-  color: var(--color-ink-faint);
+  color: var(--color-text-faint);
   font-style: italic;
 }
 
@@ -682,7 +696,7 @@ table tbody tr:hover {
   margin: 0;
   font-size: 11px;
   font-family: var(--font-sans);
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   text-decoration: underline;
   cursor: pointer;
   background: none;
@@ -708,7 +722,7 @@ table tbody tr:hover {
   border: 1px solid var(--color-border, #d9d9e3);
   border-radius: 8px;
   background: var(--color-surface-muted, #f4f4f7);
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   font-size: 14px;
   white-space: nowrap;
 }
@@ -762,7 +776,7 @@ table tbody tr:hover {
   text-align: center;
   gap: 4px;
   padding: 20px 16px;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
 }
 
 /* =========================================================================
@@ -775,7 +789,7 @@ table tbody tr:hover {
   align-items: flex-start;
   gap: 20px;
   padding: 20px;
-  background: var(--color-cream);
+  background: var(--color-bg);
 }
 
 /* --- Sidebar (desktop) — card flotante clara, no panel oscuro --- */
@@ -784,7 +798,7 @@ table tbody tr:hover {
   width: var(--sidebar-width);
   flex-shrink: 0;
   background: var(--color-surface);
-  color: var(--color-ink);
+  color: var(--color-text);
   display: flex;
   flex-direction: column;
   padding: 18px 14px;
@@ -803,14 +817,14 @@ table tbody tr:hover {
   padding: 4px 8px 16px;
   font-weight: 700;
   font-size: 17px;
-  color: var(--color-ink);
+  color: var(--color-text);
 }
 
 .app-sidebar .brand-mark {
   width: 30px;
   height: 30px;
   border-radius: 9px;
-  background: var(--color-terracotta);
+  background: var(--color-primary);
   display: grid;
   place-items: center;
   color: #fff;
@@ -834,8 +848,8 @@ table tbody tr:hover {
   width: 38px;
   height: 38px;
   border-radius: var(--radius-md);
-  background: var(--color-sage-soft);
-  color: var(--color-sage-dark);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
   display: grid;
   place-items: center;
   font-weight: 700;
@@ -850,7 +864,7 @@ table tbody tr:hover {
 .sidebar-profile .sidebar-profile-name {
   font-weight: 700;
   font-size: 13px;
-  color: var(--color-ink);
+  color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -858,7 +872,7 @@ table tbody tr:hover {
 
 .sidebar-profile .sidebar-profile-role {
   font-size: 11px;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   text-transform: capitalize;
   white-space: nowrap;
   overflow: hidden;
@@ -869,7 +883,7 @@ table tbody tr:hover {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--color-ink-faint);
+  color: var(--color-text-faint);
   padding: 14px 12px 6px;
 }
 
@@ -882,12 +896,13 @@ table tbody tr:hover {
 }
 
 .sidebar-link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   font-weight: 500;
   font-size: 14px;
 }
@@ -899,12 +914,20 @@ table tbody tr:hover {
 
 .sidebar-link:hover {
   background: var(--color-surface-sunken);
-  color: var(--color-ink);
+  color: var(--color-text);
 }
 
+/* Active state moderno (PARTE 4 del pedido de rediseño): nada de "pastilla
+   marrón gigante" de fondo sólido — fondo muy claro del color primario,
+   texto/icono del color primario, y un indicador lateral fino (box-shadow
+   inset, no un pseudo-elemento que sobresalga del link: .sidebar-nav tiene
+   overflow-y:auto, que computa overflow-x a "auto" también, así que nada
+   fuera del propio box del link llega a verse). */
 .sidebar-link.active {
-  background: var(--color-terracotta);
-  color: #fff;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 .sidebar-link.active svg {
@@ -921,12 +944,12 @@ table tbody tr:hover {
   width: 100%;
   background: transparent;
   border: 1px solid var(--color-border);
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
 }
 
 .sidebar-footer form button:hover {
   background: var(--color-surface-sunken);
-  color: var(--color-ink);
+  color: var(--color-text);
 }
 
 /* --- Topbar --- */
@@ -973,7 +996,7 @@ table tbody tr:hover {
 
 .app-topbar .topbar-date {
   font-size: 13px;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
 }
 
 .topbar-search {
@@ -987,7 +1010,7 @@ table tbody tr:hover {
   height: 36px;
   border-radius: 999px;
   background: var(--color-surface-sunken);
-  color: var(--color-ink-faint);
+  color: var(--color-text-faint);
 }
 
 .topbar-search svg {
@@ -1024,8 +1047,8 @@ table tbody tr:hover {
   width: 32px;
   height: 32px;
   border-radius: 999px;
-  background: var(--color-sage-soft);
-  color: var(--color-sage-dark);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
   display: grid;
   place-items: center;
   font-weight: 700;
@@ -1036,7 +1059,7 @@ table tbody tr:hover {
 .menu-toggle {
   display: none;
   background: transparent;
-  color: var(--color-ink);
+  color: var(--color-text);
   padding: 8px;
   border-radius: var(--radius-sm);
 }
@@ -1093,7 +1116,7 @@ table tbody tr:hover {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(43, 36, 32, 0.35);
+    background: rgba(15, 23, 42, 0.4);
     z-index: 40;
   }
 
@@ -1125,13 +1148,13 @@ table tbody tr:hover {
     align-items: center;
     gap: 2px;
     font-size: 10px;
-    color: var(--color-ink-soft);
+    color: var(--color-text-muted);
     font-weight: 600;
     padding: 6px 8px;
   }
 
   .mobile-tabbar a.active {
-    color: var(--color-terracotta);
+    color: var(--color-primary);
   }
 }
 
@@ -1153,16 +1176,16 @@ table tbody tr:hover {
   border-radius: calc(var(--radius-sm) - 2px);
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
 }
 
 .segmented a:hover {
-  color: var(--color-ink);
+  color: var(--color-text);
 }
 
 .segmented a.active {
   background: var(--color-surface);
-  color: var(--color-ink);
+  color: var(--color-text);
   box-shadow: var(--shadow-sm);
 }
 
@@ -1182,7 +1205,7 @@ table tbody tr:hover {
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  color: var(--color-ink);
+  color: var(--color-text);
   padding: 0;
 }
 
@@ -1209,8 +1232,8 @@ table tbody tr:hover {
 }
 
 .appointment-card.is-next {
-  border-color: var(--color-terracotta);
-  box-shadow: 0 0 0 1px var(--color-terracotta);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
 }
 
 .appointment-card.is-cancelled {
@@ -1221,14 +1244,14 @@ table tbody tr:hover {
   min-width: 92px;
   font-weight: 700;
   font-size: 14px;
-  color: var(--color-ink);
+  color: var(--color-text);
 }
 
 .appointment-time .appointment-date {
   display: block;
   font-weight: 500;
   font-size: 11px;
-  color: var(--color-ink-faint);
+  color: var(--color-text-faint);
   text-transform: capitalize;
 }
 
@@ -1297,8 +1320,8 @@ table tbody tr:hover {
   width: 38px;
   height: 38px;
   border-radius: var(--radius-md);
-  background: var(--color-sage-soft);
-  color: var(--color-sage-dark);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
   display: grid;
   place-items: center;
   font-weight: 700;
@@ -1346,8 +1369,8 @@ table tbody tr:hover {
   width: 56px;
   height: 56px;
   border-radius: var(--radius-lg);
-  background: var(--color-sage-soft);
-  color: var(--color-sage-dark);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
   display: grid;
   place-items: center;
   font-weight: 700;
@@ -1361,7 +1384,7 @@ table tbody tr:hover {
   gap: 14px;
   margin-top: 6px;
   font-size: 13px;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
 }
 
 .patient-contact-list span {
@@ -1386,13 +1409,13 @@ table tbody tr:hover {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: var(--color-terracotta);
+  background: var(--color-primary);
   margin-top: 6px;
   flex-shrink: 0;
 }
 
 .timeline-marker.type-pago {
-  background: var(--color-sage-dark);
+  background: var(--color-success);
 }
 
 .timeline-marker.type-seguimiento {
@@ -1400,7 +1423,7 @@ table tbody tr:hover {
 }
 
 .timeline-marker.type-ficha {
-  background: var(--color-ink-faint);
+  background: var(--color-text-faint);
 }
 
 .timeline-body {
@@ -1426,14 +1449,14 @@ table tbody tr:hover {
 }
 
 .timeline-item-link:focus-visible {
-  outline: 2px solid var(--color-terracotta);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
 .timeline-item-chevron {
   flex-shrink: 0;
   align-self: center;
-  color: var(--color-ink-faint);
+  color: var(--color-text-faint);
   font-size: 18px;
   line-height: 1;
 }
@@ -1454,12 +1477,12 @@ table tbody tr:hover {
 }
 
 .appointment-card-link:hover {
-  border-color: var(--color-ink-faint);
+  border-color: var(--color-text-faint);
   background: var(--color-surface-sunken);
 }
 
 .appointment-card-link:focus-visible {
-  outline: 2px solid var(--color-terracotta);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -1478,7 +1501,7 @@ table tbody tr:hover {
 }
 
 .dashboard-next-link:focus-visible {
-  outline: 2px solid var(--color-terracotta);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -1501,7 +1524,7 @@ table tbody tr:hover {
 }
 
 .dashboard-waitlist-row:focus-visible {
-  outline: 2px solid var(--color-terracotta);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -1527,7 +1550,7 @@ table tbody tr:hover {
 }
 
 .dashboard-opportunity-link:focus-visible {
-  outline: 2px solid var(--color-terracotta);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -1572,7 +1595,7 @@ table tbody tr:hover {
     content: attr(data-label);
     display: inline-block;
     min-width: 104px;
-    color: var(--color-ink-soft);
+    color: var(--color-text-muted);
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
@@ -1604,7 +1627,7 @@ table tbody tr:hover {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   text-align: center;
 }
 
@@ -1638,7 +1661,7 @@ table tbody tr:hover {
 }
 
 .month-cell.is-other-month .month-cell-daynum {
-  color: var(--color-ink-faint);
+  color: var(--color-text-faint);
 }
 
 /* Fila superior de cada celda del mes: número del día (texto plano, ya no
@@ -1662,12 +1685,12 @@ table tbody tr:hover {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
-  color: var(--color-ink);
+  color: var(--color-text);
   flex-shrink: 0;
 }
 
 .month-cell.is-today .month-cell-daynum {
-  background: var(--color-terracotta);
+  background: var(--color-primary);
   color: #fff;
 }
 
@@ -1679,7 +1702,7 @@ table tbody tr:hover {
   height: 18px;
   border-radius: 999px;
   background: transparent;
-  color: var(--color-ink-faint);
+  color: var(--color-text-faint);
   flex-shrink: 0;
   opacity: 0.7;
 }
@@ -1688,7 +1711,7 @@ table tbody tr:hover {
 .month-cell-add:focus-visible {
   opacity: 1;
   background: var(--color-surface-sunken);
-  color: var(--color-ink);
+  color: var(--color-text);
 }
 
 .month-cell.is-today .month-cell-add {
@@ -1725,8 +1748,8 @@ table tbody tr:hover {
   display: block;
   padding: 2px 6px;
   border-radius: 6px;
-  background: var(--color-sage-soft);
-  color: var(--color-sage-dark);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
   font-size: 11px;
   font-weight: 600;
   line-height: 1.4;
@@ -1741,7 +1764,7 @@ table tbody tr:hover {
 
 .month-chip.is-cancelled {
   background: var(--color-surface-sunken);
-  color: var(--color-ink-faint);
+  color: var(--color-text-faint);
   text-decoration: line-through;
 }
 
@@ -1765,7 +1788,7 @@ table tbody tr:hover {
   flex: 0 0 auto;
   font-size: 10px;
   font-weight: 700;
-  color: var(--color-terracotta);
+  color: var(--color-primary);
   text-decoration: underline;
   white-space: nowrap;
   padding: 2px 2px;
@@ -1780,7 +1803,7 @@ table tbody tr:hover {
   padding: 2px 6px;
   font-size: 11px;
   font-weight: 700;
-  color: var(--color-terracotta);
+  color: var(--color-primary);
 }
 
 .month-chip-more:hover {
@@ -1843,7 +1866,7 @@ table tbody tr:hover {
 }
 
 .week-col.is-today .week-col-head {
-  background: var(--color-terracotta);
+  background: var(--color-primary);
   color: #fff;
 }
 
@@ -1865,7 +1888,7 @@ table tbody tr:hover {
   height: 20px;
   border-radius: 999px;
   background: var(--color-surface);
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
@@ -1889,7 +1912,7 @@ table tbody tr:hover {
    las reglas de acá sólo cubren lo que es específico de la columna semanal. */
 .week-col-empty {
   font-size: 11px;
-  color: var(--color-ink-faint);
+  color: var(--color-text-faint);
   padding: 2px 6px;
 }
 
@@ -1910,7 +1933,7 @@ table tbody tr:hover {
 .drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(43, 36, 32, 0.35);
+  background: rgba(15, 23, 42, 0.4);
   z-index: 60;
 }
 
@@ -1953,13 +1976,13 @@ table tbody tr:hover {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-sm);
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
 .drawer-close:hover {
   background: var(--color-surface-sunken);
-  color: var(--color-ink);
+  color: var(--color-text);
 }
 
 .drawer-form {
@@ -1978,7 +2001,7 @@ table tbody tr:hover {
 .field-hint {
   margin: -8px 0 0;
   font-size: 12px;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
 }
 
 .drawer-footer {
@@ -2043,7 +2066,7 @@ table tbody tr:hover {
 .combobox-empty {
   padding: 10px 12px;
   font-size: 13px;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
 }
 
 .combobox-option {
@@ -2068,12 +2091,12 @@ table tbody tr:hover {
 .combobox-option-name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--color-ink);
+  color: var(--color-text);
 }
 
 .combobox-option-meta {
   font-size: 12px;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
 }
 
 .combobox-option-create {
@@ -2081,7 +2104,7 @@ table tbody tr:hover {
   margin-top: 2px;
   padding-top: 10px;
   font-weight: 500;
-  color: var(--color-terracotta);
+  color: var(--color-primary);
 }
 
 .combobox-option-create:disabled {
@@ -2106,11 +2129,11 @@ table tbody tr:hover {
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   /* Las tabs "Preferencias"/"Integraciones" son <button> (para poder
      controlar cuál panel se muestra sin navegar), pero visualmente deben
      verse idénticas al link "Servicios" — así que se resetea todo lo que
-     el estilo global de <button> les impondría (fondo terracota, texto
+     el estilo global de <button> les impondría (fondo primario, texto
      blanco, etc.). */
   background: transparent;
   border: 0;
@@ -2120,13 +2143,13 @@ table tbody tr:hover {
 .section-tabs a:hover,
 .section-tabs button:hover {
   background: var(--color-surface-sunken);
-  color: var(--color-ink);
+  color: var(--color-text);
 }
 
 .section-tabs a.active,
 .section-tabs button.active {
-  background: var(--color-terracotta-soft);
-  color: var(--color-terracotta-dark);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
 }
 
 /* =========================================================================
@@ -2157,7 +2180,7 @@ table tbody tr:hover {
 
 .tabs-strip-btn {
   background: transparent;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   border: 0;
   border-radius: 0;
   padding: 10px 16px;
@@ -2169,13 +2192,13 @@ table tbody tr:hover {
 }
 
 .tabs-strip-btn:hover {
-  color: var(--color-ink);
+  color: var(--color-text);
   background: transparent;
 }
 
 .tabs-strip-btn.active {
-  color: var(--color-terracotta);
-  border-bottom-color: var(--color-terracotta);
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
 }
 
 /* =========================================================================
@@ -2212,14 +2235,14 @@ table tbody tr:hover {
 
 .integration-card-desc {
   font-size: 13px;
-  color: var(--color-ink-soft);
+  color: var(--color-text-muted);
   margin: 0;
   flex: 1;
 }
 
 .integration-card-account {
   font-size: 12px;
-  color: var(--color-ink-faint);
+  color: var(--color-text-faint);
 }
 
 .integration-card-action {
@@ -2278,7 +2301,7 @@ table tbody tr:hover {
 }
 
 .reminder-row.tone-today .reminder-row-time {
-  color: var(--color-terracotta);
+  color: var(--color-primary);
   font-weight: 600;
 }
 
@@ -2412,7 +2435,7 @@ table tbody tr:hover {
 }
 
 .dashboard-reminder-link:focus-visible {
-  outline: 2px solid var(--color-terracotta);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -2421,7 +2444,7 @@ table tbody tr:hover {
 }
 
 .dashboard-reminder-row.is-today .muted {
-  color: var(--color-terracotta);
+  color: var(--color-primary);
 }
 
 /* =========================================================================
@@ -2443,7 +2466,7 @@ table tbody tr:hover {
 
 .export-menu-caret {
   font-size: 10px;
-  color: var(--color-ink-faint);
+  color: var(--color-text-faint);
 }
 
 /* El panel ya NO es descendiente del botón en el DOM: se renderiza vía
@@ -2494,7 +2517,7 @@ table tbody tr:hover {
 .export-menu-format-link {
   font-size: 12px;
   font-weight: 700;
-  color: var(--color-terracotta);
+  color: var(--color-primary);
   text-decoration: none;
   padding: 3px 7px;
   border-radius: 999px;
@@ -2504,9 +2527,9 @@ table tbody tr:hover {
 
 .export-menu-format-link:hover,
 .export-menu-format-link:focus-visible {
-  background: var(--color-terracotta);
+  background: var(--color-primary);
   color: #fff;
-  border-color: var(--color-terracotta);
+  border-color: var(--color-primary);
 }
 
 .export-menu-simple-link {

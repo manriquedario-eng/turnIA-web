@@ -85,7 +85,7 @@ export default async function PatientDetailPage({
       .order('created_at', { ascending: false }),
     supabase
       .from('patient_records')
-      .select('id,reason,follow_up,background,notes,plan,updated_at')
+      .select('id,reason,follow_up,background,diagnosis,notes,plan,updated_at')
       .eq('patient_id', id)
       .eq('tenant_id', tenantId)
       .maybeSingle(),
@@ -308,7 +308,7 @@ export default async function PatientDetailPage({
             </p>
             <ClinicalRecordCard
               patientId={patient.id}
-              record={record ? { reason: record.reason ?? null, background: record.background ?? null, plan: record.plan ?? null, notes: record.notes ?? null } : null}
+              record={record ? { reason: record.reason ?? null, background: record.background ?? null, diagnosis: record.diagnosis ?? null, plan: record.plan ?? null, notes: record.notes ?? null } : null}
               action={upsertPatientRecord}
             />
           </div>

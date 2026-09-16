@@ -5,6 +5,7 @@ import { useState } from 'react';
 export type ClinicalRecordData = {
   reason: string | null;
   background: string | null;
+  diagnosis: string | null;
   plan: string | null;
   notes: string | null;
 } | null;
@@ -43,6 +44,7 @@ export function ClinicalRecordCard({
     const fields: Array<[string, string | null]> = [
       ['Motivo de consulta', record.reason],
       ['Antecedentes', record.background],
+      ['Diagnóstico', record.diagnosis],
       ['Plan / indicaciones', record.plan],
       ['Notas generales', record.notes],
     ];
@@ -72,6 +74,10 @@ export function ClinicalRecordCard({
       <label>
         Antecedentes
         <textarea name="background" defaultValue={record?.background ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
+      </label>
+      <label>
+        Diagnóstico
+        <textarea name="diagnosis" defaultValue={record?.diagnosis ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
       </label>
       <label>
         Plan / indicaciones

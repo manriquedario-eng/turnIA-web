@@ -54,6 +54,7 @@ export type PatientSummary = {
 export type ClinicalRecord = {
   reason: string | null;
   background: string | null;
+  diagnosis: string | null;
   followUp: string | null;
   notes: string | null;
   plan: string | null;

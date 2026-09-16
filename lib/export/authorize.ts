@@ -117,7 +117,7 @@ export async function fetchPatientExportData(
       .order('created_at', { ascending: false }),
     supabase
       .from('patient_records')
-      .select('id,reason,follow_up,background,notes,plan,updated_at')
+      .select('id,reason,follow_up,background,diagnosis,notes,plan,updated_at')
       .eq('patient_id', patientId)
       .eq('tenant_id', tenantId)
       .maybeSingle(),
@@ -203,7 +203,7 @@ export async function fetchPatientExportData(
           date: record.updated_at,
           type: 'Ficha',
           title: 'Ficha del paciente actualizada',
-          detail: record.reason || record.follow_up || record.notes || record.plan || null,
+          detail: record.reason || record.diagnosis || record.follow_up || record.notes || record.plan || null,
         }]
       : []),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -240,6 +240,7 @@ export async function fetchPatientExportData(
       ? {
           reason: record.reason,
           background: record.background,
+          diagnosis: record.diagnosis,
           followUp: record.follow_up,
           notes: record.notes,
           plan: record.plan,

@@ -278,12 +278,14 @@ export async function upsertPatientRecord(formData: FormData) {
     patientId: z.string().uuid(),
     reason: optional,
     background: optional,
+    diagnosis: optional,
     plan: optional,
     notes: optional,
   }).safeParse({
     patientId: formData.get('patientId'),
     reason: formData.get('reason'),
     background: formData.get('background'),
+    diagnosis: formData.get('diagnosis'),
     plan: formData.get('plan'),
     notes: formData.get('notes'),
   });
@@ -321,6 +323,7 @@ export async function upsertPatientRecord(formData: FormData) {
       patient_id: parsed.data.patientId,
       reason: parsed.data.reason ?? null,
       background: parsed.data.background ?? null,
+      diagnosis: parsed.data.diagnosis ?? null,
       plan: parsed.data.plan ?? null,
       notes: parsed.data.notes ?? null,
       updated_at: new Date().toISOString(),

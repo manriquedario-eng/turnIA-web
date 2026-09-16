@@ -60,6 +60,7 @@ export async function buildPatientDocx(data: PatientExportData, sections: Set<Pa
       children.push(
         ...block('Motivo', r.reason),
         ...block('Antecedentes', r.background),
+        ...block('Diagnóstico', r.diagnosis),
         ...block('Seguimiento', r.followUp),
         ...block('Notas', r.notes),
         ...block('Plan', r.plan),
