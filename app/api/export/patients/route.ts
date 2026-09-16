@@ -6,7 +6,7 @@ import { type NextRequest } from 'next/server';
 import { requireTenant } from '@/lib/auth/require-user';
 import { fetchPatientsListExportData } from '@/lib/export/authorize';
 import { buildExportFilename } from '@/lib/export/filename';
-import { exportErrorResponse, exportFileResponse, parseExportFormat } from '@/lib/export/response';
+import { exportErrorResponse, exportFileResponse, logExportError, parseExportFormat } from '@/lib/export/response';
 import { buildPatientsListWorkbook } from '@/lib/export/xlsx/patients';
 import { renderPatientsListPdf } from '@/lib/export/pdf/render';
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   try {
     buffer = format === 'xlsx' ? await buildPatientsListWorkbook(data) : await renderPatientsListPdf(data);
   } catch (err) {
-    console.error('Error generando export de pacientes', err instanceof Error ? err.message : 'error desconocido');
+    logExportError(`listado de pacientes — formato ${format}`, err);
     return exportErrorResponse('No pudimos generar el archivo. Intentá nuevamente.', 500);
   }
 

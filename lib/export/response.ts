@@ -30,6 +30,25 @@ export function exportErrorResponse(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
 
+/**
+ * Log de diagnóstico server-side para fallos de generación de archivos
+ * (PDF/DOCX/XLSX). Nunca se expone al cliente — el endpoint sigue devolviendo
+ * el mensaje limpio de exportErrorResponse. Loguea nombre, mensaje y stack
+ * completos para poder identificar la causa real (antes solo se logueaba
+ * err.message, lo que ocultaba en qué archivo/línea ocurría el error).
+ */
+export function logExportError(context: string, err: unknown) {
+  if (err instanceof Error) {
+    console.error(`[export] ${context}:`, {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+    });
+  } else {
+    console.error(`[export] ${context}: error no-Error`, err);
+  }
+}
+
 const VALID_FORMATS = new Set<ExportFormat>(['pdf', 'docx', 'xlsx']);
 
 export function parseExportFormat(value: string | null, allowed: ExportFormat[]): ExportFormat | null {

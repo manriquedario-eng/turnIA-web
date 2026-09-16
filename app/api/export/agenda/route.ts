@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
 import { fetchAgendaExportData } from '@/lib/export/authorize';
 import { buildExportFilename } from '@/lib/export/filename';
-import { exportErrorResponse, exportFileResponse, parseExportFormat } from '@/lib/export/response';
+import { exportErrorResponse, exportFileResponse, logExportError, parseExportFormat } from '@/lib/export/response';
 import { buildAgendaWorkbook } from '@/lib/export/xlsx/agenda';
 import { renderAgendaPdf } from '@/lib/export/pdf/render';
 
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   try {
     buffer = format === 'xlsx' ? await buildAgendaWorkbook(data) : await renderAgendaPdf(data);
   } catch (err) {
-    console.error('Error generando export de agenda', err instanceof Error ? err.message : 'error desconocido');
+    logExportError(`agenda — vista ${viewParsed.data} — fecha ${dateParsed.data} — formato ${format}`, err);
     return exportErrorResponse('No pudimos generar el archivo. Intentá nuevamente.', 500);
   }
 

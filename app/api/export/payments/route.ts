@@ -7,7 +7,7 @@ import { type NextRequest } from 'next/server';
 import { requireTenant } from '@/lib/auth/require-user';
 import { fetchPaymentsExportData } from '@/lib/export/authorize';
 import { buildExportFilename } from '@/lib/export/filename';
-import { exportErrorResponse, exportFileResponse, parseExportFormat } from '@/lib/export/response';
+import { exportErrorResponse, exportFileResponse, logExportError, parseExportFormat } from '@/lib/export/response';
 import { buildPaymentsWorkbook } from '@/lib/export/xlsx/payments';
 import { renderPaymentsPdf } from '@/lib/export/pdf/render';
 
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   try {
     buffer = format === 'xlsx' ? await buildPaymentsWorkbook(data) : await renderPaymentsPdf(data);
   } catch (err) {
-    console.error('Error generando export de pagos', err instanceof Error ? err.message : 'error desconocido');
+    logExportError(`pagos — formato ${format}`, err);
     return exportErrorResponse('No pudimos generar el archivo. Intentá nuevamente.', 500);
   }
 
