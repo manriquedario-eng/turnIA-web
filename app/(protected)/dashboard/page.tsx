@@ -263,7 +263,30 @@ export default async function DashboardPage() {
               <EmptyState title="No hay turnos registrados para hoy" description="Cuando crees un turno para hoy, va a aparecer acá." />
             </div>
           ) : (
-            <div className="stack" style={{ gap: 8, padding: '14px 20px 20px' }}>
+            <>
+              {/* Rediseño profundo del Dashboard (paleta definitiva): la tarjeta
+                  separada "Próximo paciente" duplicaba exactamente el turno que
+                  ya se destaca como is-next en esta misma lista — se elimina esa
+                  tarjeta y el próximo turno pasa a ser una franja compacta acá
+                  arriba, mismos datos (nextAppointment) ya calculados, sin
+                  ninguna consulta ni lógica nueva. Reduce de 3 a 2 tarjetas la
+                  columna lateral y le da jerarquía real al dato más importante
+                  del día. */}
+              {nextAppointment ? (
+                <div style={{ padding: '0 20px' }}>
+                  <Link href={appointmentHref(today, nextAppointment.id)} className="dashboard-next-strip">
+                    <span className="dashboard-next-strip-label">Próximo</span>
+                    <strong className="dashboard-next-strip-time">{formatTime(nextAppointment.starts_at)}</strong>
+                    <span className="dashboard-next-strip-name">{(nextAppointment as any).patients?.name ?? 'Sin paciente'}</span>
+                    <span className="muted" style={{ fontSize: 12 }}>
+                      {(nextAppointment as any).services?.name ?? 'Sin servicio'} · {modalityLabel(nextAppointment.modality)}
+                    </span>
+                    <StatusBadge status={nextAppointment.status} label={statusLabel(nextAppointment.status)} />
+                    <span className="timeline-item-chevron" aria-hidden="true">›</span>
+                  </Link>
+                </div>
+              ) : null}
+              <div className="stack" style={{ gap: 8, padding: '14px 20px 20px' }}>
               {appointments.map((appointment: any) => {
                 const cancelled = isCancelled(appointment.status);
                 const isNext = nextAppointment?.id === appointment.id;
@@ -299,32 +322,12 @@ export default async function DashboardPage() {
                   </Link>
                 );
               })}
-            </div>
+              </div>
+            </>
           )}
         </div>
 
         <div className="stack">
-          <div className="card">
-            <h2 style={{ marginTop: 0 }}>Próximo paciente</h2>
-            {nextAppointment ? (
-              <Link href={appointmentHref(today, nextAppointment.id)} className="dashboard-next-link">
-                <div className="stack" style={{ gap: 4 }}>
-                  <strong style={{ fontSize: 20 }}>{formatTime(nextAppointment.starts_at)}</strong>
-                  <div style={{ fontWeight: 600 }}>{(nextAppointment as any).patients?.name ?? 'Sin paciente'}</div>
-                  <div className="muted" style={{ fontSize: 13 }}>
-                    {(nextAppointment as any).services?.name ?? 'Sin servicio'} · {modalityLabel(nextAppointment.modality)}
-                  </div>
-                  <div className="nav" style={{ justifyContent: 'space-between' }}>
-                    <StatusBadge status={nextAppointment.status} label={statusLabel(nextAppointment.status)} />
-                    <span className="timeline-item-chevron" aria-hidden="true">›</span>
-                  </div>
-                </div>
-              </Link>
-            ) : (
-              <EmptyState title="No hay más turnos hoy" description="Ya pasaron todos los turnos activos del día." />
-            )}
-          </div>
-
           <div className="card">
             <div className="nav" style={{ justifyContent: 'space-between' }}>
               <h2 style={{ marginTop: 0 }}>Lista de espera</h2>

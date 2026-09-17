@@ -93,8 +93,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 <label>Razón social<input name="business_name" defaultValue={text('business_name')} maxLength={200} /></label>
                 <label>Condición fiscal<input name="tax_condition" defaultValue={text('tax_condition')} placeholder="Ej. Monotributista" maxLength={200} /></label>
 
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <h3 style={{ margin: '16px 0 0' }}>Datos de contacto</h3>
+                <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
+                  <h3 style={{ margin: 0 }}>Datos de contacto</h3>
                 </div>
                 <label>Teléfono profesional<input name="professional_phone" defaultValue={text('professional_phone')} maxLength={200} /></label>
                 <label>Email profesional<input name="professional_email" type="email" defaultValue={text('professional_email')} maxLength={200} /></label>
@@ -102,8 +102,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 <label>Localidad<input name="locality" defaultValue={text('locality')} maxLength={200} /></label>
                 <label>Provincia<input name="province" defaultValue={text('province')} maxLength={200} /></label>
 
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <h3 style={{ margin: '16px 0 0' }}>Preferencias operativas</h3>
+                <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
+                  <h3 style={{ margin: 0 }}>Preferencias operativas</h3>
                 </div>
                 <label>
                   Modalidad predeterminada

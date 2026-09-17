@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { IconCheck } from '@/components/ui/icons';
 import {
   createReminder,
@@ -175,31 +174,46 @@ export default async function RemindersPage({
         </form>
       </div>
 
+      {/* Segunda pasada de rediseño: antes Vencidos/Hoy/Próximos eran 3
+          cards separadas apiladas (mucho "card dentro de card" y huecos
+          vacíos cuando un grupo no tiene nada) — ahora es una sola card con
+          3 grupos internos, mismo contenido y mismas acciones por fila. */}
       <div className="card">
-        <h2 style={{ marginTop: 0 }}>Vencidos {overdue.length > 0 ? `(${overdue.length})` : ''}</h2>
-        {overdue.length === 0 ? (
-          <p className="muted" style={{ fontSize: 13 }}>Ningún recordatorio vencido.</p>
-        ) : (
-          <ul className="reminder-list">{overdue.map((r) => <ReminderRowView key={r.id} reminder={r} tone="overdue" />)}</ul>
-        )}
-      </div>
+        <div className="reminder-group">
+          <div className="reminder-group-title">
+            <span className={overdue.length > 0 ? 'is-overdue' : ''}>Vencidos</span>
+            {overdue.length > 0 ? <span className="reminder-group-count is-overdue">{overdue.length}</span> : null}
+          </div>
+          {overdue.length === 0 ? (
+            <p className="muted" style={{ fontSize: 13, margin: 0 }}>Ningún recordatorio vencido.</p>
+          ) : (
+            <ul className="reminder-list">{overdue.map((r) => <ReminderRowView key={r.id} reminder={r} tone="overdue" />)}</ul>
+          )}
+        </div>
 
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>Hoy {dueToday.length > 0 ? `(${dueToday.length})` : ''}</h2>
-        {dueToday.length === 0 ? (
-          <p className="muted" style={{ fontSize: 13 }}>Nada para hoy.</p>
-        ) : (
-          <ul className="reminder-list">{dueToday.map((r) => <ReminderRowView key={r.id} reminder={r} tone="today" />)}</ul>
-        )}
-      </div>
+        <div className="reminder-group">
+          <div className="reminder-group-title">
+            <span>Hoy</span>
+            {dueToday.length > 0 ? <span className="reminder-group-count is-today">{dueToday.length}</span> : null}
+          </div>
+          {dueToday.length === 0 ? (
+            <p className="muted" style={{ fontSize: 13, margin: 0 }}>Nada para hoy.</p>
+          ) : (
+            <ul className="reminder-list">{dueToday.map((r) => <ReminderRowView key={r.id} reminder={r} tone="today" />)}</ul>
+          )}
+        </div>
 
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>Próximos {upcoming.length > 0 ? `(${upcoming.length})` : ''}</h2>
-        {upcoming.length === 0 ? (
-          <EmptyState title="Sin próximos recordatorios" description="Los que crees para más adelante van a aparecer acá." />
-        ) : (
-          <ul className="reminder-list">{upcoming.map((r) => <ReminderRowView key={r.id} reminder={r} tone="upcoming" />)}</ul>
-        )}
+        <div className="reminder-group">
+          <div className="reminder-group-title">
+            <span>Próximos</span>
+            {upcoming.length > 0 ? <span className="reminder-group-count">{upcoming.length}</span> : null}
+          </div>
+          {upcoming.length === 0 ? (
+            <p className="muted" style={{ fontSize: 13, margin: 0 }}>Sin próximos recordatorios.</p>
+          ) : (
+            <ul className="reminder-list">{upcoming.map((r) => <ReminderRowView key={r.id} reminder={r} tone="upcoming" />)}</ul>
+          )}
+        </div>
       </div>
 
       {done.length > 0 ? (

@@ -41,22 +41,50 @@ export function ClinicalRecordCard({
       );
     }
 
-    const fields: Array<[string, string | null]> = [
+    // Segunda pasada de rediseño: en vez de una secuencia de campos
+    // idénticos, se agrupan en 3 bloques con jerarquía real (Consulta /
+    // Diagnóstico / Seguimiento) — mismo contenido y mismos campos, sólo
+    // cambia la presentación. Diagnóstico se destaca con un acento lateral
+    // (mismo lenguaje visual que .dashboard-next-strip / .appointment-card.is-next),
+    // no una card nueva — sigue siendo texto plano dentro de la ficha.
+    const consultaFields: Array<[string, string | null]> = [
       ['Motivo de consulta', record.reason],
       ['Antecedentes', record.background],
-      ['Diagnóstico', record.diagnosis],
+    ];
+    const seguimientoFields: Array<[string, string | null]> = [
       ['Plan / indicaciones', record.plan],
       ['Notas generales', record.notes],
     ];
 
     return (
-      <div className="stack" style={{ gap: 14 }}>
-        {fields.map(([label, value]) => (
-          <div key={label}>
-            <h3 style={{ margin: '0 0 4px' }}>{label}</h3>
-            <p style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: 14 }}>{value || <span className="muted">Sin datos</span>}</p>
+      <div className="clinical-record-view">
+        <div className="clinical-group">
+          <div className="clinical-group-title">Consulta</div>
+          {consultaFields.map(([label, value]) => (
+            <div key={label} className="clinical-field">
+              <span className="clinical-field-label">{label}</span>
+              <p className="clinical-field-value">{value || <span className="muted">Sin datos</span>}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="clinical-group">
+          <div className="clinical-field clinical-field-diagnosis">
+            <span className="clinical-field-label">Diagnóstico</span>
+            <p className="clinical-field-value">{record.diagnosis || <span className="muted">Sin diagnóstico registrado</span>}</p>
           </div>
-        ))}
+        </div>
+
+        <div className="clinical-group">
+          <div className="clinical-group-title">Seguimiento</div>
+          {seguimientoFields.map(([label, value]) => (
+            <div key={label} className="clinical-field">
+              <span className="clinical-field-label">{label}</span>
+              <p className="clinical-field-value">{value || <span className="muted">Sin datos</span>}</p>
+            </div>
+          ))}
+        </div>
+
         <div>
           <button type="button" className="btn secondary" onClick={() => setEditing(true)}>Editar ficha clínica</button>
         </div>
@@ -65,28 +93,40 @@ export function ClinicalRecordCard({
   }
 
   return (
-    <form action={action} className="stack">
+    <form action={action} className="clinical-record-form">
       <input type="hidden" name="patientId" value={patientId} />
-      <label>
-        Motivo de consulta
-        <textarea name="reason" defaultValue={record?.reason ?? ''} rows={2} maxLength={10000} style={{ width: '100%' }} />
-      </label>
-      <label>
-        Antecedentes
-        <textarea name="background" defaultValue={record?.background ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
-      </label>
-      <label>
-        Diagnóstico
-        <textarea name="diagnosis" defaultValue={record?.diagnosis ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
-      </label>
-      <label>
-        Plan / indicaciones
-        <textarea name="plan" defaultValue={record?.plan ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
-      </label>
-      <label>
-        Notas generales
-        <textarea name="notes" defaultValue={record?.notes ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
-      </label>
+
+      <div className="clinical-group">
+        <div className="clinical-group-title">Consulta</div>
+        <label>
+          Motivo de consulta
+          <textarea name="reason" defaultValue={record?.reason ?? ''} rows={2} maxLength={10000} style={{ width: '100%' }} />
+        </label>
+        <label>
+          Antecedentes
+          <textarea name="background" defaultValue={record?.background ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
+        </label>
+      </div>
+
+      <div className="clinical-group">
+        <label className="clinical-field-diagnosis-input">
+          Diagnóstico
+          <textarea name="diagnosis" defaultValue={record?.diagnosis ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
+        </label>
+      </div>
+
+      <div className="clinical-group">
+        <div className="clinical-group-title">Seguimiento</div>
+        <label>
+          Plan / indicaciones
+          <textarea name="plan" defaultValue={record?.plan ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
+        </label>
+        <label>
+          Notas generales
+          <textarea name="notes" defaultValue={record?.notes ?? ''} rows={3} maxLength={10000} style={{ width: '100%' }} />
+        </label>
+      </div>
+
       <div className="nav">
         <button className="btn" type="submit">{record ? 'Guardar cambios' : 'Completar ficha clínica'}</button>
         {record ? (

@@ -62,11 +62,11 @@ export default async function PaymentsPage({
       <div className="stat-strip">
         <div className="stat-strip-item">
           <span className="stat-strip-label">Caja actual</span>
-          <span className="stat-strip-value">${balance.toLocaleString('es-AR')}</span>
+          <span className="stat-strip-value stat-strip-value-money">${balance.toLocaleString('es-AR')}</span>
         </div>
         <div className="stat-strip-item">
           <span className="stat-strip-label">Cobrado</span>
-          <span className="stat-strip-value">${collected.toLocaleString('es-AR')}</span>
+          <span className="stat-strip-value stat-strip-value-money">${collected.toLocaleString('es-AR')}</span>
           <span className="stat-strip-hint">últimos 50 pagos</span>
         </div>
       </div>
@@ -133,13 +133,15 @@ export default async function PaymentsPage({
           {(cashMovements || []).length === 0 ? (
             <EmptyState title="Sin movimientos" description="Los movimientos manuales de caja van a aparecer acá." />
           ) : (
-            <div className="stack" style={{ gap: 8 }}>
+            <div className="stack" style={{ gap: 0 }}>
               {(cashMovements || []).slice(0, 10).map((movement: any) => (
-                <div key={movement.id} className="nav" style={{ justifyContent: 'space-between', fontSize: 13, paddingBottom: 8, borderBottom: '1px solid var(--color-border-soft)' }}>
-                  <strong style={{ color: movement.kind === 'in' ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                    {movement.kind === 'in' ? '+' : '-'}${Number(movement.amount).toLocaleString('es-AR')}
+                <div key={movement.id} className="cash-movement-row">
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    {paymentMethodLabel(movement.method)} · {new Date(movement.created_at).toLocaleString('es-AR')}
+                  </span>
+                  <strong className={`cash-movement-amount ${movement.kind === 'in' ? 'is-in' : 'is-out'}`}>
+                    {movement.kind === 'in' ? '+' : '−'}${Number(movement.amount).toLocaleString('es-AR')}
                   </strong>
-                  <span className="muted">{paymentMethodLabel(movement.method)} · {new Date(movement.created_at).toLocaleString('es-AR')}</span>
                 </div>
               ))}
             </div>
@@ -168,7 +170,7 @@ export default async function PaymentsPage({
             <div className="payments-table-wrap" style={{ marginTop: 12, paddingBottom: 8 }}>
               <table className="table">
                 <thead>
-                  <tr><th>Fecha</th><th>Paciente</th><th>Medio</th><th>Importe</th></tr>
+                  <tr><th>Fecha</th><th>Paciente</th><th>Medio</th><th style={{ textAlign: 'right' }}>Importe</th></tr>
                 </thead>
                 <tbody>
                   {(payments || []).map((payment: any) => (
@@ -176,7 +178,7 @@ export default async function PaymentsPage({
                       <td className="muted">{new Date(payment.created_at).toLocaleString('es-AR')}</td>
                       <td>{payment.patients?.name ?? 'Sin paciente'}</td>
                       <td className="muted">{paymentMethodLabel(payment.method)}</td>
-                      <td><strong>${Number(payment.amount).toLocaleString('es-AR')} {payment.currency}</strong></td>
+                      <td className="table-cell-amount"><strong>${Number(payment.amount).toLocaleString('es-AR')} {payment.currency}</strong></td>
                     </tr>
                   ))}
                 </tbody>

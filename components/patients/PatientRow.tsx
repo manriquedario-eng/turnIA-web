@@ -58,6 +58,9 @@ export function PatientRow({ patient }: { patient: PatientRowData }) {
       <td>
         {patient.nextStatus ? <StatusBadge status={patient.nextStatus} label={statusLabel(patient.nextStatus)} /> : <span className="muted">—</span>}
       </td>
+      <td className="table-cell-chevron">
+        <span className="timeline-item-chevron" aria-hidden="true">›</span>
+      </td>
     </tr>
   );
 }

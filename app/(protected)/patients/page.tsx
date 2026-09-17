@@ -88,13 +88,14 @@ export default async function PatientsPage({
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="table">
+            <table className="table table-patients">
               <thead>
                 <tr>
                   <th>Paciente</th>
                   <th>Contacto</th>
                   <th>Próximo turno</th>
                   <th>Estado</th>
+                  <th aria-hidden="true"></th>
                 </tr>
               </thead>
               <tbody>

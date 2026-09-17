@@ -233,60 +233,68 @@ export default async function PatientDetailPage({
       {query.success === 'followup' ? <p className="alert success">Nota guardada.</p> : null}
       {query.success === 'record' ? <p className="alert success">Ficha clínica actualizada.</p> : null}
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '20px 20px 16px' }}>
-          <div className="patient-header">
-            <div className="patient-header-identity">
-              <div className="patient-avatar-lg">{initials}</div>
-              <div>
-                <h1 style={{ marginBottom: 4 }}>{patient.name}</h1>
-                <div className="patient-contact-list">
-                  {patient.phone ? <span><IconPhone size={14} /> {patient.phone}</span> : null}
-                  {patient.email ? <span><IconMail size={14} /> {patient.email}</span> : null}
-                  {!patient.phone && !patient.email ? <span>Sin datos de contacto cargados</span> : null}
-                </div>
+      {/* Segunda pasada de rediseño: la ficha del paciente pasa de sentirse
+          "tabla administrativa dentro de una card" a una ficha profesional —
+          eyebrow + avatar con anillo, acciones con jerarquía primaria/
+          secundaria/terciaria clara, y una franja de datos clave propia
+          (.patient-meta-bar) en vez de reutilizar el .stat-strip genérico
+          que también usan Dashboard/Pagos (mismos datos, sólo cambia la
+          presentación — ninguna query ni cálculo nuevo). */}
+      <div className="card patient-header-card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="patient-header">
+          <div className="patient-header-identity">
+            <div className="patient-avatar-lg">{initials}</div>
+            <div>
+              <div className="patient-header-eyebrow">Paciente</div>
+              <h1 style={{ margin: '2px 0 4px' }}>{patient.name}</h1>
+              <div className="patient-contact-list">
+                {patient.phone ? <span><IconPhone size={14} /> {patient.phone}</span> : null}
+                {patient.email ? <span><IconMail size={14} /> {patient.email}</span> : null}
+                {!patient.phone && !patient.email ? <span>Sin datos de contacto cargados</span> : null}
               </div>
             </div>
+          </div>
 
-            <div className="nav" style={{ flexWrap: 'wrap' }}>
-              <Link
-                className="btn"
-                href={`/agenda?view=day&date=${todayForNewAppointment ?? ''}&new=1&patient=${patient.id}#turno-drawer`}
-              >
-                Nuevo turno
-              </Link>
-              <Link className="btn secondary" href="/payments">Registrar pago</Link>
-              <ExportMenu items={exportItems} />
-            </div>
+          <div className="patient-header-actions">
+            <Link
+              className="btn"
+              href={`/agenda?view=day&date=${todayForNewAppointment ?? ''}&new=1&patient=${patient.id}#turno-drawer`}
+            >
+              Nuevo turno
+            </Link>
+            <Link className="btn secondary" href="/payments">Registrar pago</Link>
+            <ExportMenu items={exportItems} />
           </div>
         </div>
 
-        <div className="stat-strip" style={{ border: 'none', borderRadius: 0, borderTop: '1px solid var(--color-border-soft)', boxShadow: 'none' }}>
-          <div className="stat-strip-item">
-            <span className="stat-strip-label">Próximo turno</span>
+        <div className="patient-meta-bar">
+          <div className="patient-meta-item">
+            <span className="patient-meta-label">Próximo turno</span>
             {nextAppointment ? (
-              <span className="nav" style={{ gap: 8 }}>
-                <span className="stat-strip-value" style={{ fontSize: 16 }}>{formatDateTime(nextAppointment.starts_at)}</span>
+              <span className="patient-meta-value-row">
+                <span className="patient-meta-value">{formatDateTime(nextAppointment.starts_at)}</span>
                 <StatusBadge status={nextAppointment.status} label={statusLabel(nextAppointment.status)} />
               </span>
             ) : (
-              <span className="stat-strip-hint">Sin turnos programados</span>
+              <span className="patient-meta-hint">Sin turnos programados</span>
             )}
           </div>
-          <div className="stat-strip-item">
-            <span className="stat-strip-label">Último turno</span>
+          <div className="patient-meta-item">
+            <span className="patient-meta-label">Último turno</span>
             {lastAppointment ? (
-              <span className="nav" style={{ gap: 8 }}>
-                <span className="stat-strip-value" style={{ fontSize: 16 }}>{formatDateTime(lastAppointment.starts_at)}</span>
+              <span className="patient-meta-value-row">
+                <span className="patient-meta-value">{formatDateTime(lastAppointment.starts_at)}</span>
                 <StatusBadge status={lastAppointment.status} label={statusLabel(lastAppointment.status)} />
               </span>
             ) : (
-              <span className="stat-strip-hint">Sin turnos anteriores</span>
+              <span className="patient-meta-hint">Sin turnos anteriores</span>
             )}
           </div>
-          <div className="stat-strip-item">
-            <span className="stat-strip-label">Saldo pendiente</span>
-            <span className="stat-strip-value">${balance.toLocaleString('es-AR')}</span>
+          <div className="patient-meta-item">
+            <span className="patient-meta-label">Saldo pendiente</span>
+            <span className={`patient-meta-value patient-meta-value-lg ${balance > 0 ? 'is-pending' : ''}`}>
+              ${balance.toLocaleString('es-AR')}
+            </span>
           </div>
         </div>
       </div>

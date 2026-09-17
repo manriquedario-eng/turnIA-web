@@ -1,53 +1,55 @@
 /* =========================================================================
-   TurnIA — Sistema visual (Fase UI v3 — rediseño integral)
-   Paleta: slate claro + índigo como color primario dominante, con un acento
-   teal muy moderado para casos puntuales (p. ej. "Completado"). Reemplaza
-   por completo la identidad terracota/marrón/beige anterior — sin restos
-   de esos tonos salvo donde el color semántico (warning) todavía cae en la
-   familia ámbar por convención, ahora con un ámbar limpio, no marrón.
+   TurnIA — Sistema visual (Fase UI v4 — PALETA DEFINITIVA APROBADA)
+   Azul petróleo (#0F6E78) como primario — identidad salud + tecnología,
+   NUNCA índigo/violeta, NUNCA terracota/marrón/beige dominante. Acento teal
+   (#14B8A6) y azul clínico (#2563EB, "secondary") para usos puntuales de
+   estado (Agendado, info). Regla de uso estricta pedida por el cliente:
+   ~80-85% blanco/neutro claro, ~10-15% primario (sólo en logo, CTA, nav
+   activo, tabs activas, links clave, foco, indicadores chicos — NUNCA como
+   fondo dominante de cards grandes). Sin gradientes decorativos, sin
+   glassmorphism, sin neón.
    Mantiene los nombres de clase usados por las páginas existentes
-   (card, btn, nav, table, form-grid, alert, muted, grid, stack...) para
-   no requerir cambios en la lógica de negocio de cada pantalla — sólo se
-   renombraron/revalorizaron las variables de color (PARTE 20 del pedido de
-   rediseño: tokens centralizados, nada de hex sueltos por los componentes).
+   (card, btn, nav, table, form-grid, alert, muted, grid, stack...) — sólo
+   cambian valores/uso de color, no la lógica de negocio.
    ========================================================================= */
 
 :root {
-  /* Color primario — índigo, único color dominante de la app (PARTE 2 del
-     pedido: "un color primario dominante", nada de arcoíris). */
-  --color-primary: #4f46e5;
-  --color-primary-strong: #4338ca;
-  --color-primary-soft: #eef2ff;
-  --color-primary-soft-strong: #e0e7ff;
-
-  /* Acento secundario, muy moderado — sólo para "Completado" y casos
-     puntuales donde conviene diferenciarse del primario (PARTE 2/10). */
-  --color-accent: #0f9d8a;
-  --color-accent-soft: #e3f7f4;
-
-  /* Fondo y superficies — blanco / slate muy claro, nada de beige/crema. */
-  --color-bg: #f8fafc;
+  /* ---- Tokens con los nombres EXACTOS pedidos (paleta aprobada) ---- */
+  --color-primary: #0f6e78;
+  --color-primary-hover: #0b5961;
+  --color-primary-soft: #e6f4f5;
+  --color-secondary: #2563eb;
+  --color-accent: #14b8a6;
+  --color-bg: #f7fafc;
   --color-surface: #ffffff;
-  --color-surface-sunken: #f1f5f9;
-  --color-surface-raised: #ffffff;
-  --color-border: #e2e8f0;
-  --color-border-soft: #edf1f5;
-
-  /* Texto — slate oscuro / azul carbón, sin calidez marrón. */
-  --color-text: #1e293b;
-  --color-text-strong: #0f172a;
+  --color-surface-soft: #f1f5f9;
+  --color-text: #0f172a;
   --color-text-muted: #64748b;
-  --color-text-faint: #94a3b8;
-
-  /* Semánticos — saturación moderada, nunca marrón/terracota. */
-  --color-success: #15803d;
-  --color-success-bg: #e7f7ec;
+  --color-border: #d9e2eb;
+  --color-success: #16a34a;
   --color-warning: #d97706;
-  --color-warning-bg: #fef3c7;
   --color-danger: #dc2626;
+
+  /* ---- Alias internos (mismos valores, nombres históricos usados en el
+     resto de este archivo) — se mantienen para no reescribir cientos de
+     referencias; ningún alias introduce un color nuevo, todos derivan de
+     los tokens de arriba o de tintes/variantes mínimas necesarias para que
+     bordes muy sutiles ("border-soft") sigan distinguiéndose de fondos
+     ("surface-soft") sin agregar otra familia de color. */
+  --color-primary-strong: var(--color-primary-hover);
+  --color-primary-soft-strong: #d3ecee;
+  --color-surface-sunken: var(--color-surface-soft);
+  --color-surface-raised: var(--color-surface);
+  --color-border-soft: #e8edf3;
+  --color-text-strong: var(--color-text);
+  --color-text-faint: #94a3b8;
+  --color-secondary-soft: #dbeafe;
+  --color-success-bg: #dcfce7;
+  --color-warning-bg: #fef3c7;
   --color-danger-bg: #fee2e2;
-  --color-info: #0284c7;
-  --color-info-bg: #e0f2fe;
+  --color-info: var(--color-secondary);
+  --color-info-bg: var(--color-secondary-soft);
+  --color-accent-soft: #ccfbf1;
 
   /* Layout */
   --sidebar-width: 248px;
@@ -76,6 +78,8 @@ body {
   font-family: var(--font-sans);
   background: var(--color-bg);
   color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -91,17 +95,22 @@ select {
   font: inherit;
 }
 
+/* Escala tipográfica explícita (segunda pasada): antes casi todos los
+   textos tenían pesos/tamaños muy parecidos (h1 24 / h2 15 con el mismo
+   peso 700 que h1). Ahora hay una jerarquía real: Page title (h1) más
+   grande, Section/Card title (h2) claramente un escalón abajo con menos
+   peso, Label (h3) sin cambios (ya funcionaba bien como caption/label). */
 h1 {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
   color: var(--color-text-strong);
   margin: 0 0 4px;
 }
 
 h2 {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.005em;
   color: var(--color-text-strong);
   margin: 0 0 12px;
@@ -327,6 +336,15 @@ select:focus {
   box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
+/* Divisor de subsección dentro de un formulario largo (Configuración) — un
+   borde superior discreto + más aire, para que el formulario se lea como
+   grupos con nombre en vez de una sola lista interminable de campos. */
+.form-section-divider {
+  padding-top: 18px;
+  margin-top: 4px;
+  border-top: 1px solid var(--color-border-soft);
+}
+
 .field {
   display: grid;
   gap: 6px;
@@ -390,12 +408,15 @@ table tbody tr:hover {
 
 /* ---------- Login ---------- */
 
+/* Fondo plano, sin gradiente decorativo (paleta aprobada: "prohibido
+   gradientes decorativos") — un solo neutro claro, coherente con el resto
+   de la app. */
 .login-wrap {
   min-height: 100vh;
   display: grid;
   place-items: center;
   padding: 24px;
-  background: radial-gradient(circle at top, var(--color-primary-soft), var(--color-bg) 60%);
+  background: var(--color-bg);
 }
 
 .login-card {
@@ -428,12 +449,14 @@ table tbody tr:hover {
 }
 
 /* Agendado/Programado (turno recién creado, sin confirmar todavía) —
-   índigo suave, distinto de Pendiente (PARTE 10 del pedido de rediseño:
-   "Agendado: azul / índigo suave", separado de amarillo=Pendiente). */
+   azul clínico suave (--color-secondary), distinto tanto de Pendiente
+   (ámbar) como del primario teal — así el primario queda libre para su
+   único rol de identidad/acción, no como color de estado (paleta
+   definitiva aprobada, regla de badges: "Agendado: azul suave"). */
 .badge-programado,
 .badge-scheduled {
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
+  background: var(--color-secondary-soft);
+  color: var(--color-secondary);
 }
 
 .badge-cancelado,
@@ -624,6 +647,26 @@ table tbody tr:hover {
   font-style: italic;
 }
 
+/* Columna final de chevron en tablas clickeables (Pacientes) — refuerza
+   visualmente que la fila entera navega, mismo lenguaje que las filas
+   accionables del Dashboard. */
+.table-patients th:last-child,
+.table-cell-chevron {
+  width: 28px;
+  padding-left: 0;
+  padding-right: 14px;
+  text-align: right;
+}
+
+.table-cell-chevron .timeline-item-chevron {
+  opacity: 0.5;
+}
+
+.row-link:hover .timeline-item-chevron {
+  opacity: 1;
+  color: var(--color-primary);
+}
+
 /* ---------- Teléfono (selector de prefijo + número) ---------- */
 
 /* Contenedor real de PhoneInput dentro de .form-grid (ver el comentario en
@@ -727,6 +770,45 @@ table tbody tr:hover {
   white-space: nowrap;
 }
 
+/* Jerarquía visual para importes (Pagos y caja — "las cifras deben tener
+   jerarquía visual", pedido explícito). Tabular-nums para que columnas de
+   montos alineen entre filas, sin necesidad de una fuente monoespaciada. */
+.stat-strip-value-money,
+.cash-movement-amount,
+.table-cell-amount strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-movement-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.cash-movement-row:last-child {
+  border-bottom: none;
+}
+
+.cash-movement-amount {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.cash-movement-amount.is-in {
+  color: var(--color-success);
+}
+
+.cash-movement-amount.is-out {
+  color: var(--color-danger);
+}
+
+.table-cell-amount {
+  text-align: right;
+}
+
 /* ---------- Pagos: lista responsive (reemplaza tabla en mobile) ---------- */
 
 .payments-table-wrap {
@@ -814,23 +896,33 @@ table tbody tr:hover {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 8px 16px;
+  padding: 6px 8px 18px;
   font-weight: 700;
   font-size: 17px;
   color: var(--color-text);
 }
 
+/* Logo con más presencia: marca cuadrada llena de primario (uno de los
+   usos explícitamente permitidos, "logo"), tipografía con más peso y un
+   poco más de tracking negativo para sentirse como wordmark, no como
+   texto suelto al lado de un ícono. */
 .app-sidebar .brand-mark {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 9px;
   background: var(--color-primary);
   display: grid;
   place-items: center;
   color: #fff;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 16px;
   flex-shrink: 0;
+}
+
+.app-sidebar .brand-name {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 /* --- Profile card (arriba del sidebar) --- */
@@ -881,16 +973,21 @@ table tbody tr:hover {
 
 .sidebar-section-label {
   font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--color-text-faint);
-  padding: 14px 12px 6px;
+  padding: 18px 12px 8px;
+}
+
+.sidebar-section-label:first-child {
+  padding-top: 4px;
 }
 
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   flex: 1;
   overflow-y: auto;
 }
@@ -900,11 +997,12 @@ table tbody tr:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 9px 12px;
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   font-weight: 500;
   font-size: 14px;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .sidebar-link svg {
@@ -936,20 +1034,27 @@ table tbody tr:hover {
 
 .sidebar-footer {
   border-top: 1px solid var(--color-border-soft);
-  padding-top: 12px;
-  margin-top: 12px;
+  padding-top: 10px;
+  margin-top: 10px;
 }
 
+/* "Salir" es una acción terciaria — texto simple sin borde, no un botón
+   secundario de ancho completo compitiendo visualmente con la navegación
+   de arriba. Mismo tratamiento que .btn-ghost. */
 .sidebar-footer form button {
   width: 100%;
+  justify-content: flex-start;
   background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text-muted);
+  border: none;
+  color: var(--color-text-faint);
+  font-weight: 500;
+  font-size: 13px;
+  padding: 8px 12px;
 }
 
 .sidebar-footer form button:hover {
   background: var(--color-surface-sunken);
-  color: var(--color-text);
+  color: var(--color-text-muted);
 }
 
 /* --- Topbar --- */
@@ -982,8 +1087,12 @@ table tbody tr:hover {
   justify-content: space-between;
   gap: 16px;
   padding: 0 24px;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  /* Antes era un blanco genérico idéntico al fondo del contenido, sin
+     ninguna diferenciación — ahora usa el mismo neutro muy sutil que
+     separa header de contenido en toda la app (surface-soft), integrado
+     con el resto de la experiencia en vez de sentirse una barra suelta. */
+  background: var(--color-surface-soft);
+  border-bottom: 1px solid var(--color-border-soft);
   position: sticky;
   top: 0;
   z-index: 20;
@@ -991,12 +1100,14 @@ table tbody tr:hover {
 
 .app-topbar .topbar-title {
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
+  color: var(--color-text-strong);
 }
 
 .app-topbar .topbar-date {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--color-text-muted);
+  margin-top: 1px;
 }
 
 .topbar-search {
@@ -1009,8 +1120,18 @@ table tbody tr:hover {
   padding: 0 12px;
   height: 36px;
   border-radius: 999px;
-  background: var(--color-surface-sunken);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
   color: var(--color-text-faint);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Buscador "premium": foco discreto en teal, sin volverse un elemento
+   llamativo — sólo un borde + halo suave, mismo lenguaje que inputs. */
+.topbar-search:focus-within {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
 .topbar-search svg {
@@ -1350,32 +1471,64 @@ table tbody tr:hover {
   }
 }
 
-/* Cabecera de ficha de paciente */
+/* =========================================================================
+   Ficha de paciente — cabecera "profesional" (segunda pasada de rediseño).
+   Antes era .patient-header + un .stat-strip genérico reutilizado del
+   Dashboard/Pagos, lo que la hacía sentir administrativa. Ahora: eyebrow +
+   avatar con anillo, jerarquía de acciones primaria/secundaria/terciaria, y
+   una franja de datos propia (.patient-meta-bar) con tipografía dedicada —
+   mismos datos, sin ninguna query/cálculo nuevo.
+   ========================================================================= */
+
+.patient-header-card {
+  /* El padding vive en .patient-header/.patient-meta-bar por separado —
+     acá sólo se define el fondo/borde de la card contenedora. */
+}
+
 .patient-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
   flex-wrap: wrap;
+  padding: 22px 22px 18px;
 }
 
 .patient-header-identity {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
+}
+
+.patient-header-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-faint);
+}
+
+.patient-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .patient-avatar-lg {
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
   border-radius: var(--radius-lg);
   background: var(--color-primary-soft);
   color: var(--color-primary);
   display: grid;
   place-items: center;
   font-weight: 700;
-  font-size: 20px;
+  font-size: 21px;
   flex-shrink: 0;
+  /* Anillo sutil — refuerza que es la identidad principal de la pantalla
+     sin usar el primario como relleno de una superficie grande. */
+  box-shadow: 0 0 0 4px var(--color-surface), 0 0 0 5px var(--color-border);
 }
 
 .patient-contact-list {
@@ -1391,6 +1544,76 @@ table tbody tr:hover {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+/* Franja de datos clave — reemplaza el .stat-strip genérico en esta
+   pantalla puntual. Fondo levemente distinto (surface-soft) para separarse
+   de la identidad de arriba sin otra línea de borde pesada. */
+.patient-meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  background: var(--color-surface-soft);
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.patient-meta-item {
+  flex: 1 1 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 22px;
+  border-right: 1px solid var(--color-border-soft);
+}
+
+.patient-meta-item:last-child {
+  border-right: none;
+}
+
+.patient-meta-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.patient-meta-value-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.patient-meta-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+.patient-meta-value-lg {
+  font-size: 20px;
+}
+
+.patient-meta-value-lg.is-pending {
+  color: var(--color-warning);
+}
+
+.patient-meta-hint {
+  font-size: 13px;
+  color: var(--color-text-faint);
+}
+
+@media (max-width: 640px) {
+  .patient-meta-item {
+    flex: 1 1 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border-soft);
+  }
+
+  .patient-meta-item:last-child {
+    border-bottom: none;
+  }
 }
 
 /* Timeline */
@@ -1486,23 +1709,57 @@ table tbody tr:hover {
   outline-offset: 2px;
 }
 
-.dashboard-next-link {
-  display: block;
+/* Franja "Próximo" dentro de Agenda de hoy (rediseño profundo del
+   Dashboard — reemplaza la antigua tarjeta separada "Próximo paciente",
+   ver dashboard/page.tsx). Es uno de los pocos usos permitidos de
+   --color-primary-soft como fondo: una franja angosta, no una card grande,
+   y sirve para destacar el dato más accionable de la pantalla. */
+.dashboard-next-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--color-primary-soft);
   color: inherit;
   text-decoration: none;
   cursor: pointer;
-  margin: -4px -4px 0;
-  padding: 4px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin: 12px 0 4px;
 }
 
-.dashboard-next-link:hover {
-  background: var(--color-surface-sunken);
+.dashboard-next-strip:hover {
+  background: var(--color-primary-soft-strong);
 }
 
-.dashboard-next-link:focus-visible {
+.dashboard-next-strip:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+
+.dashboard-next-strip-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-primary);
+  background: var(--color-surface);
+  padding: 2px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.dashboard-next-strip-time {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.dashboard-next-strip-name {
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 100px;
 }
 
 .dashboard-waitlist-row {
@@ -1865,9 +2122,13 @@ table tbody tr:hover {
   background: var(--color-surface-sunken);
 }
 
+/* "Hoy" ya no es un fondo sólido del primario (regla explícita de la
+   paleta aprobada: el primario nunca es fondo dominante de una superficie
+   grande) — pasa a ser un tratamiento suave, mismo lenguaje que
+   .badge/.month-chip: fondo --color-primary-soft, texto --color-primary. */
 .week-col.is-today .week-col-head {
-  background: var(--color-primary);
-  color: #fff;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
 }
 
 .week-col-head-label {
@@ -1877,7 +2138,7 @@ table tbody tr:hover {
 }
 
 .week-col.is-today .week-col-head-label {
-  color: #fff;
+  color: var(--color-primary);
 }
 
 .week-col-add {
@@ -1893,8 +2154,8 @@ table tbody tr:hover {
 }
 
 .week-col.is-today .week-col-add {
-  background: rgba(255, 255, 255, 0.25);
-  color: #fff;
+  background: var(--color-surface);
+  color: var(--color-primary);
 }
 
 .week-col-appts {
@@ -2396,6 +2657,61 @@ table tbody tr:hover {
   }
 }
 
+/* Grupos internos de /reminders (Vencidos / Hoy / Próximos) — reemplazan
+   3 cards separadas por una sola card con jerarquía interna, evitando
+   "card dentro de card" y huecos vacíos cuando un grupo no tiene nada. */
+.reminder-group {
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.reminder-group:last-child {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.reminder-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.reminder-group-title .is-overdue {
+  color: var(--color-danger);
+}
+
+.reminder-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.reminder-group-count.is-overdue {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.reminder-group-count.is-today {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
 /* Tarjeta de Recordatorios en el Dashboard */
 .dashboard-reminder-list {
   list-style: none;
@@ -2445,6 +2761,83 @@ table tbody tr:hover {
 
 .dashboard-reminder-row.is-today .muted {
   color: var(--color-primary);
+}
+
+/* =========================================================================
+   Ficha clínica — jerarquía visual real entre secciones (segunda pasada de
+   rediseño). Reemplaza la secuencia plana de textareas idénticas por 3
+   bloques (Consulta / Diagnóstico / Seguimiento) con separación y un
+   acento visible para Diagnóstico — sin convertir cada campo en una card
+   nueva ni tocar los names de los campos/el server action.
+   ========================================================================= */
+
+.clinical-record-view,
+.clinical-record-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.clinical-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.clinical-group:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.clinical-group-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-primary);
+}
+
+.clinical-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 4px;
+}
+
+.clinical-field-value {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+/* Diagnóstico se destaca con un acento lateral teal (mismo lenguaje que
+   .appointment-card.is-next / .dashboard-next-strip) — sigue siendo texto
+   plano, no una card nueva, pero se lee como el campo clínico más
+   relevante de la ficha (pedido explícito del cliente). */
+.clinical-field-diagnosis {
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+
+.clinical-field-diagnosis .clinical-field-label {
+  color: var(--color-primary);
+}
+
+.clinical-field-diagnosis-input {
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+
+.clinical-field-diagnosis-input textarea {
+  background: var(--color-surface);
 }
 
 /* =========================================================================
