@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { statusLabel, modalityLabel } from '@/lib/labels';
 import { resolveDisplayName } from '@/lib/identity';
 import { setReminderStatus } from '@/app/(protected)/reminders/actions';
-import { IconCheck } from '@/components/ui/icons';
+import { IconCheck, IconPlus } from '@/components/ui/icons';
 
 // PARTE 5 del pedido: todo bloque del Dashboard que representa un recurso
 // existente (turno, paciente, pago pendiente, lista de espera, aviso) debe
@@ -223,7 +223,7 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="nav" style={{ flexWrap: 'wrap' }}>
-          <Link className="btn" href={`/agenda?view=day&date=${today}`}>Nuevo turno</Link>
+          <Link className="btn" href={`/agenda?view=day&date=${today}`}><IconPlus size={14} /> Nuevo turno</Link>
           <Link className="btn-ghost" href="/patients">Nuevo paciente</Link>
           <Link className="btn-ghost" href="/payments">Registrar cobro</Link>
           <Link className="btn-ghost" href="/reminders">Nuevo recordatorio</Link>
@@ -243,11 +243,11 @@ export default async function DashboardPage() {
         </div>
         <div className="stat-strip-item">
           <span className="stat-strip-label">Cobrado hoy</span>
-          <span className="stat-strip-value">${collectedToday.toLocaleString('es-AR')}</span>
+          <span className="stat-strip-value stat-strip-value-money">${collectedToday.toLocaleString('es-AR')}</span>
         </div>
         <div className="stat-strip-item">
           <span className="stat-strip-label">Pendiente de cobro</span>
-          <span className="stat-strip-value">${pendingToday.toLocaleString('es-AR')}</span>
+          <span className={`stat-strip-value stat-strip-value-money ${pendingToday > 0 ? 'is-pending' : ''}`}>${pendingToday.toLocaleString('es-AR')}</span>
         </div>
       </div>
 

@@ -568,6 +568,71 @@ table tbody tr:hover {
   }
 }
 
+/* =========================================================================
+   Deudas y métricas — jerarquía real entre la cifra que importa (deuda
+   pendiente) y las métricas secundarias. Antes las 4 convivían en un mismo
+   .stat-strip parejo; ahora "Pendiente actual" es una card propia con
+   acento de color cuando hay deuda (warning, discreto — borde + tinte, no
+   relleno sólido), y el resto queda en una franja secundaria más chica.
+   ========================================================================= */
+
+.metrics-hero-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.metrics-hero-card {
+  flex: 0 1 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.metrics-hero-card.has-debt {
+  border-left: 3px solid var(--color-warning);
+}
+
+.metrics-hero-value {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.metrics-hero-card.has-debt .metrics-hero-value {
+  color: var(--color-warning);
+}
+
+.metrics-secondary-strip {
+  flex: 1 1 320px;
+}
+
+.metrics-activity-row {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.metrics-activity-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metrics-activity-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
 /* ---------- Integraciones — filas ---------- */
 
 .integration-list {
@@ -779,6 +844,10 @@ table tbody tr:hover {
   font-variant-numeric: tabular-nums;
 }
 
+.stat-strip-value-money.is-pending {
+  color: var(--color-warning);
+}
+
 .cash-movement-row {
   display: flex;
   align-items: baseline;
@@ -890,16 +959,23 @@ table tbody tr:hover {
   position: sticky;
   top: 20px;
   height: calc(100vh - 40px);
+  /* Acento de marca — una línea superior en el primario, discreta pero
+     suficiente para que el sidebar se sienta "de TurnIA" y no un panel
+     genérico de cualquier dashboard (pedido explícito: "más sólido y más
+     marca TurnIA"). */
+  border-top: 3px solid var(--color-primary);
 }
 
 .app-sidebar .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 8px 18px;
+  padding: 6px 8px 16px;
+  margin-bottom: 4px;
   font-weight: 700;
   font-size: 17px;
   color: var(--color-text);
+  border-bottom: 1px solid var(--color-border-soft);
 }
 
 /* Logo con más presencia: marca cuadrada llena de primario (uno de los
@@ -1888,22 +1964,36 @@ table tbody tr:hover {
   text-align: center;
 }
 
+/* Fix del bug visual reportado varias veces: "las celdas se ven demasiado
+   altas / parece que entran dos días en el mismo rectángulo". La causa
+   real eran DOS cosas combinadas, no sólo el color del borde (ya corregido
+   en una pasada anterior):
+   1) Las filas (semanas) no tenían una altura mínima consistente —
+      `grid-auto-rows` quedaba en "auto", así que una semana con un día
+      cargado de turnos estiraba toda la fila mientras los días vacíos de
+      esa misma fila quedaban con un colchón enorme de espacio en blanco
+      antes del borde inferior, leyéndose como si ese espacio "perteneciera"
+      a la franja de abajo en vez de ser parte del día de arriba.
+   2) El número del día no tenía ningún límite visual respecto de los
+      turnos debajo — sin una línea o separación entre "cabecera del día" y
+      "contenido del día", el ojo no tiene dónde cortar la lectura vertical
+      de una celda a la siguiente.
+   Se corrigen ambas: una altura de fila mínima pareja + un divisor visible
+   bajo la cabecera de cada celda (mismo lenguaje que .clinical-group /
+   .patient-meta-bar de esta misma pasada). */
 .month-grid-body {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: minmax(112px, auto);
 }
 
 .month-cell {
   position: relative;
-  min-height: 92px;
-  padding: 5px 5px 6px;
+  min-height: 112px;
+  padding: 7px 7px 8px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  /* Bordes con --color-border (no --color-border-soft): el "soft" casi no
-     se distinguía del fondo y hacía que días vecinos se leyeran como un
-     mismo bloque. Ésta es la corrección concreta al problema reportado de
-     "los días parecen quedar agrupados". */
+  gap: 4px;
   border-right: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -1931,6 +2021,16 @@ table tbody tr:hover {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
+  /* Divisor real entre la cabecera (número del día) y sus turnos — esto es
+     lo que "cierra" visualmente cada día como su propio rectángulo. */
+  padding-bottom: 5px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.month-cell.is-other-month .month-cell-head {
+  border-bottom-color: var(--color-border-soft);
+  opacity: 0.85;
 }
 
 .month-cell-daynum {
@@ -2068,9 +2168,17 @@ table tbody tr:hover {
 }
 
 @media (max-width: 900px) {
+  .month-grid-body {
+    grid-auto-rows: minmax(88px, auto);
+  }
+
   .month-cell {
-    min-height: 76px;
-    padding: 4px 3px 6px;
+    min-height: 88px;
+    padding: 5px 4px 6px;
+  }
+
+  .month-cell-head {
+    padding-bottom: 3px;
   }
 
   .month-grid-head span {
@@ -2086,8 +2194,12 @@ table tbody tr:hover {
 }
 
 @media (max-width: 640px) {
+  .month-grid-body {
+    grid-auto-rows: minmax(68px, auto);
+  }
+
   .month-cell {
-    min-height: 64px;
+    min-height: 68px;
   }
 
   .month-chip-row:nth-child(n+3) {
@@ -2110,6 +2222,17 @@ table tbody tr:hover {
   flex-direction: column;
   gap: 8px;
   min-width: 0;
+  /* Contorno propio por columna — mismo criterio que el fix de Mes: cada
+     día debe leerse como su propio contenedor, no como una franja suelta
+     de contenido flotando entre sus vecinos. */
+  padding: 8px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.week-col.is-today {
+  border-color: var(--color-primary-soft-strong);
 }
 
 .week-col-head {

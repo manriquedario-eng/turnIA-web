@@ -54,46 +54,82 @@ export default async function MetricsPage() {
         </div>
       </div>
 
-      <div className="stat-strip">
-        <div className="stat-strip-item">
-          <span className="stat-strip-label">Pendiente actual</span>
-          <span className="stat-strip-value">${totalDebt.toLocaleString('es-AR')}</span>
+      {/* Rediseño: antes las 4 métricas eran un .stat-strip parejo, sin
+          indicar que "Pendiente actual" es la cifra que más importa acá —
+          ahora es una card propia (hero) con acento de color según haya o
+          no deuda, y las otras 3 quedan como franja secundaria más chica.
+          Mismos cálculos, ningún dato nuevo. */}
+      <div className="metrics-hero-row">
+        <div className={`metrics-hero-card ${totalDebt > 0 ? 'has-debt' : ''}`}>
+          <span className="patient-meta-label">Pendiente actual</span>
+          <span className="metrics-hero-value">${totalDebt.toLocaleString('es-AR')}</span>
+          <span className="stat-strip-hint">{debts.length} turno{debts.length === 1 ? '' : 's'} con saldo</span>
         </div>
-        <div className="stat-strip-item">
-          <span className="stat-strip-label">Cobrado registrado</span>
-          <span className="stat-strip-value">${totalPaid.toLocaleString('es-AR')}</span>
-        </div>
-        <div className="stat-strip-item">
-          <span className="stat-strip-label">Tasa de cobranza</span>
-          <span className="stat-strip-value">{collectionRate.toFixed(1)}%</span>
-        </div>
-        <div className="stat-strip-item">
-          <span className="stat-strip-label">Ausentismo</span>
-          <span className="stat-strip-value">{noShowRate.toFixed(1)}%</span>
-          <span className="stat-strip-hint">{noShows} ausencias</span>
+        <div className="stat-strip metrics-secondary-strip">
+          <div className="stat-strip-item">
+            <span className="stat-strip-label">Cobrado registrado</span>
+            <span className="stat-strip-value stat-strip-value-money">${totalPaid.toLocaleString('es-AR')}</span>
+          </div>
+          <div className="stat-strip-item">
+            <span className="stat-strip-label">Tasa de cobranza</span>
+            <span className="stat-strip-value">{collectionRate.toFixed(1)}%</span>
+          </div>
+          <div className="stat-strip-item">
+            <span className="stat-strip-label">Ausentismo</span>
+            <span className="stat-strip-value">{noShowRate.toFixed(1)}%</span>
+            <span className="stat-strip-hint">{noShows} ausencias</span>
+          </div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <div><h2 style={{ marginTop: 0 }}>Saldos por cobrar</h2><p className="muted">Turnos no cancelados cuyo importe registrado supera los pagos asociados.</p></div>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', padding: '20px 20px 0' }}>
+          <div><h2 style={{ marginTop: 0 }}>Saldos por cobrar</h2><p className="muted" style={{ marginTop: 0 }}>Turnos no cancelados cuyo importe registrado supera los pagos asociados.</p></div>
           <Link className="btn" href="/payments">Registrar cobro</Link>
         </div>
-        {debts.length === 0 ? <EmptyState title="No hay saldos pendientes" description="Todos los turnos no cancelados están cobrados al día." /> : (
-          <div style={{ overflowX: 'auto' }}><table className="table"><thead><tr><th>Paciente</th><th>Fecha</th><th>Importe</th><th>Pagado</th><th>Saldo</th></tr></thead><tbody>
-            {debts.map((row: any) => <tr key={row.id}>
-              <td>{row.patients?.name ?? 'Sin paciente'}</td>
-              <td>{new Intl.DateTimeFormat('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', dateStyle: 'short' }).format(new Date(row.starts_at))}</td>
-              <td>${row.quoted.toLocaleString('es-AR')}</td><td>${row.paid.toLocaleString('es-AR')}</td><td><strong>${row.balance.toLocaleString('es-AR')}</strong></td>
-            </tr>)}
-          </tbody></table></div>
+        {debts.length === 0 ? (
+          <div style={{ padding: '0 20px 20px' }}>
+            <EmptyState title="No hay saldos pendientes" description="Todos los turnos no cancelados están cobrados al día." />
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto', marginTop: 12 }}>
+            <table className="table">
+              <thead>
+                <tr><th>Paciente</th><th>Fecha</th><th style={{ textAlign: 'right' }}>Importe</th><th style={{ textAlign: 'right' }}>Pagado</th><th style={{ textAlign: 'right' }}>Saldo</th></tr>
+              </thead>
+              <tbody>
+                {debts.map((row: any) => (
+                  <tr key={row.id}>
+                    <td>{row.patients?.name ?? 'Sin paciente'}</td>
+                    <td className="muted">{new Intl.DateTimeFormat('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', dateStyle: 'short' }).format(new Date(row.starts_at))}</td>
+                    <td className="table-cell-amount muted">${row.quoted.toLocaleString('es-AR')}</td>
+                    <td className="table-cell-amount muted">${row.paid.toLocaleString('es-AR')}</td>
+                    <td className="table-cell-amount"><strong style={{ color: 'var(--color-warning)' }}>${row.balance.toLocaleString('es-AR')}</strong></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       <div className="card">
-        <h2>Lectura de actividad</h2>
-        <p><strong>{appointments.length}</strong> turnos registrados · <strong>{cancelled}</strong> cancelados · <strong>{noShows}</strong> ausencias identificadas.</p>
-        {noShows === 0 && <p className="muted">Actualmente no hay turnos con un estado de ausencia/no-show registrado; la métrica crecerá en utilidad cuando ese estado se utilice operativamente.</p>}
+        <h2 style={{ marginTop: 0 }}>Lectura de actividad</h2>
+        <div className="metrics-activity-row">
+          <div className="metrics-activity-item">
+            <span className="metrics-activity-value">{appointments.length}</span>
+            <span className="patient-meta-label">Turnos registrados</span>
+          </div>
+          <div className="metrics-activity-item">
+            <span className="metrics-activity-value">{cancelled}</span>
+            <span className="patient-meta-label">Cancelados</span>
+          </div>
+          <div className="metrics-activity-item">
+            <span className="metrics-activity-value">{noShows}</span>
+            <span className="patient-meta-label">Ausencias</span>
+          </div>
+        </div>
+        {noShows === 0 && <p className="muted" style={{ marginTop: 14, marginBottom: 0, fontSize: 13 }}>Actualmente no hay turnos con un estado de ausencia/no-show registrado; la métrica crecerá en utilidad cuando ese estado se utilice operativamente.</p>}
       </div>
     </section>
   );
