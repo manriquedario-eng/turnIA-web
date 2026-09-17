@@ -18,11 +18,14 @@
 //   WHATSAPP_VERIFY_TOKEN   token arbitrario que vos elegís y configurás
 //                           IGUAL en Vercel y en Meta, usado sólo para la
 //                           verificación GET. No es un secreto de firma.
-//   WHATSAPP_APP_SECRET     (opcional, todavía no configurado) App Secret
-//                           de la app de Meta, para validar la firma
-//                           X-Hub-Signature-256 de cada POST. Ver
-//                           `isValidMetaSignature` más abajo. También se
-//                           acepta META_APP_SECRET como alias.
+//   WHATSAPP_APP_SECRET     OBLIGATORIO para aceptar cualquier POST. App
+//                           Secret de la app de Meta, usado para validar la
+//                           firma X-Hub-Signature-256 de cada evento. Ver
+//                           `isValidMetaSignature` más abajo. Si falta, el
+//                           POST se rechaza con 403 — no existe un "modo
+//                           inseguro" que acepte eventos sin validar la
+//                           firma. No se acepta META_APP_SECRET como alias
+//                           (ver razón en el comentario de la función).
 //
 // Ninguna de estas variables se hardcodea ni se versiona: se leen sólo
 // desde process.env en tiempo de ejecución server-side. Los logs de este
@@ -113,7 +116,7 @@ export async function GET(request: NextRequest) {
 }
 
 // ---------------------------------------------------------------------------
-// Validación de firma X-Hub-Signature-256 (preparado, no bloqueante todavía)
+// Validación de firma X-Hub-Signature-256 (obligatoria)
 // ---------------------------------------------------------------------------
 //
 // Meta firma cada POST con HMAC-SHA256 sobre el body crudo, usando el App
@@ -121,36 +124,48 @@ export async function GET(request: NextRequest) {
 // `X-Hub-Signature-256: sha256=<hex>`. Ver:
 // https://developers.facebook.com/docs/graph-api/webhooks/getting-started#validating-payloads
 //
-// Mientras WHATSAPP_APP_SECRET (o META_APP_SECRET) no esté configurado en
-// el entorno, esta función NO bloquea el POST: devuelve true para no
-// romper la recepción en esta etapa del proyecto, en la que todavía no
-// existe el App Secret. En cuanto se configure la variable, empieza a
-// validar de verdad y a rechazar firmas inválidas con 403.
+// Hallazgo de seguridad cerrado en esta pasada: antes, si WHATSAPP_APP_SECRET
+// no estaba configurado, esta función devolvía `true` y el POST se aceptaba
+// sin validar ninguna firma — cualquiera que conociera la URL del webhook
+// podía mandar eventos falsos. Ahora WHATSAPP_APP_SECRET es obligatorio: la
+// ausencia de la variable se resuelve ANTES de llegar a esta función (ver
+// el handler de POST más abajo), rechazando el evento con 403. Esta función
+// asume que `appSecret` ya es un string no vacío — no vuelve a leer
+// `process.env` ni contempla el caso "sin secreto configurado".
 //
-// TODO (siguiente etapa de seguridad): una vez que WHATSAPP_APP_SECRET esté
-// configurado en producción y verificado que todo sigue funcionando, evaluar
-// si conviene loguear+aceptar temporalmente los POST sin firma válida antes
-// de pasar a rechazarlos siempre, para no perder eventos por un typo de
-// configuración.
-function isValidMetaSignature(rawBody: string, signatureHeader: string | null): boolean {
-  const appSecret = process.env.WHATSAPP_APP_SECRET || process.env.META_APP_SECRET;
-  if (!appSecret) {
-    // Modo seguro: todavía no hay App Secret configurado.
-    return true;
-  }
-
+// Por qué se eliminó META_APP_SECRET como alias: tener dos nombres de
+// variable válidos para el mismo secreto obligatorio no aporta nada una vez
+// que la validación es obligatoria — sólo aumenta el riesgo de que alguien
+// configure el secreto bajo el nombre "equivocado" en Vercel y el webhook
+// quede rechazando todo (o, peor, que en algún momento futuro alguien
+// reintroduzca sin querer el fallback inseguro al tocar este código).
+// WHATSAPP_APP_SECRET es el único nombre documentado en `.env.example` y en
+// los comentarios de este archivo; no hay ningún otro consumidor de
+// META_APP_SECRET en el proyecto.
+function isValidMetaSignature(rawBody: string, signatureHeader: string | null, appSecret: string): boolean {
   if (!signatureHeader || !signatureHeader.startsWith('sha256=')) {
     return false;
   }
 
   const providedHex = signatureHeader.slice('sha256='.length);
+
+  // Validación explícita de formato hex ANTES de convertir: Buffer.from con
+  // hex inválido (caracteres no hex, o longitud impar) no tira excepción —
+  // trunca silenciosamente en el primer carácter inválido, lo que podría
+  // producir un buffer más corto y, en teoría, comportamiento no evidente.
+  // Se rechaza explícitamente acá en vez de depender de ese truncamiento.
+  if (!/^[0-9a-fA-F]+$/.test(providedHex) || providedHex.length % 2 !== 0) {
+    return false;
+  }
+
   const expectedHex = createHmac('sha256', appSecret).update(rawBody).digest('hex');
 
   const providedBuf = Buffer.from(providedHex, 'hex');
   const expectedBuf = Buffer.from(expectedHex, 'hex');
 
-  // Buffer.from con hex inválido puede devolver longitudes distintas;
-  // timingSafeEqual requiere buffers del mismo tamaño.
+  // Longitud incorrecta: timingSafeEqual requiere buffers del mismo tamaño
+  // (SHA-256 siempre produce 32 bytes / 64 caracteres hex; cualquier otra
+  // longitud ya es inválida).
   if (providedBuf.length !== expectedBuf.length) {
     return false;
   }
@@ -176,7 +191,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true }, { status: 200 });
   }
 
-  if (!isValidMetaSignature(rawBody, request.headers.get('x-hub-signature-256'))) {
+  // WHATSAPP_APP_SECRET es obligatorio para aceptar cualquier POST — ver
+  // comentario de `isValidMetaSignature` más arriba. Sin esta variable, no
+  // hay forma de validar que el evento realmente vino de Meta, así que se
+  // rechaza siempre, sin excepción. Nunca se loguea el secreto, la firma
+  // recibida, el body ni contenido de mensajes — sólo este mensaje genérico.
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  if (!appSecret) {
+    console.error('WhatsApp webhook: App Secret no configurado, evento rechazado');
+    return NextResponse.json({ error: 'app_secret_not_configured' }, { status: 403 });
+  }
+
+  if (!isValidMetaSignature(rawBody, request.headers.get('x-hub-signature-256'), appSecret)) {
     // No registrar el header de firma ni el body: sólo que fue rechazado.
     console.warn('WhatsApp webhook: firma X-Hub-Signature-256 inválida, evento rechazado');
     return NextResponse.json({ error: 'invalid_signature' }, { status: 403 });
