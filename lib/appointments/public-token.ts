@@ -34,6 +34,25 @@ export function isPlausibleToken(value: string | null | undefined): value is str
 }
 
 /**
+ * Log sanitizado de un error de Supabase en el flujo público por token.
+ * Nunca recibe ni loguea el token completo, credenciales ni datos clínicos —
+ * sólo los primeros 8 caracteres del token (suficiente para correlacionar
+ * con logs/DB sin exponer el identificador completo) y los campos propios
+ * del PostgrestError (code/message/hint/details), que nunca contienen
+ * secretos ni PII: son metadata del motor de base de datos.
+ */
+function logSupabaseError(operation: string, token: string, error: { code?: string; message?: string; hint?: string; details?: string }) {
+  const tokenPrefix = typeof token === 'string' ? token.slice(0, 8) : 'n/a';
+  console.error(`public-token: fallo de Supabase en ${operation}`, {
+    tokenPrefix,
+    code: error.code ?? null,
+    message: error.message ?? null,
+    hint: error.hint ?? null,
+    details: error.details ?? null,
+  });
+}
+
+/**
  * Busca un turno por su token público. Devuelve `null` si el token no tiene
  * forma de uuid, si el service role no está configurado, o si no matchea
  * ningún turno — en los tres casos la página pública debe mostrar "turno no
@@ -44,12 +63,16 @@ export async function getAppointmentByPublicToken(token: string): Promise<Public
 
   const supabase = createSupabaseServiceClient();
 
-  const { data: appointment } = await supabase
+  const { data: appointment, error } = await supabase
     .from('appointments')
     .select('id, tenant_id, patient_id, professional_id, service_id, starts_at, ends_at, modality, status, meeting_url, reschedule_requested_at')
     .eq('public_token', token)
     .maybeSingle();
 
+  if (error) {
+    logSupabaseError('getAppointmentByPublicToken', token, error);
+    return null;
+  }
   if (!appointment) return null;
 
   const [{ data: patient }, { data: profile }, { data: service }] = await Promise.all([
@@ -90,7 +113,11 @@ export async function confirmAppointmentByToken(token: string): Promise<PublicAc
   if (!isPlausibleToken(token) || !isServiceRoleConfigured()) return { ok: false, error: 'Enlace inválido.' };
   const supabase = createSupabaseServiceClient();
 
-  const { data: appointment } = await supabase.from('appointments').select('id, status').eq('public_token', token).maybeSingle();
+  const { data: appointment, error: selectError } = await supabase.from('appointments').select('id, status').eq('public_token', token).maybeSingle();
+  if (selectError) {
+    logSupabaseError('confirmAppointmentByToken:select', token, selectError);
+    return { ok: false, error: 'No encontramos este turno.' };
+  }
   if (!appointment) return { ok: false, error: 'No encontramos este turno.' };
   if (isCancelled(appointment.status)) return { ok: false, error: 'Este turno ya está cancelado y no se puede confirmar.' };
 
@@ -99,7 +126,10 @@ export async function confirmAppointmentByToken(token: string): Promise<PublicAc
     .update({ status: 'confirmed', updated_at: new Date().toISOString() })
     .eq('public_token', token);
 
-  if (error) return { ok: false, error: 'No pudimos confirmar el turno. Probá de nuevo en unos minutos.' };
+  if (error) {
+    logSupabaseError('confirmAppointmentByToken:update', token, error);
+    return { ok: false, error: 'No pudimos confirmar el turno. Probá de nuevo en unos minutos.' };
+  }
   return { ok: true };
 }
 
@@ -108,7 +138,11 @@ export async function cancelAppointmentByToken(token: string): Promise<PublicAct
   if (!isPlausibleToken(token) || !isServiceRoleConfigured()) return { ok: false, error: 'Enlace inválido.' };
   const supabase = createSupabaseServiceClient();
 
-  const { data: appointment } = await supabase.from('appointments').select('id, status').eq('public_token', token).maybeSingle();
+  const { data: appointment, error: selectError } = await supabase.from('appointments').select('id, status').eq('public_token', token).maybeSingle();
+  if (selectError) {
+    logSupabaseError('cancelAppointmentByToken:select', token, selectError);
+    return { ok: false, error: 'No encontramos este turno.' };
+  }
   if (!appointment) return { ok: false, error: 'No encontramos este turno.' };
   if (isCancelled(appointment.status)) return { ok: true };
 
@@ -117,7 +151,10 @@ export async function cancelAppointmentByToken(token: string): Promise<PublicAct
     .update({ status: 'cancelled', updated_at: new Date().toISOString() })
     .eq('public_token', token);
 
-  if (error) return { ok: false, error: 'No pudimos cancelar el turno. Probá de nuevo en unos minutos.' };
+  if (error) {
+    logSupabaseError('cancelAppointmentByToken:update', token, error);
+    return { ok: false, error: 'No pudimos cancelar el turno. Probá de nuevo en unos minutos.' };
+  }
   return { ok: true };
 }
 
@@ -131,7 +168,11 @@ export async function requestRescheduleByToken(token: string, note: string): Pro
   if (!isPlausibleToken(token) || !isServiceRoleConfigured()) return { ok: false, error: 'Enlace inválido.' };
   const supabase = createSupabaseServiceClient();
 
-  const { data: appointment } = await supabase.from('appointments').select('id, status').eq('public_token', token).maybeSingle();
+  const { data: appointment, error: selectError } = await supabase.from('appointments').select('id, status').eq('public_token', token).maybeSingle();
+  if (selectError) {
+    logSupabaseError('requestRescheduleByToken:select', token, selectError);
+    return { ok: false, error: 'No encontramos este turno.' };
+  }
   if (!appointment) return { ok: false, error: 'No encontramos este turno.' };
   if (isCancelled(appointment.status)) return { ok: false, error: 'Este turno ya está cancelado.' };
 
@@ -144,6 +185,9 @@ export async function requestRescheduleByToken(token: string, note: string): Pro
     })
     .eq('public_token', token);
 
-  if (error) return { ok: false, error: 'No pudimos registrar la solicitud. Probá de nuevo en unos minutos.' };
+  if (error) {
+    logSupabaseError('requestRescheduleByToken:update', token, error);
+    return { ok: false, error: 'No pudimos registrar la solicitud. Probá de nuevo en unos minutos.' };
+  }
   return { ok: true };
 }

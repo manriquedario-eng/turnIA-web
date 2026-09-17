@@ -5,6 +5,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconChevronLeft, IconChevronRight, IconClose, IconPlus } from '@/components/ui/icons';
 import { AppointmentDateTimeFields } from '@/components/agenda/AppointmentDateTimeFields';
+import { AppointmentForm } from '@/components/agenda/AppointmentForm';
 import { PatientCombobox } from '@/components/agenda/PatientCombobox';
 import { ModalityField } from '@/components/agenda/ModalityField';
 import { SimpleExportMenu } from '@/components/export/ExportMenu';
@@ -544,7 +545,11 @@ export default async function AgendaPage({
                   <IconClose />
                 </Link>
               </div>
-              <form action={editing ? updateAppointment : createAppointment} className="drawer-form">
+              <AppointmentForm
+                action={editing ? updateAppointment : createAppointment}
+                submitLabel={editing ? 'Guardar cambios' : 'Crear turno'}
+                cancelHref={returnTo}
+              >
                 <input type="hidden" name="return_to" value={returnTo} />
                 {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
 
@@ -573,12 +578,7 @@ export default async function AgendaPage({
                   defaultAmount={editing?.quoted_amount ?? ''}
                   googleConnected={googleConnected}
                 />
-
-                <div className="drawer-footer">
-                  <button className="btn" type="submit">{editing ? 'Guardar cambios' : 'Crear turno'}</button>
-                  <Link className="btn secondary" href={returnTo}>Cancelar</Link>
-                </div>
-              </form>
+              </AppointmentForm>
             </div>
           </>
         ) : null}
