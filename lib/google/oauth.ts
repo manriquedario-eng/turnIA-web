@@ -20,10 +20,13 @@
 // nada.
 
 import { createSupabaseServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
+import { encryptGoogleToken, isGoogleTokenEncryptionConfigured } from './token-crypto';
+import { getUsableGoogleConnection } from './connection';
 
 const GOOGLE_AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_ENDPOINT = 'https://www.googleapis.com/oauth2/v3/userinfo';
+const GOOGLE_REVOKE_ENDPOINT = 'https://oauth2.googleapis.com/revoke';
 
 // Scope mínimo: sólo eventos de Calendar (crear/editar/borrar EL evento que
 // TurnIA crea) + identificar la cuenta conectada (email) para mostrarla en
@@ -48,7 +51,7 @@ function getOAuthConfig() {
 }
 
 export function isGoogleOAuthConfigured(): boolean {
-  return getOAuthConfig() !== null && isServiceRoleConfigured();
+  return getOAuthConfig() !== null && isServiceRoleConfigured() && isGoogleTokenEncryptionConfigured();
 }
 
 /** URL a la que se redirige al profesional para autorizar TurnIA. */
@@ -104,7 +107,7 @@ export async function completeGoogleOAuthConnection(params: {
   code: string;
 }): Promise<GoogleOAuthResult<{ googleAccountEmail: string | null }>> {
   const config = getOAuthConfig();
-  if (!config || !isServiceRoleConfigured()) {
+  if (!config || !isServiceRoleConfigured() || !isGoogleTokenEncryptionConfigured()) {
     return { ok: false, reason: 'not_configured', errorMessage: 'Google OAuth no está configurado.' };
   }
 
@@ -150,6 +153,21 @@ export async function completeGoogleOAuthConnection(params: {
   const googleAccountEmail = await fetchGoogleAccountEmail(tokenJson.access_token);
   const tokenExpiresAt = new Date(Date.now() + tokenJson.expires_in * 1000).toISOString();
 
+  // Cifrar ANTES de cualquier upsert — en ningún momento se guarda un
+  // access_token/refresh_token en texto plano. Si el cifrado falla (clave
+  // ausente/inválida, error interno), se aborta la conexión sin persistir
+  // nada: nunca se cae a guardar plaintext como respaldo.
+  const encryptedAccessToken = encryptGoogleToken(tokenJson.access_token);
+  const encryptedRefreshToken = encryptGoogleToken(tokenJson.refresh_token);
+  if (!encryptedAccessToken.ok || !encryptedRefreshToken.ok) {
+    console.error('Google OAuth: no se pudo cifrar el token antes de guardarlo — conexión abortada');
+    return {
+      ok: false,
+      reason: 'provider_error',
+      errorMessage: 'No se pudo completar la conexión de forma segura. Probá de nuevo en unos minutos.',
+    };
+  }
+
   try {
     const serviceClient = createSupabaseServiceClient();
 
@@ -160,8 +178,8 @@ export async function completeGoogleOAuthConnection(params: {
           tenant_id: params.tenantId,
           user_id: params.userId,
           google_account_email: googleAccountEmail,
-          access_token: tokenJson.access_token,
-          refresh_token: tokenJson.refresh_token,
+          access_token: encryptedAccessToken.data,
+          refresh_token: encryptedRefreshToken.data,
           token_expires_at: tokenExpiresAt,
           scope: tokenJson.scope,
           connected_at: new Date().toISOString(),
@@ -206,24 +224,99 @@ export async function completeGoogleOAuthConnection(params: {
   }
 }
 
-/** Desconecta a un profesional: revoca localmente (no intenta revocar en Google todavía). */
+/**
+ * Intenta revocar `token` (preferentemente el refresh_token, porque
+ * representa la autorización persistente) contra el endpoint oficial de
+ * revocación OAuth de Google. Nunca lanza. Devuelve `true` únicamente si
+ * Google confirmó la revocación (2xx) — cualquier otra respuesta, o un
+ * error de red, se trata como "no confirmado", nunca como excepción.
+ * Nunca loguea el token.
+ */
+async function revokeGoogleToken(token: string): Promise<boolean> {
+  try {
+    const response = await fetch(GOOGLE_REVOKE_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ token }),
+    });
+    if (!response.ok) {
+      console.warn('Google OAuth: revocación remota no confirmada', { status: response.status });
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Google OAuth: error de red al revocar en Google', err instanceof Error ? err.message : 'desconocido');
+    return false;
+  }
+}
+
+/**
+ * Desconecta a un profesional: intenta revocar la autorización del lado de
+ * Google y, independientemente de esa respuesta, elimina la fila local de
+ * `google_oauth_connections` (nunca se conservan los tokens "por si acaso"
+ * después de desconectar). Idempotente: si no existe conexión local, se
+ * considera igualmente desconectado.
+ *
+ * `googleRevocationConfirmed` en el resultado exitoso indica si Google
+ * confirmó la revocación — el llamador NO debe decir "Google revocado
+ * correctamente" cuando esto es `false`.
+ */
 export async function disconnectGoogleOAuthConnection(params: {
   tenantId: string;
   userId: string;
-}): Promise<GoogleOAuthResult<null>> {
+}): Promise<GoogleOAuthResult<{ googleRevocationConfirmed: boolean }>> {
   if (!isServiceRoleConfigured()) {
     return { ok: false, reason: 'not_configured', errorMessage: 'Google OAuth no está configurado.' };
   }
 
+  const serviceClient = createSupabaseServiceClient();
+
+  // A + B: cargar la conexión exacta y descifrar/migrar vía el helper
+  // centralizado. C: si resultó un token utilizable, intentar revocarlo en
+  // Google. Si no hay conexión, o está en un estado no descifrable/legacy
+  // corrupto, simplemente no hay nada que revocar remotamente — nunca por
+  // eso se bloquea la limpieza local de abajo.
+  let googleRevocationConfirmed = false;
   try {
-    const serviceClient = createSupabaseServiceClient();
-    await serviceClient
+    const usable = await getUsableGoogleConnection(serviceClient, params.tenantId, params.userId);
+    if (usable.ok) {
+      googleRevocationConfirmed = await revokeGoogleToken(usable.connection.refreshToken);
+    }
+  } catch (err) {
+    console.error('Google OAuth: error inesperado al intentar revocar en Google', err instanceof Error ? err.message : 'desconocido');
+  }
+
+  try {
+    // D + E: TurnIA deja de usar la conexión pase lo que pase con Google —
+    // DELETE de la fila (no se conservan los tokens) y `integration_status`
+    // vuelve a `not_connected`. Supabase NO necesariamente lanza ante un
+    // error SQL/API: puede devolver `{ error }` sin excepción, así que
+    // ambas operaciones se inspeccionan explícitamente — `ok: true` sólo
+    // puede ocurrir si la limpieza local realmente tuvo éxito. Un DELETE
+    // sin ninguna fila que matchee no es un error (idempotente).
+    //
+    // Importante: si la revocación remota de arriba sí ocurrió pero esta
+    // limpieza local falla, esa revocación en Google ya pasó — no hay (ni
+    // se inventa) un rollback de eso. Sólo se reporta el fallo local.
+    const { error: deleteError } = await serviceClient
       .from('google_oauth_connections')
-      .update({ revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .delete()
       .eq('tenant_id', params.tenantId)
       .eq('user_id', params.userId);
 
-    await serviceClient
+    if (deleteError) {
+      console.error('Google OAuth: fallo de Supabase al eliminar la conexión local', {
+        code: deleteError.code,
+        message: deleteError.message,
+      });
+      return {
+        ok: false,
+        reason: 'provider_error',
+        errorMessage: 'No pudimos completar la desconexión. Probá de nuevo en unos minutos.',
+      };
+    }
+
+    const { error: statusError } = await serviceClient
       .from('integration_status')
       .upsert(
         {
@@ -238,7 +331,19 @@ export async function disconnectGoogleOAuthConnection(params: {
         { onConflict: 'tenant_id,user_id,provider' }
       );
 
-    return { ok: true, data: null };
+    if (statusError) {
+      console.error('Google OAuth: fallo de Supabase al actualizar integration_status tras desconectar', {
+        code: statusError.code,
+        message: statusError.message,
+      });
+      return {
+        ok: false,
+        reason: 'provider_error',
+        errorMessage: 'No pudimos completar la desconexión. Probá de nuevo en unos minutos.',
+      };
+    }
+
+    return { ok: true, data: { googleRevocationConfirmed } };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Error desconocido al desconectar';
     return { ok: false, reason: 'provider_error', errorMessage: errorMessage.slice(0, 500) };

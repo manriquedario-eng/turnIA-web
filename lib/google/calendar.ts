@@ -11,6 +11,7 @@
 // fallo de Google jamás debe hacer perder el turno.
 
 import { createSupabaseServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
+import { getUsableGoogleConnection, persistRefreshedAccessToken } from './connection';
 
 const CALENDAR_EVENTS_ENDPOINT = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
@@ -23,35 +24,31 @@ export type CreateGoogleMeetResult =
       errorMessage: string;
     };
 
-type StoredConnection = {
-  access_token: string;
-  refresh_token: string;
-  token_expires_at: string;
-};
-
 /**
  * Devuelve un access token válido para (tenantId, userId), refrescándolo
- * contra Google si venció, y persistiendo el nuevo token. Nunca lanza:
- * devuelve null si no hay conexión, está revocada, o el refresh falla.
+ * contra Google si venció, y persistiendo el nuevo token (siempre cifrado —
+ * ver lib/google/connection.ts). Nunca lanza: devuelve null si no hay
+ * conexión, está revocada, no se pudo descifrar/migrar, o el refresh falla.
+ *
+ * Este archivo ya NO lee ni descifra tokens directamente de
+ * `google_oauth_connections`: toda esa lógica (incluida la migración
+ * transparente de la única conexión legacy en texto plano) vive en
+ * `getUsableGoogleConnection`, compartida con lib/google/oauth.ts, para no
+ * duplicarla en dos lugares que puedan divergir.
  */
 async function getValidAccessToken(
   serviceClient: ReturnType<typeof createSupabaseServiceClient>,
   tenantId: string,
   userId: string
 ): Promise<string | null> {
-  const { data: connection, error } = await serviceClient
-    .from('google_oauth_connections')
-    .select('access_token, refresh_token, token_expires_at')
-    .eq('tenant_id', tenantId)
-    .eq('user_id', userId)
-    .is('revoked_at', null)
-    .maybeSingle<StoredConnection>();
+  const usable = await getUsableGoogleConnection(serviceClient, tenantId, userId);
+  if (!usable.ok) return null;
 
-  if (error || !connection) return null;
+  const { accessToken, refreshToken, tokenExpiresAt } = usable.connection;
 
-  const expiresAt = new Date(connection.token_expires_at).getTime();
+  const expiresAt = new Date(tokenExpiresAt).getTime();
   const stillValid = expiresAt - Date.now() > 60_000; // margen de 1 minuto
-  if (stillValid) return connection.access_token;
+  if (stillValid) return accessToken;
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -62,7 +59,7 @@ async function getValidAccessToken(
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        refresh_token: connection.refresh_token,
+        refresh_token: refreshToken,
         client_id: clientId,
         client_secret: clientSecret,
         grant_type: 'refresh_token',
@@ -73,15 +70,17 @@ async function getValidAccessToken(
     if (!response.ok || !json?.access_token) return null;
 
     const newExpiresAt = new Date(Date.now() + json.expires_in * 1000).toISOString();
-    await serviceClient
-      .from('google_oauth_connections')
-      .update({
-        access_token: json.access_token,
-        token_expires_at: newExpiresAt,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('tenant_id', tenantId)
-      .eq('user_id', userId);
+    // Cifrado antes de persistir — nunca se vuelve a guardar un
+    // access_token plano. Fail-closed: si la persistencia cifrada no se
+    // pudo confirmar (error de Supabase, o ninguna fila activa matcheó —
+    // ver persistRefreshedAccessToken), NO se usa igual el token recién
+    // obtenido. Preferimos que esta operación falle a dejar un
+    // access_token válido circulando sin haber quedado guardado cifrado.
+    const persisted = await persistRefreshedAccessToken(serviceClient, tenantId, userId, json.access_token, newExpiresAt);
+    if (!persisted) {
+      console.error('google-calendar: el access_token refrescado no se pudo persistir cifrado — no se usa');
+      return null;
+    }
 
     return json.access_token as string;
   } catch {

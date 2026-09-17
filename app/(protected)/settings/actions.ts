@@ -116,11 +116,13 @@ export async function updateSettings(formData: FormData) {
 }
 
 /**
- * Desconecta Google Calendar del profesional logueado. No revoca el acceso
- * del lado de Google todavía (eso queda documentado como pendiente en el
- * informe) — sólo invalida la conexión guardada en TurnIA, para que no se
- * intente crear más Meets con un token que el profesional ya no quiere que
- * usemos.
+ * Desconecta Google Calendar del profesional logueado. Intenta revocar la
+ * autorización del lado de Google (ver disconnectGoogleOAuthConnection) y,
+ * pase lo que pase con esa revocación remota, TurnIA deja de usar la
+ * conexión localmente. Nunca se muestra "Google desconectado" sin más si no
+ * se pudo confirmar la revocación remota — en ese caso se avisa,
+ * sin detalles técnicos, que la conexión local se eliminó pero la
+ * revocación en Google no pudo confirmarse.
  */
 export async function disconnectGoogleCalendar() {
   const { user, tenantId } = await requireTenant();
@@ -131,5 +133,12 @@ export async function disconnectGoogleCalendar() {
   }
 
   revalidatePath('/settings');
+
+  if (!result.data.googleRevocationConfirmed) {
+    redirect(
+      `/settings?error=${encodeURIComponent('Google fue desconectado de TurnIA, pero no pudimos confirmar la revocación del permiso en Google.')}#integraciones`
+    );
+  }
+
   redirect('/settings?ok=Google%20desconectado#integraciones');
 }
