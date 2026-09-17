@@ -39,12 +39,10 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/dashboard', label: 'Inicio', icon: IconHome, mobile: true },
       { href: '/search', label: 'Buscar', icon: IconSearch, mobile: true, hideOnDesktopSidebar: true },
-      // PARTE 8 del pedido: recordatorios personales — ruta propia, pero no
-      // agregamos un ítem más al sidebar de escritorio (para no llenarlo sin
-      // necesidad, como pidió Dario). El punto de entrada principal es la
-      // tarjeta de Recordatorios en el Dashboard; esto sólo cubre el caso de
-      // querer ir directo por URL o desde el buscador.
-      { href: '/reminders', label: 'Recordatorios', icon: IconBell, hideOnDesktopSidebar: true },
+      // Recordatorios personales — ítem visible en el sidebar de escritorio
+      // (antes oculto a propósito; Dario pidió que aparezca como entrada
+      // propia en vez de depender sólo de la tarjeta del Dashboard).
+      { href: '/reminders', label: 'Recordatorios', icon: IconBell },
     ],
   },
   {
