@@ -11,7 +11,13 @@ export default async function LoginPage({ searchParams }: Props) {
       <section className="card login-card">
         <h1>TurnIA</h1>
         <p className="muted">Ingresá a tu espacio profesional.</p>
-        {error ? <div className="error">No pudimos iniciar sesión. Revisá tus datos.</div> : null}
+        {error ? (
+          <div className="error">
+            {error === 'too_many_attempts'
+              ? 'Demasiados intentos. Esperá unos minutos y volvé a intentar.'
+              : 'No pudimos iniciar sesión. Revisá tus datos.'}
+          </div>
+        ) : null}
         <form action={login}>
           <label className="field">
             <span>Email</span>
