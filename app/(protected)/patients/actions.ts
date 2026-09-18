@@ -249,7 +249,11 @@ export async function createManualFollowUp(formData: FormData) {
     patientId: z.string().uuid(),
     content: z.string().trim().min(2, 'La nota no puede estar vacía').max(10000),
     appointmentId: z.preprocess(
-      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      (value) => (
+        value == null || (typeof value === 'string' && value.trim() === '')
+          ? undefined
+          : value
+      ),
       z.string().uuid().optional(),
     ),
   }).safeParse({
