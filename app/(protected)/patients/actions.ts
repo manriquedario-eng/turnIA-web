@@ -7,6 +7,33 @@ import { requireTenant } from '@/lib/auth/require-user';
 import { normalizePhone, type KnownCountryPrefix } from '@/lib/phone';
 import { findDuplicatePatient } from '@/lib/patients/duplicate-check';
 
+// Tipos de retorno de las 3 RPC de auditoría clínica (Fase 1, ver
+// supabase/migrations/20260918120000_clinical_audit_log.sql). El cliente de
+// Supabase de este proyecto no se crea con un generic `Database` (ver
+// lib/supabase/server.ts) y, aunque lo tuviera, estas funciones todavía no
+// existen en ningún esquema generado porque la migración no está aplicada —
+// sin este tipado explícito, `.rpc(...).single()` infiere `data` como `{}`.
+// Tipados a mano contra la firma SQL real de cada función, sin agregar
+// ningún campo que la RPC no devuelva.
+type ArchivePatientRpcResult = {
+  ok: boolean;
+};
+
+type CreatePatientFollowUpRpcResult = {
+  ok: boolean;
+  follow_up_id: string | null;
+  reason: string | null;
+};
+
+// `action` es NULL cuando ok=false: la RPC hace
+// `RETURN QUERY SELECT false, NULL::text;` en el caso de paciente
+// inválido/inexistente. No es `'create' | 'update'` no-nullable — eso no
+// coincidiría con la firma SQL real.
+type UpsertPatientRecordRpcResult = {
+  ok: boolean;
+  action: 'create' | 'update' | null;
+};
+
 const KNOWN_PREFIXES = new Set<KnownCountryPrefix>(['+54 9', '+54', '+598', '+595', '+56', '+34', '+1']);
 
 // `PhoneInput` manda el prefijo elegido en un campo separado
@@ -168,21 +195,31 @@ export async function updatePatient(formData: FormData) {
   redirect(`/patients/${id}?success=updated`);
 }
 
+// Fase 1 de auditoría clínica (ver supabase/migrations/20260918120000_clinical_audit_log.sql):
+// archivar el paciente y registrar la auditoría ocurren dentro de la MISMA
+// transacción, en la RPC `archive_patient_with_audit`. tenant_id y
+// actor_user_id los resuelve la propia función desde auth.uid() +
+// tenant_members — nunca se los mandamos desde acá. Mismos mensajes/redirects
+// que antes; sólo cambia cómo se escribe el archivado.
 export async function archivePatient(formData: FormData) {
   const id = z.string().uuid().safeParse(formData.get('id'));
   if (!id.success) redirect('/patients?error=Paciente%20inválido');
 
-  const { supabase, tenantId } = await requireTenant();
-  const { data, error } = await supabase
-    .from('patients')
-    .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-    .eq('id', id.data)
-    .eq('tenant_id', tenantId)
-    .is('deleted_at', null)
-    .select('id')
-    .maybeSingle();
+  const { supabase } = await requireTenant();
 
-  if (error || !data) {
+  const { data, error } = await supabase
+    .rpc('archive_patient_with_audit', { p_patient_id: id.data })
+    .single()
+    .returns<ArchivePatientRpcResult>();
+
+  // Nunca se loguean datos clínicos ni parámetros de negocio acá — sólo
+  // code/message técnicos de Supabase, mismo criterio que
+  // lib/export/response.ts y lib/appointments/public-token.ts.
+  if (error) {
+    console.error('[patients] archive_patient_with_audit failed', { code: error.code, message: error.message });
+  }
+
+  if (error || !data?.ok) {
     redirect(`/patients/${id.data}?error=${encodeURIComponent('No se pudo archivar el paciente')}`);
   }
 
@@ -190,16 +227,23 @@ export async function archivePatient(formData: FormData) {
   redirect('/patients?success=archived');
 }
 
-// Sesiones y Seguimientos son la misma tabla (`patient_follow_ups`) — no se
-// creó ninguna tabla nueva. `appointment_id` sigue siendo la fuente
-// estructural de verdad (obligatorio para sesión, null para seguimiento),
-// pero ahora además se marca explícitamente en `source_type`
-// ('manual_session' / 'manual_follow_up') para no depender solamente de la
-// presencia de `appointment_id` al leer. Registros viejos con
-// source_type = 'manual_text' se mantienen tal cual (no se migran) y se
-// siguen clasificando por `appointment_id` al leer, por compatibilidad.
-// El formulario de la ficha del paciente decide cuál es cuál según si la
-// persona eligió un turno o dejó "Seguimiento general".
+// Sesiones y Seguimientos son la misma tabla (`patient_follow_ups`) —
+// `appointment_id` sigue siendo la fuente estructural de verdad (presente
+// para sesión, null para seguimiento general); la UI distingue una de otra
+// exclusivamente por `appointment_id IS NOT NULL`, nunca por `source_type`.
+//
+// Fase 1 de auditoría clínica: crear la nota y registrar la auditoría
+// ocurren dentro de la MISMA transacción, en la RPC
+// `create_patient_follow_up_with_audit` (ver la migración citada arriba).
+// Esa RPC hace internamente las mismas validaciones de paciente/turno que
+// antes hacía este archivo por separado — ya no se repiten acá.
+//
+// source_type: la RPC siempre inserta 'manual_text' — es el único valor del
+// CHECK real de patient_follow_ups.source_type (`IN ('manual_text',
+// 'voice_note')`) compatible con una carga manual. Los valores anteriores de
+// este archivo ('manual_session' / 'manual_follow_up') NO existen en el
+// schema real y hubieran fallado contra la base — se corrigen acá, sin tocar
+// Voice Notes ni el valor 'voice_note'.
 export async function createManualFollowUp(formData: FormData) {
   const parsed = z.object({
     patientId: z.string().uuid(),
@@ -218,47 +262,27 @@ export async function createManualFollowUp(formData: FormData) {
     redirect('/patients?error=Nota%20inválida');
   }
 
-  const { supabase, tenantId, user } = await requireTenant();
-  const { data: patient } = await supabase
-    .from('patients')
-    .select('id')
-    .eq('id', parsed.data.patientId)
-    .eq('tenant_id', tenantId)
-    .is('deleted_at', null)
-    .maybeSingle();
+  const { supabase } = await requireTenant();
 
-  if (!patient) {
-    redirect('/patients?error=Paciente%20no%20disponible');
-  }
-
-  // Si se indicó un turno, se valida que exista y sea del mismo paciente y
-  // consultorio — nunca se confía en un appointment_id llegado del cliente
-  // sin verificar tenant_id/patient_id.
-  if (parsed.data.appointmentId) {
-    const { data: appointment } = await supabase
-      .from('appointments')
-      .select('id')
-      .eq('id', parsed.data.appointmentId)
-      .eq('tenant_id', tenantId)
-      .eq('patient_id', parsed.data.patientId)
-      .maybeSingle();
-    if (!appointment) {
-      redirect(`/patients/${parsed.data.patientId}?error=${encodeURIComponent('El turno seleccionado no es válido')}`);
-    }
-  }
-
-  const { error } = await supabase.from('patient_follow_ups').insert({
-    tenant_id: tenantId,
-    professional_id: user.id,
-    patient_id: parsed.data.patientId,
-    appointment_id: parsed.data.appointmentId ?? null,
-    source_type: parsed.data.appointmentId ? 'manual_session' : 'manual_follow_up',
-    voice_note_id: null,
-    content: parsed.data.content,
-  });
+  const { data, error } = await supabase
+    .rpc('create_patient_follow_up_with_audit', {
+      p_patient_id: parsed.data.patientId,
+      p_content: parsed.data.content,
+      p_appointment_id: parsed.data.appointmentId ?? null,
+    })
+    .single()
+    .returns<CreatePatientFollowUpRpcResult>();
 
   if (error) {
+    console.error('[patients] create_patient_follow_up_with_audit failed', { code: error.code, message: error.message });
     redirect(`/patients/${parsed.data.patientId}?error=${encodeURIComponent('No se pudo guardar la nota')}`);
+  }
+
+  if (!data?.ok) {
+    if (data?.reason === 'appointment_invalid') {
+      redirect(`/patients/${parsed.data.patientId}?error=${encodeURIComponent('El turno seleccionado no es válido')}`);
+    }
+    redirect('/patients?error=Paciente%20no%20disponible');
   }
 
   revalidatePath(`/patients/${parsed.data.patientId}`);
@@ -268,6 +292,19 @@ export async function createManualFollowUp(formData: FormData) {
 // Ficha clínica: información general y relativamente estable del paciente.
 // Se edita directamente acá (upsert por patient_id + tenant_id) — a
 // diferencia de antes, NO depende de que existan seguimientos cargados.
+//
+// Fase 1 de auditoría clínica: el upsert de patient_records y su registro en
+// clinical_audit_log ocurren dentro de la MISMA transacción, en la RPC
+// `upsert_patient_record_with_audit` (ver
+// supabase/migrations/20260918120000_clinical_audit_log.sql). Esa RPC valida
+// paciente/tenant internamente — ya no se repite ese select acá.
+//
+// `patient_records.follow_up` existe en la base real pero este flujo NUNCA
+// lo lee ni lo escribe (no está en el Zod de abajo, no se manda a la RPC,
+// que a su vez tampoco lo toca) — se preserva exactamente el comportamiento
+// actual. Si en el futuro se habilita follow_up en la ficha clínica, hay que
+// ampliar este formulario/Zod Y la RPC (y su allowlist de auditoría) juntos,
+// en una migración aparte.
 export async function upsertPatientRecord(formData: FormData) {
   const optional = z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
@@ -294,45 +331,27 @@ export async function upsertPatientRecord(formData: FormData) {
     redirect('/patients?error=Ficha%20cl%C3%ADnica%20inv%C3%A1lida');
   }
 
-  const { supabase, tenantId } = await requireTenant();
-  const { data: patient } = await supabase
-    .from('patients')
-    .select('id')
-    .eq('id', parsed.data.patientId)
-    .eq('tenant_id', tenantId)
-    .is('deleted_at', null)
-    .maybeSingle();
+  const { supabase } = await requireTenant();
 
-  if (!patient) {
-    redirect('/patients?error=Paciente%20no%20disponible');
-  }
-
-  // `patient_records_patient_id_key` (UNIQUE (patient_id)) ya existe en la
-  // base real, así que se usa un `upsert` real sobre esa constraint en vez
-  // del select→update/insert manual anterior — evita la condición de
-  // carrera entre el select y el insert (dos guardados simultáneos ya no
-  // pueden crear dos registros para el mismo paciente). `patient_id`
-  // pertenece a un solo paciente que ya validamos arriba que es de este
-  // tenant, así que no hace falta volver a filtrar por tenant_id acá; sí
-  // se sigue mandando `tenant_id` en el payload para que quede correcto en
-  // el registro (tanto en el insert como en el update que dispare el
-  // upsert) y para no debilitar la tenant isolation de los datos guardados.
-  const { error } = await supabase.from('patient_records').upsert(
-    {
-      tenant_id: tenantId,
-      patient_id: parsed.data.patientId,
-      reason: parsed.data.reason ?? null,
-      background: parsed.data.background ?? null,
-      diagnosis: parsed.data.diagnosis ?? null,
-      plan: parsed.data.plan ?? null,
-      notes: parsed.data.notes ?? null,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'patient_id' },
-  );
+  const { data, error } = await supabase
+    .rpc('upsert_patient_record_with_audit', {
+      p_patient_id: parsed.data.patientId,
+      p_reason: parsed.data.reason ?? null,
+      p_background: parsed.data.background ?? null,
+      p_diagnosis: parsed.data.diagnosis ?? null,
+      p_plan: parsed.data.plan ?? null,
+      p_notes: parsed.data.notes ?? null,
+    })
+    .single()
+    .returns<UpsertPatientRecordRpcResult>();
 
   if (error) {
+    console.error('[patients] upsert_patient_record_with_audit failed', { code: error.code, message: error.message });
     redirect(`/patients/${parsed.data.patientId}?error=${encodeURIComponent('No se pudo guardar la ficha clínica')}`);
+  }
+
+  if (!data?.ok) {
+    redirect('/patients?error=Paciente%20no%20disponible');
   }
 
   revalidatePath(`/patients/${parsed.data.patientId}`);
