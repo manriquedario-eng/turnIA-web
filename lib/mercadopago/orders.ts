@@ -93,6 +93,10 @@ type ServiceRow = {
   price: number | string | null;
 };
 
+type PatientRow = {
+  email: string | null;
+};
+
 type MercadoPagoConnectionRow = {
   access_token_ciphertext: string;
   token_expires_at: string | null;
@@ -133,6 +137,20 @@ function isTrustedMercadoPagoCheckoutUrl(value: unknown): value is string {
   if (url.protocol !== 'https:') return false;
   const host = url.hostname.toLowerCase();
   return host === 'mercadopago.com' || host.endsWith('.mercadopago.com') || host === 'mercadopago.com.ar' || host.endsWith('.mercadopago.com.ar');
+}
+
+/**
+ * PRUEBA CONTROLADA (ver pedido): validación mínima y razonable de un
+ * email, sólo para decidir si se puede armar `payer.email` con el email
+ * real del paciente (nunca uno recibido del browser). No pretende ser una
+ * validación RFC completa — sólo descarta vacíos/valores claramente
+ * inválidos antes de mandarlos a Mercado Pago.
+ */
+function isReasonablyValidEmail(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 200) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
 }
 
 /** Sanitiza un valor para guardarlo en status_detail: string corta, nunca el body completo ni nada que pueda contener un secreto. */
@@ -412,6 +430,38 @@ export async function createMercadoPagoCheckoutForAppointment(params: {
   const amountStr = amount.toFixed(2);
   const itemTitle = serviceRow?.name?.trim() || 'Turno profesional';
 
+  // PRUEBA CONTROLADA (ver pedido): email del paciente SIEMPRE server-side
+  // (nunca uno recibido del browser), leído con el cliente service-role y
+  // filtrado también por tenant_id — el paciente debe pertenecer al mismo
+  // tenant que el turno. Para esta prueba el email es obligatorio: si no
+  // hay patient_id, no se encuentra el paciente, o no tiene un email
+  // razonablemente válido, se falla con un mensaje de negocio claro ANTES
+  // de tocar mercadopago_orders o llamar a Mercado Pago. Nunca se loguea
+  // el email.
+  let patientEmail: string | null = null;
+  if (appointment.patient_id) {
+    try {
+      const { data, error: patientError } = await serviceClient
+        .from('patients')
+        .select('email')
+        .eq('id', appointment.patient_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      if (patientError) throw patientError;
+      const row = data as PatientRow | null;
+      if (row && isReasonablyValidEmail(row.email)) {
+        patientEmail = row.email;
+      }
+    } catch (err) {
+      console.error('Mercado Pago orders: fallo leyendo el email del paciente', err instanceof Error ? err.message : 'error desconocido');
+      return fail('internal_error', 'No pudimos generar el cobro. Probá de nuevo en unos minutos.');
+    }
+  }
+
+  if (!patientEmail) {
+    return fail('patient_email_required', 'El paciente necesita un email válido para generar el cobro con Mercado Pago.');
+  }
+
   // IMPORTANTE: si ya existe una orden reutilizable para este turno, se
   // devuelve esa en vez de crear otra (evita duplicados por doble click).
   try {
@@ -482,12 +532,19 @@ export async function createMercadoPagoCheckoutForAppointment(params: {
         'Content-Type': 'application/json',
         'X-Idempotency-Key': idempotencyKey,
       },
+      // PRUEBA CONTROLADA (ver pedido): body acercado al ejemplo oficial de
+      // Checkout Pro Orders — se agrega `payer.email` (email real del
+      // paciente, ya validado arriba) y se quita `description` para probar
+      // contra un body más cercano al mínimo documentado. Nunca se loguea
+      // este body ni el email.
       body: JSON.stringify({
         type: 'online',
         processing_mode: 'manual',
         total_amount: amountStr,
         external_reference: externalReference,
-        description: 'Turno TurnIA',
+        payer: {
+          email: patientEmail,
+        },
         items: [
           {
             title: itemTitle,
