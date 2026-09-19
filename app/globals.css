@@ -3178,3 +3178,118 @@ table tbody tr:hover {
     min-height: 36px;
   }
 }
+
+
+/* =========================================================================
+   Alerta global de recordatorios personales
+   ========================================================================= */
+
+.reminder-alert {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 1200;
+  width: min(440px, calc(100vw - 32px));
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  animation: reminder-alert-enter 180ms ease-out;
+}
+
+.reminder-alert-pulse {
+  width: 13px;
+  height: 13px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--color-danger);
+  box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.3);
+  animation: reminder-alert-pulse 1.25s ease-out infinite;
+}
+
+.reminder-alert-content {
+  min-width: 0;
+}
+
+.reminder-alert-eyebrow {
+  color: var(--color-danger);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.reminder-alert-title {
+  margin-top: 2px;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.reminder-alert-description {
+  margin-top: 4px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.reminder-alert-time {
+  margin-top: 5px;
+  color: var(--color-danger);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.reminder-alert-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+.reminder-alert-notifications {
+  margin-right: auto;
+  font-size: 12px;
+}
+
+@keyframes reminder-alert-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.35); opacity: 1; }
+  70% { box-shadow: 0 0 0 9px rgba(192, 57, 43, 0); opacity: 0.75; }
+  100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0); opacity: 1; }
+}
+
+@keyframes reminder-alert-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 640px) {
+  .reminder-alert {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    width: auto;
+  }
+
+  .reminder-alert-actions {
+    align-items: stretch;
+  }
+
+  .reminder-alert-actions .btn,
+  .reminder-alert-actions .btn-ghost {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .reminder-alert-notifications {
+    flex-basis: 100%;
+    margin-right: 0;
+  }
+}
