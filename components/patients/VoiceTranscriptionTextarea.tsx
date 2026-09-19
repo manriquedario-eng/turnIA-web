@@ -50,6 +50,7 @@ export function VoiceTranscriptionTextarea({
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const timerRef = useRef<number | null>(null);
+  const startedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     const available =
@@ -65,7 +66,7 @@ export function VoiceTranscriptionTextarea({
     };
   }, []);
 
-  async function transcribe(blob: Blob, mimeType: string) {
+  async function transcribe(blob: Blob, mimeType: string, durationSeconds: number) {
     setTranscribing(true);
     setError('');
 
@@ -76,6 +77,7 @@ export function VoiceTranscriptionTextarea({
       });
       const form = new FormData();
       form.append('audio', file);
+      form.append('duration_seconds', String(Math.max(1, Math.min(900, Math.ceil(durationSeconds)))));
 
       const response = await fetch('/api/transcription', {
         method: 'POST',
@@ -124,6 +126,10 @@ export function VoiceTranscriptionTextarea({
       };
 
       recorder.onstop = () => {
+        const elapsedSeconds = startedAtRef.current
+          ? Math.max(1, Math.ceil((Date.now() - startedAtRef.current) / 1000))
+          : 1;
+        startedAtRef.current = null;
         if (timerRef.current != null) {
           window.clearInterval(timerRef.current);
           timerRef.current = null;
@@ -139,15 +145,22 @@ export function VoiceTranscriptionTextarea({
         setRecording(false);
         setSeconds(0);
 
-        if (blob.size > 0) void transcribe(blob, actualType);
+        if (blob.size > 0) void transcribe(blob, actualType, elapsedSeconds);
         else setError('No se capturó audio. Volvé a intentar.');
       };
 
       recorder.start(250);
+      startedAtRef.current = Date.now();
       setSeconds(0);
       setRecording(true);
       timerRef.current = window.setInterval(() => {
-        setSeconds((current) => current + 1);
+        setSeconds((current) => {
+          const next = current + 1;
+          if (next >= 900 && recorder.state !== 'inactive') {
+            recorder.stop();
+          }
+          return next;
+        });
       }, 1000);
     } catch (permissionError) {
       const errorName = permissionError instanceof DOMException ? permissionError.name : '';
