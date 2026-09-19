@@ -1,6 +1,7 @@
 import { requireTenant } from '@/lib/auth/require-user';
-import { updateSettings, disconnectGoogleCalendar } from './actions';
+import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago } from './actions';
 import { isGoogleOAuthConfigured } from '@/lib/google/oauth';
+import { isMercadoPagoOAuthConfigured } from '@/lib/mercadopago/oauth';
 import { isWhatsAppConfigured } from '@/lib/whatsapp/provider';
 import { isEmailConfigured } from '@/lib/email/provider';
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
@@ -13,7 +14,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
   const { supabase, user, tenantId } = await requireTenant();
 
-  const [{ data: profile }, { data: settings }, { data: googleIntegration }] = await Promise.all([
+  const [{ data: profile }, { data: settings }, { data: googleIntegration }, { data: mercadoPagoIntegration }] = await Promise.all([
     supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
     // `profile` acá es la columna jsonb existente de `settings` (datos del
     // profesional/consultorio) — no confundir con la tabla `profiles`
@@ -25,6 +26,17 @@ export default async function SettingsPage({ searchParams }: PageProps) {
       .eq('tenant_id', tenantId)
       .eq('user_id', user.id)
       .eq('provider', 'google_calendar')
+      .maybeSingle(),
+    // Sólo `integration_status` (lectura vía RLS normal, igual que Google) —
+    // NUNCA se lee mercadopago_connections desde acá ni desde ningún código
+    // que corra con el cliente RLS del usuario: esa tabla es server-only,
+    // sólo lib/mercadopago/oauth.ts la toca, y siempre con el service role.
+    supabase
+      .from('integration_status')
+      .select('status, account_label, connected_at')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', user.id)
+      .eq('provider', 'mercadopago')
       .maybeSingle(),
   ]);
 
@@ -49,6 +61,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
 
   const googleConnected = googleIntegration?.status === 'connected';
   const googleConfigured = isGoogleOAuthConfigured();
+  const mercadoPagoConnected = mercadoPagoIntegration?.status === 'connected';
+  const mercadoPagoConfigured = isMercadoPagoOAuthConfigured();
   const whatsappConfigured = isWhatsAppConfigured();
   const emailConfigured = isEmailConfigured();
 
@@ -158,6 +172,37 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                     </form>
                   ) : googleConfigured ? (
                     <a className="btn secondary" style={{ padding: '7px 12px', fontSize: 13 }} href="/api/google/oauth/connect">
+                      Conectar
+                    </a>
+                  ) : (
+                    <span className="btn secondary" aria-disabled="true" style={{ padding: '7px 12px', fontSize: 13, opacity: 0.5, cursor: 'not-allowed' }}>
+                      Conectar
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="integration-row">
+                <div className="integration-row-name">
+                  Mercado Pago
+                  <span className={`badge ${mercadoPagoConnected ? 'badge-confirmado' : mercadoPagoConfigured ? 'badge-pendiente' : 'badge-neutral'}`}>
+                    {mercadoPagoConnected ? 'Conectado' : mercadoPagoConfigured ? 'No conectado' : 'No disponible'}
+                  </span>
+                </div>
+                <div className="integration-row-desc">
+                  Conectá tu cuenta para generar cobros de turnos directamente en tu cuenta de Mercado Pago.
+                  {mercadoPagoConnected && mercadoPagoIntegration?.account_label ? ` Cuenta: ${mercadoPagoIntegration.account_label}.` : ''}
+                  {!mercadoPagoConnected && !mercadoPagoConfigured ? ' Todavía no está disponible en este consultorio.' : ''}
+                </div>
+                <div className="integration-row-action">
+                  {mercadoPagoConnected ? (
+                    <form action={disconnectMercadoPago}>
+                      <button className="btn danger" type="submit" style={{ padding: '7px 12px', fontSize: 13 }}>
+                        Desconectar
+                      </button>
+                    </form>
+                  ) : mercadoPagoConfigured ? (
+                    <a className="btn secondary" style={{ padding: '7px 12px', fontSize: 13 }} href="/api/integrations/mercadopago/oauth/connect">
                       Conectar
                     </a>
                   ) : (

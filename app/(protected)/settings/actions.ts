@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
 import { disconnectGoogleOAuthConnection } from '@/lib/google/oauth';
+import { disconnectMercadoPagoOAuthConnection } from '@/lib/mercadopago/oauth';
 
 // Campos profesionales opcionales. NO se agregó ninguna columna nueva a la
 // base: `settings.profile` ya era una columna jsonb existente en el schema
@@ -141,4 +142,24 @@ export async function disconnectGoogleCalendar() {
   }
 
   redirect('/settings?ok=Google%20desconectado#integraciones');
+}
+
+/**
+ * Desconecta Mercado Pago del profesional logueado. A diferencia de
+ * Google, Mercado Pago no ofrece revocación remota programática (ver
+ * lib/mercadopago/oauth.ts) — disconnectMercadoPagoOAuthConnection hace
+ * únicamente limpieza local (borra la conexión guardada, TurnIA deja de
+ * poder usarla de inmediato). El mensaje de éxito nunca da a entender que
+ * también se revocó del lado de Mercado Pago.
+ */
+export async function disconnectMercadoPago() {
+  const { user, tenantId } = await requireTenant();
+
+  const result = await disconnectMercadoPagoOAuthConnection({ tenantId, userId: user.id });
+  if (!result.ok) {
+    redirect(`/settings?error=${encodeURIComponent(result.errorMessage)}#integraciones`);
+  }
+
+  revalidatePath('/settings');
+  redirect('/settings?ok=Mercado%20Pago%20desconectado#integraciones');
 }
