@@ -188,6 +188,43 @@ function extractMercadoPagoErrorList(list: unknown, messageFieldsInOrder: string
 }
 
 /**
+ * Item sanitizado de `json.details[]` — el array donde la Orders API de
+ * Mercado Pago suele identificar QUÉ propiedad puntual del body causó un
+ * `unsupported_properties`/`required_properties`, etc. Sólo campos
+ * escalares allowlisted, nunca el objeto completo.
+ */
+type SanitizedMercadoPagoDetailItem = {
+  code: string | null;
+  message: string | null;
+  description: string | null;
+  field: string | null;
+  property: string | null;
+};
+
+/**
+ * Extrae, de `json.details` (si es array), como máximo los primeros 3
+ * elementos, tomando de cada uno ÚNICAMENTE los campos allowlisted `code`,
+ * `message`, `description`, `field` y `property` — nunca el objeto
+ * completo ni ningún otro campo no listado acá.
+ */
+function extractMercadoPagoDetailsList(list: unknown): SanitizedMercadoPagoDetailItem[] {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, 3).map((item) => {
+    if (typeof item !== 'object' || item === null) {
+      return { code: null, message: null, description: null, field: null, property: null };
+    }
+    const obj = item as Record<string, unknown>;
+    return {
+      code: sanitizeScalarField(obj.code),
+      message: sanitizeScalarField(obj.message),
+      description: sanitizeScalarField(obj.description),
+      field: sanitizeScalarField(obj.field),
+      property: sanitizeScalarField(obj.property),
+    };
+  });
+}
+
+/**
  * Extrae de forma SEGURA sólo campos de error conocidos y allowlisted del
  * body JSON que devolvió la Orders API de Mercado Pago cuando
  * `!response.ok` — nunca el body completo (`JSON.stringify(json)`), nunca
@@ -200,16 +237,22 @@ function extractMercadoPagoErrorList(list: unknown, messageFieldsInOrder: string
  *   2. json.cause[]  (hasta 3) — code / description / message
  *   3. campos sueltos de primer nivel: json.error, json.code, json.message,
  *      json.status, json.status_detail
+ *
+ * Además (diagnóstico agregado): `details` — hasta 3 elementos de
+ * json.details[], donde Mercado Pago suele indicar la propiedad puntual
+ * (`field`/`property`) que disparó el rechazo.
  */
 function extractSanitizedMercadoPagoError(json: unknown): {
   primary: SanitizedMercadoPagoErrorDetail;
   errors: SanitizedMercadoPagoErrorDetail[];
   cause: SanitizedMercadoPagoErrorDetail[];
+  details: SanitizedMercadoPagoDetailItem[];
 } {
   const root = typeof json === 'object' && json !== null ? (json as Record<string, unknown>) : {};
 
   const errors = extractMercadoPagoErrorList(root.errors, ['message', 'description']);
   const cause = extractMercadoPagoErrorList(root.cause, ['description', 'message']);
+  const details = extractMercadoPagoDetailsList(root.details);
 
   const topLevel: SanitizedMercadoPagoErrorDetail = {
     code: sanitizeScalarField(root.code) ?? sanitizeScalarField(root.error),
@@ -219,7 +262,7 @@ function extractSanitizedMercadoPagoError(json: unknown): {
   const primary =
     errors.find((e) => e.code || e.message) ?? cause.find((c) => c.code || c.message) ?? topLevel;
 
-  return { primary, errors, cause };
+  return { primary, errors, cause, details };
 }
 
 /**
@@ -471,14 +514,26 @@ export async function createMercadoPagoCheckoutForAppointment(params: {
         httpStatus: response.status,
         providerCode: sanitizedError.primary.code,
         providerMessage: sanitizedError.primary.message,
+        providerDetails: sanitizedError.details,
       });
 
+      // El primer elemento útil de json.details[] suele nombrar la
+      // propiedad puntual que Mercado Pago consideró inválida
+      // (field/property) — se prioriza eso; si no vino, se cae a
+      // code/message/description del mismo item. Sólo se usa UN valor
+      // (el primero disponible en ese orden), nunca el objeto completo.
+      const firstDetail = sanitizedError.details[0];
+      const firstDetailStr = firstDetail
+        ? firstDetail.field ?? firstDetail.property ?? firstDetail.code ?? firstDetail.message ?? firstDetail.description ?? null
+        : null;
+
       // status_detail útil para diagnosticar sin exponer nada sensible:
-      // "<http_status>|<code>|<message>" (cada componente ya viene acotado
-      // a 200 caracteres por sanitizeScalarField; sanitizeStatusDetail
-      // vuelve a acotar el conjunto a 200). Si no vino ni code ni message
-      // reconocibles, cae al `http_<status>` de siempre.
-      const providerDetail = [String(response.status), sanitizedError.primary.code, sanitizedError.primary.message]
+      // "<http_status>|<code>|<message>|<primer detail>" (cada componente
+      // ya viene acotado a 200 caracteres por sanitizeScalarField;
+      // sanitizeStatusDetail vuelve a acotar el CONJUNTO final a 200). Si
+      // no vino ni code ni message ni detail reconocibles, cae al
+      // `http_<status>` de siempre.
+      const providerDetail = [String(response.status), sanitizedError.primary.code, sanitizedError.primary.message, firstDetailStr]
         .filter((part): part is string => Boolean(part))
         .join('|');
 
