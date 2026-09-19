@@ -41,14 +41,14 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $func$
 BEGIN
   INSERT INTO public.ai_transcription_accounts (tenant_id)
   VALUES (NEW.id)
   ON CONFLICT (tenant_id) DO NOTHING;
   RETURN NEW;
 END;
-$;
+$func$;
 
 DROP TRIGGER IF EXISTS tenants_create_ai_transcription_account ON public.tenants;
 CREATE TRIGGER tenants_create_ai_transcription_account
@@ -93,7 +93,7 @@ RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $consume$
 DECLARE
   affected integer;
 BEGIN
@@ -127,7 +127,7 @@ BEGIN
 
   RETURN true;
 END;
-$$;
+$consume$;
 
 REVOKE ALL ON FUNCTION public.consume_ai_transcription_seconds(uuid, uuid, bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.consume_ai_transcription_seconds(uuid, uuid, bigint) TO authenticated;
