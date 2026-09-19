@@ -1,24 +1,48 @@
 import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Tabs } from '@/components/ui/Tabs';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const TZ = 'America/Argentina/Buenos_Aires';
 const CANCELLED = new Set(['cancelled', 'cancelado']);
 const NO_SHOW = new Set(['no_show', 'no-show', 'ausente']);
 
 function formatDuration(totalSeconds: number) {
   const seconds = Math.max(0, Math.floor(totalSeconds));
-  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
   const remainder = seconds % 60;
-  if (minutes === 0) return `${remainder} s`;
-  if (remainder === 0) return `${minutes} min`;
-  return `${minutes} min ${remainder} s`;
+
+  if (hours > 0) {
+    return [`${hours} h`, minutes ? `${minutes} min` : '', remainder ? `${remainder} s` : '']
+      .filter(Boolean)
+      .join(' ');
+  }
+  if (minutes > 0) return remainder ? `${minutes} min ${remainder} s` : `${minutes} min`;
+  return `${remainder} s`;
+}
+
+function localDateParts(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const part = (type: 'year' | 'month' | 'day') => parts.find((item) => item.type === type)?.value ?? '';
+  return { year: part('year'), month: part('month'), day: part('day') };
 }
 
 export default async function MetricsPage() {
   const { supabase, tenantId } = await requireTenant();
 
-  const now = new Date();
-  const monthStart = new Date(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01T00:00:00-03:00`).toISOString();
+  const local = localDateParts(new Date());
+  const monthStart = `${local.year}-${local.month}-01T00:00:00-03:00`;
+  const todayStart = `${local.year}-${local.month}-${local.day}T00:00:00-03:00`;
 
   const [appointmentsResult, paymentsResult, transcriptionAccountResult, transcriptionUsageResult] = await Promise.all([
     supabase
@@ -37,7 +61,7 @@ export default async function MetricsPage() {
       .maybeSingle(),
     supabase
       .from('ai_transcription_ledger')
-      .select('seconds,usage_context,created_at')
+      .select('seconds,usage_context,created_at,patient_id,patients(name)')
       .eq('tenant_id', tenantId)
       .eq('kind', 'usage')
       .gte('created_at', monthStart)
@@ -49,16 +73,12 @@ export default async function MetricsPage() {
   const transcriptionAccount = transcriptionAccountResult.data;
   const transcriptionUsage = transcriptionUsageResult.data ?? [];
 
-  const transcriptionBalanceSeconds = Number(transcriptionAccount?.balance_seconds ?? 0);
-  const transcriptionMonthSeconds = transcriptionUsage.reduce((sum, row) => sum + Number(row.seconds ?? 0), 0);
-  const transcriptionCount = transcriptionUsage.length;
-  const sessionTranscriptions = transcriptionUsage.filter((row) => row.usage_context === 'session');
-  const followUpTranscriptions = transcriptionUsage.filter((row) => row.usage_context === 'follow_up');
-  const sessionSeconds = sessionTranscriptions.reduce((sum, row) => sum + Number(row.seconds ?? 0), 0);
-  const followUpSeconds = followUpTranscriptions.reduce((sum, row) => sum + Number(row.seconds ?? 0), 0);
   const paidByAppointment = new Map<string, number>();
   for (const payment of payments) {
-    paidByAppointment.set(payment.appointment_id, (paidByAppointment.get(payment.appointment_id) ?? 0) + Number(payment.amount ?? 0));
+    paidByAppointment.set(
+      payment.appointment_id,
+      (paidByAppointment.get(payment.appointment_id) ?? 0) + Number(payment.amount ?? 0),
+    );
   }
 
   const collectible = appointments.filter((a) => !CANCELLED.has(a.status ?? ''));
@@ -79,128 +99,255 @@ export default async function MetricsPage() {
   const noShowRate = attendanceBase > 0 ? (noShows / attendanceBase) * 100 : 0;
   const collectionRate = totalQuoted > 0 ? Math.min((totalPaid / totalQuoted) * 100, 100) : 0;
 
+  const transcriptionBalanceSeconds = Number(transcriptionAccount?.balance_seconds ?? 0);
+  const transcriptionMonthSeconds = transcriptionUsage.reduce(
+    (sum, row) => sum + Number(row.seconds ?? 0),
+    0,
+  );
+  const transcriptionTodaySeconds = transcriptionUsage
+    .filter((row) => new Date(row.created_at).getTime() >= new Date(todayStart).getTime())
+    .reduce((sum, row) => sum + Number(row.seconds ?? 0), 0);
+
+  const sessionTranscriptions = transcriptionUsage.filter((row) => row.usage_context === 'session');
+  const followUpTranscriptions = transcriptionUsage.filter((row) => row.usage_context === 'follow_up');
+  const sessionSeconds = sessionTranscriptions.reduce((sum, row) => sum + Number(row.seconds ?? 0), 0);
+  const followUpSeconds = followUpTranscriptions.reduce((sum, row) => sum + Number(row.seconds ?? 0), 0);
+
+  const patientUsage = new Map<string, { name: string; seconds: number; count: number }>();
+  for (const row of transcriptionUsage as any[]) {
+    const key = row.patient_id ?? 'unassigned';
+    const name = row.patients?.name ?? 'Sin paciente asociado';
+    const current = patientUsage.get(key) ?? { name, seconds: 0, count: 0 };
+    current.seconds += Number(row.seconds ?? 0);
+    current.count += 1;
+    patientUsage.set(key, current);
+  }
+  const patientUsageRows = [...patientUsage.entries()]
+    .map(([id, data]) => ({ id, ...data }))
+    .sort((a, b) => b.seconds - a.seconds);
+
   return (
     <section className="stack">
       <div className="page-header">
         <div>
           <h1>Deudas y métricas</h1>
-          <p className="muted">Visión simple de cobranzas y comportamiento de turnos, calculada con los datos registrados en TurnIA.</p>
+          <p className="muted">
+            Caja, actividad del consultorio y consumo de herramientas, separados para leerlos con claridad.
+          </p>
         </div>
       </div>
 
-      {/* Rediseño: antes las 4 métricas eran un .stat-strip parejo, sin
-          indicar que "Pendiente actual" es la cifra que más importa acá —
-          ahora es una card propia (hero) con acento de color según haya o
-          no deuda, y las otras 3 quedan como franja secundaria más chica.
-          Mismos cálculos, ningún dato nuevo. */}
-      <div className="metrics-hero-row">
-        <div className={`metrics-hero-card ${totalDebt > 0 ? 'has-debt' : ''}`}>
-          <span className="patient-meta-label">Pendiente actual</span>
-          <span className="metrics-hero-value">${totalDebt.toLocaleString('es-AR')}</span>
-          <span className="stat-strip-hint">{debts.length} turno{debts.length === 1 ? '' : 's'} con saldo</span>
-        </div>
-        <div className="stat-strip metrics-secondary-strip">
-          <div className="stat-strip-item">
-            <span className="stat-strip-label">Cobrado registrado</span>
-            <span className="stat-strip-value stat-strip-value-money">${totalPaid.toLocaleString('es-AR')}</span>
-          </div>
-          <div className="stat-strip-item">
-            <span className="stat-strip-label">Tasa de cobranza</span>
-            <span className="stat-strip-value">{collectionRate.toFixed(1)}%</span>
-          </div>
-          <div className="stat-strip-item">
-            <span className="stat-strip-label">Ausentismo</span>
-            <span className="stat-strip-value">{noShowRate.toFixed(1)}%</span>
-            <span className="stat-strip-hint">{noShows} ausencias</span>
-          </div>
-        </div>
-      </div>
+      <Tabs
+        tabs={[
+          { id: 'caja', label: 'Caja y cobranzas' },
+          { id: 'turnos', label: 'Turnos y pacientes' },
+          { id: 'transcripcion', label: 'Transcripción IA' },
+        ]}
+      >
+        <div data-tab="caja" className="stack">
+          <div className="metrics-hero-row">
+            <div className={`metrics-hero-card ${totalDebt > 0 ? 'has-debt' : ''}`}>
+              <span className="patient-meta-label">Pendiente actual</span>
+              <span className="metrics-hero-value">${totalDebt.toLocaleString('es-AR')}</span>
+              <span className="stat-strip-hint">
+                {debts.length} turno{debts.length === 1 ? '' : 's'} con saldo
+              </span>
+            </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', padding: '20px 20px 0' }}>
-          <div><h2 style={{ marginTop: 0 }}>Saldos por cobrar</h2><p className="muted" style={{ marginTop: 0 }}>Turnos no cancelados cuyo importe registrado supera los pagos asociados.</p></div>
-          <Link className="btn" href="/payments">Registrar cobro</Link>
-        </div>
-        {debts.length === 0 ? (
-          <div style={{ padding: '0 20px 20px' }}>
-            <EmptyState title="No hay saldos pendientes" description="Todos los turnos no cancelados están cobrados al día." />
+            <div className="stat-strip metrics-secondary-strip">
+              <div className="stat-strip-item">
+                <span className="stat-strip-label">Cobrado registrado</span>
+                <span className="stat-strip-value stat-strip-value-money">
+                  ${totalPaid.toLocaleString('es-AR')}
+                </span>
+              </div>
+              <div className="stat-strip-item">
+                <span className="stat-strip-label">Tasa de cobranza</span>
+                <span className="stat-strip-value">{collectionRate.toFixed(1)}%</span>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div style={{ overflowX: 'auto', marginTop: 12 }}>
-            <table className="table">
-              <thead>
-                <tr><th>Paciente</th><th>Fecha</th><th style={{ textAlign: 'right' }}>Importe</th><th style={{ textAlign: 'right' }}>Pagado</th><th style={{ textAlign: 'right' }}>Saldo</th></tr>
-              </thead>
-              <tbody>
-                {debts.map((row: any) => (
-                  <tr key={row.id}>
-                    <td>{row.patients?.name ?? 'Sin paciente'}</td>
-                    <td className="muted">{new Intl.DateTimeFormat('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', dateStyle: 'short' }).format(new Date(row.starts_at))}</td>
-                    <td className="table-cell-amount muted">${row.quoted.toLocaleString('es-AR')}</td>
-                    <td className="table-cell-amount muted">${row.paid.toLocaleString('es-AR')}</td>
-                    <td className="table-cell-amount"><strong style={{ color: 'var(--color-warning)' }}>${row.balance.toLocaleString('es-AR')}</strong></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
 
-      <div className="card">
-        <div className="page-header" style={{ marginBottom: 14 }}>
-          <div>
-            <h2 style={{ margin: 0 }}>Transcripción con IA</h2>
-            <p className="muted" style={{ margin: '6px 0 0', fontSize: 13 }}>
-              Consumo del mes actual y saldo disponible del módulo opcional.
-            </p>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div
+              className="nav"
+              style={{ justifyContent: 'space-between', flexWrap: 'wrap', padding: '20px 20px 0' }}
+            >
+              <div>
+                <h2 style={{ marginTop: 0 }}>Saldos por cobrar</h2>
+                <p className="muted" style={{ marginTop: 0 }}>
+                  Turnos no cancelados cuyo importe registrado supera los pagos asociados.
+                </p>
+              </div>
+              <Link className="btn" href="/payments">Registrar cobro</Link>
+            </div>
+
+            {debts.length === 0 ? (
+              <div style={{ padding: '0 20px 20px' }}>
+                <EmptyState
+                  title="No hay saldos pendientes"
+                  description="Todos los turnos no cancelados están cobrados al día."
+                />
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto', marginTop: 12 }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Paciente</th>
+                      <th>Fecha</th>
+                      <th style={{ textAlign: 'right' }}>Importe</th>
+                      <th style={{ textAlign: 'right' }}>Pagado</th>
+                      <th style={{ textAlign: 'right' }}>Saldo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {debts.map((row: any) => (
+                      <tr key={row.id}>
+                        <td>{row.patients?.name ?? 'Sin paciente'}</td>
+                        <td className="muted">
+                          {new Intl.DateTimeFormat('es-AR', {
+                            timeZone: TZ,
+                            dateStyle: 'short',
+                          }).format(new Date(row.starts_at))}
+                        </td>
+                        <td className="table-cell-amount muted">${row.quoted.toLocaleString('es-AR')}</td>
+                        <td className="table-cell-amount muted">${row.paid.toLocaleString('es-AR')}</td>
+                        <td className="table-cell-amount">
+                          <strong style={{ color: 'var(--color-warning)' }}>
+                            ${row.balance.toLocaleString('es-AR')}
+                          </strong>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-          <span className={`badge ${transcriptionAccount?.enabled ? 'badge-confirmado' : 'badge-neutral'}`}>
-            {transcriptionAccount?.enabled ? 'Activa' : 'Desactivada'}
-          </span>
         </div>
 
-        <div className="metrics-activity-row">
-          <div className="metrics-activity-item">
-            <span className="metrics-activity-value">{formatDuration(transcriptionBalanceSeconds)}</span>
-            <span className="patient-meta-label">Saldo disponible</span>
-          </div>
-          <div className="metrics-activity-item">
-            <span className="metrics-activity-value">{formatDuration(transcriptionMonthSeconds)}</span>
-            <span className="patient-meta-label">Usado este mes</span>
-            <span className="stat-strip-hint">{transcriptionCount} transcripción{transcriptionCount === 1 ? '' : 'es'}</span>
-          </div>
-          <div className="metrics-activity-item">
-            <span className="metrics-activity-value">{formatDuration(sessionSeconds)}</span>
-            <span className="patient-meta-label">En sesiones</span>
-            <span className="stat-strip-hint">{sessionTranscriptions.length} dictado{sessionTranscriptions.length === 1 ? '' : 's'}</span>
-          </div>
-          <div className="metrics-activity-item">
-            <span className="metrics-activity-value">{formatDuration(followUpSeconds)}</span>
-            <span className="patient-meta-label">En seguimientos</span>
-            <span className="stat-strip-hint">{followUpTranscriptions.length} dictado{followUpTranscriptions.length === 1 ? '' : 's'}</span>
-          </div>
-        </div>
-      </div>
+        <div data-tab="turnos" className="stack">
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>Actividad de turnos y pacientes</h2>
+            <div className="metrics-activity-row">
+              <div className="metrics-activity-item">
+                <span className="metrics-activity-value">{appointments.length}</span>
+                <span className="patient-meta-label">Turnos registrados</span>
+              </div>
+              <div className="metrics-activity-item">
+                <span className="metrics-activity-value">{cancelled}</span>
+                <span className="patient-meta-label">Cancelados</span>
+              </div>
+              <div className="metrics-activity-item">
+                <span className="metrics-activity-value">{noShows}</span>
+                <span className="patient-meta-label">Ausencias</span>
+              </div>
+              <div className="metrics-activity-item">
+                <span className="metrics-activity-value">{noShowRate.toFixed(1)}%</span>
+                <span className="patient-meta-label">Tasa de ausentismo</span>
+              </div>
+            </div>
 
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>Lectura de actividad</h2>
-        <div className="metrics-activity-row">
-          <div className="metrics-activity-item">
-            <span className="metrics-activity-value">{appointments.length}</span>
-            <span className="patient-meta-label">Turnos registrados</span>
-          </div>
-          <div className="metrics-activity-item">
-            <span className="metrics-activity-value">{cancelled}</span>
-            <span className="patient-meta-label">Cancelados</span>
-          </div>
-          <div className="metrics-activity-item">
-            <span className="metrics-activity-value">{noShows}</span>
-            <span className="patient-meta-label">Ausencias</span>
+            {noShows === 0 ? (
+              <p className="muted" style={{ marginTop: 14, marginBottom: 0, fontSize: 13 }}>
+                Actualmente no hay turnos con estado de ausencia registrado.
+              </p>
+            ) : null}
           </div>
         </div>
-        {noShows === 0 && <p className="muted" style={{ marginTop: 14, marginBottom: 0, fontSize: 13 }}>Actualmente no hay turnos con un estado de ausencia/no-show registrado; la métrica crecerá en utilidad cuando ese estado se utilice operativamente.</p>}
-      </div>
+
+        <div data-tab="transcripcion" className="stack">
+          <div className="card">
+            <div className="page-header" style={{ marginBottom: 14 }}>
+              <div>
+                <h2 style={{ margin: 0 }}>Transcripción con IA</h2>
+                <p className="muted" style={{ margin: '6px 0 0', fontSize: 13 }}>
+                  Consumo actualizado del módulo opcional de dictado.
+                </p>
+              </div>
+              <span className={`badge ${transcriptionAccount?.enabled ? 'badge-confirmado' : 'badge-neutral'}`}>
+                {transcriptionAccount?.enabled ? 'Activa' : 'Desactivada'}
+              </span>
+            </div>
+
+            <div className="metrics-activity-row">
+              <div className="metrics-activity-item">
+                <span className="metrics-activity-value">{formatDuration(transcriptionBalanceSeconds)}</span>
+                <span className="patient-meta-label">Saldo disponible</span>
+              </div>
+              <div className="metrics-activity-item">
+                <span className="metrics-activity-value">{formatDuration(transcriptionTodaySeconds)}</span>
+                <span className="patient-meta-label">Usado hoy</span>
+              </div>
+              <div className="metrics-activity-item">
+                <span className="metrics-activity-value">{formatDuration(transcriptionMonthSeconds)}</span>
+                <span className="patient-meta-label">Usado este mes</span>
+              </div>
+              <div className="metrics-activity-item">
+                <span className="metrics-activity-value">{transcriptionUsage.length}</span>
+                <span className="patient-meta-label">Dictados este mes</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>Uso por tipo</h2>
+            <div className="metrics-activity-row">
+              <div className="metrics-activity-item">
+                <span className="metrics-activity-value">{formatDuration(sessionSeconds)}</span>
+                <span className="patient-meta-label">Sesiones</span>
+                <span className="stat-strip-hint">
+                  {sessionTranscriptions.length} dictado{sessionTranscriptions.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              <div className="metrics-activity-item">
+                <span className="metrics-activity-value">{formatDuration(followUpSeconds)}</span>
+                <span className="patient-meta-label">Seguimientos</span>
+                <span className="stat-strip-hint">
+                  {followUpTranscriptions.length} dictado{followUpTranscriptions.length === 1 ? '' : 's'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '20px 20px 0' }}>
+              <h2 style={{ marginTop: 0 }}>Consumo por paciente · este mes</h2>
+              <p className="muted" style={{ marginTop: 0 }}>
+                Segundos utilizados en notas dictadas para cada paciente.
+              </p>
+            </div>
+
+            {patientUsageRows.length === 0 ? (
+              <div style={{ padding: '0 20px 20px' }}>
+                <EmptyState title="Todavía no hay consumo de transcripción este mes" />
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto', marginTop: 12 }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Paciente</th>
+                      <th style={{ textAlign: 'right' }}>Dictados</th>
+                      <th style={{ textAlign: 'right' }}>Tiempo consumido</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {patientUsageRows.map((row) => (
+                      <tr key={row.id}>
+                        <td>{row.name}</td>
+                        <td className="table-cell-amount">{row.count}</td>
+                        <td className="table-cell-amount"><strong>{formatDuration(row.seconds)}</strong></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      </Tabs>
     </section>
   );
 }
