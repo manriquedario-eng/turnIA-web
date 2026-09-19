@@ -30,6 +30,32 @@ CREATE TABLE IF NOT EXISTS public.ai_transcription_ledger (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Crea una cuenta apagada/sin saldo para los tenants ya existentes.
+INSERT INTO public.ai_transcription_accounts (tenant_id)
+SELECT id FROM public.tenants
+ON CONFLICT (tenant_id) DO NOTHING;
+
+-- Y garantiza la cuenta para tenants nuevos.
+CREATE OR REPLACE FUNCTION public.create_ai_transcription_account_for_tenant()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $
+BEGIN
+  INSERT INTO public.ai_transcription_accounts (tenant_id)
+  VALUES (NEW.id)
+  ON CONFLICT (tenant_id) DO NOTHING;
+  RETURN NEW;
+END;
+$;
+
+DROP TRIGGER IF EXISTS tenants_create_ai_transcription_account ON public.tenants;
+CREATE TRIGGER tenants_create_ai_transcription_account
+AFTER INSERT ON public.tenants
+FOR EACH ROW
+EXECUTE FUNCTION public.create_ai_transcription_account_for_tenant();
+
 ALTER TABLE public.ai_transcription_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_transcription_ledger ENABLE ROW LEVEL SECURITY;
 
