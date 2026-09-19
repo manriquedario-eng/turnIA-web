@@ -8,6 +8,7 @@ import { PhoneInput } from '@/components/ui/PhoneInput';
 import { IconMail, IconPhone } from '@/components/ui/icons';
 import { Tabs } from '@/components/ui/Tabs';
 import { ClinicalRecordCard } from '@/components/patients/ClinicalRecordCard';
+import { VoiceTranscriptionTextarea } from '@/components/patients/VoiceTranscriptionTextarea';
 import { ExportMenu, type ExportMenuItem } from '@/components/export/ExportMenu';
 import { statusLabel, modalityLabel, paymentMethodLabel } from '@/lib/labels';
 
@@ -342,10 +343,15 @@ export default async function PatientDetailPage({
                     ))}
                   </select>
                 </label>
-                <label>
-                  Notas de la sesión
-                  <textarea name="content" required minLength={2} maxLength={10000} rows={5} style={{ width: '100%' }} />
-                </label>
+                <VoiceTranscriptionTextarea
+                  name="content"
+                  label="Notas de la sesión"
+                  required
+                  minLength={2}
+                  maxLength={10000}
+                  rows={5}
+                  placeholder="Escribí la evolución o usá “Dictar nota”."
+                />
                 <div>
                   <button className="btn" type="submit">Guardar sesión</button>
                 </div>
@@ -412,10 +418,15 @@ export default async function PatientDetailPage({
               </p>
               <form action={createManualFollowUp} className="stack">
                 <input type="hidden" name="patientId" value={patient.id} />
-                <label>
-                  Nota de seguimiento
-                  <textarea name="content" required minLength={2} maxLength={10000} rows={5} style={{ width: '100%' }} />
-                </label>
+                <VoiceTranscriptionTextarea
+                  name="content"
+                  label="Nota de seguimiento"
+                  required
+                  minLength={2}
+                  maxLength={10000}
+                  rows={5}
+                  placeholder="Escribí el seguimiento o usá “Dictar nota”."
+                />
                 <div>
                   <button className="btn" type="submit">Guardar seguimiento</button>
                 </div>
