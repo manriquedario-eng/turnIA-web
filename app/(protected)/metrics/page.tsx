@@ -10,6 +10,14 @@ const TZ = 'America/Argentina/Buenos_Aires';
 const CANCELLED = new Set(['cancelled', 'cancelado']);
 const NO_SHOW = new Set(['no_show', 'no-show', 'ausente']);
 
+function safePatientName(name: string | null | undefined) {
+  const trimmed = (name ?? '').trim();
+  if (!trimmed || /<[^>]*>/.test(trimmed) || /^(javascript:|data:)/i.test(trimmed)) {
+    return 'Paciente';
+  }
+  return trimmed;
+}
+
 function formatDuration(totalSeconds: number) {
   const seconds = Math.max(0, Math.floor(totalSeconds));
   const hours = Math.floor(seconds / 3600);
@@ -145,7 +153,7 @@ export default async function MetricsPage() {
   const patientUsage = new Map<string, { name: string; seconds: number; count: number }>();
   for (const row of transcriptionUsage as any[]) {
     const key = row.patient_id ?? 'unassigned';
-    const name = row.patients?.name ?? 'Sin paciente asociado';
+    const name = row.patient_id ? safePatientName(row.patients?.name) : 'Sin paciente asociado';
     const current = patientUsage.get(key) ?? { name, seconds: 0, count: 0 };
     current.seconds += Number(row.seconds ?? 0);
     current.count += 1;
