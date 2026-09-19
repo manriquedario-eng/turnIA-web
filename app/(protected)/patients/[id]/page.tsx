@@ -356,6 +356,7 @@ export default async function PatientDetailPage({
                   name="content"
                   label="Notas de la sesión"
                   usageContext="session"
+                  patientId={patient.id}
                   required
                   minLength={2}
                   maxLength={10000}
@@ -432,6 +433,7 @@ export default async function PatientDetailPage({
                   name="content"
                   label="Nota de seguimiento"
                   usageContext="follow_up"
+                  patientId={patient.id}
                   required
                   minLength={2}
                   maxLength={10000}
