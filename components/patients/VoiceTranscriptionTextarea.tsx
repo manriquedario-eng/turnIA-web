@@ -182,7 +182,11 @@ export function VoiceTranscriptionTextarea({
     } catch (permissionError) {
       const name = permissionError instanceof DOMException ? permissionError.name : '';
       if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-        setError('Chrome no tiene permiso para usar el micrófono en TurnIA. Tocá el candado de la barra de direcciones → Micrófono → Permitir y volvé a intentar.');
+        if (microphonePermissionRef.current === 'granted') {
+          setError('Chrome tiene permitido el micrófono para TurnIA, pero Windows o el dispositivo está bloqueando el acceso. Revisá Configuración de Windows → Privacidad y seguridad → Micrófono.');
+        } else {
+          setError('Chrome no tiene permiso para usar el micrófono en TurnIA. Abrí los permisos del sitio → Micrófono → Permitir y recargá la página.');
+        }
       } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
         setError('No se encontró ningún micrófono disponible en este equipo.');
       } else {
