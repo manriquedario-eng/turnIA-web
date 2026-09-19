@@ -144,6 +144,85 @@ function sanitizeStatusDetail(value: unknown): string | null {
 }
 
 /**
+ * Sanitiza un campo escalar (string o number) de una respuesta externa a lo
+ * sumo `maxLength` caracteres, o `null` si no es un string/number utilizable
+ * (nunca serializa objetos/arrays — para eso están los helpers de abajo,
+ * que sólo miran campos puntuales allowlisted).
+ */
+function sanitizeScalarField(value: unknown, maxLength = 200): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed.slice(0, maxLength) : null;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value).slice(0, maxLength);
+  }
+  return null;
+}
+
+type SanitizedMercadoPagoErrorDetail = { code: string | null; message: string | null };
+
+/**
+ * Extrae, de un array (json.errors o json.cause), como máximo los primeros
+ * 3 elementos, tomando de cada uno ÚNICAMENTE los campos allowlisted en
+ * `messageFieldsInOrder` (además de `code`) — nunca el objeto completo.
+ * `messageFieldsInOrder` decide qué campo se usa como "message" cuando hay
+ * varios presentes (se toma el primero que venga con valor, en ese orden).
+ */
+function extractMercadoPagoErrorList(list: unknown, messageFieldsInOrder: string[]): SanitizedMercadoPagoErrorDetail[] {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, 3).map((item) => {
+    if (typeof item !== 'object' || item === null) return { code: null, message: null };
+    const obj = item as Record<string, unknown>;
+    const code = sanitizeScalarField(obj.code);
+    let message: string | null = null;
+    for (const field of messageFieldsInOrder) {
+      const value = sanitizeScalarField(obj[field]);
+      if (value) {
+        message = value;
+        break;
+      }
+    }
+    return { code, message };
+  });
+}
+
+/**
+ * Extrae de forma SEGURA sólo campos de error conocidos y allowlisted del
+ * body JSON que devolvió la Orders API de Mercado Pago cuando
+ * `!response.ok` — nunca el body completo (`JSON.stringify(json)`), nunca
+ * headers, nunca el request (Authorization/access_token/payer/datos del
+ * paciente no están ni pueden estar acá, porque esto sólo mira el body de
+ * la RESPUESTA).
+ *
+ * Fuentes miradas, en este orden de prioridad para el error "primario":
+ *   1. json.errors[] (hasta 3) — code / message / description
+ *   2. json.cause[]  (hasta 3) — code / description / message
+ *   3. campos sueltos de primer nivel: json.error, json.code, json.message,
+ *      json.status, json.status_detail
+ */
+function extractSanitizedMercadoPagoError(json: unknown): {
+  primary: SanitizedMercadoPagoErrorDetail;
+  errors: SanitizedMercadoPagoErrorDetail[];
+  cause: SanitizedMercadoPagoErrorDetail[];
+} {
+  const root = typeof json === 'object' && json !== null ? (json as Record<string, unknown>) : {};
+
+  const errors = extractMercadoPagoErrorList(root.errors, ['message', 'description']);
+  const cause = extractMercadoPagoErrorList(root.cause, ['description', 'message']);
+
+  const topLevel: SanitizedMercadoPagoErrorDetail = {
+    code: sanitizeScalarField(root.code) ?? sanitizeScalarField(root.error),
+    message: sanitizeScalarField(root.message) ?? sanitizeScalarField(root.status_detail) ?? sanitizeScalarField(root.status),
+  };
+
+  const primary =
+    errors.find((e) => e.code || e.message) ?? cause.find((c) => c.code || c.message) ?? topLevel;
+
+  return { primary, errors, cause };
+}
+
+/**
  * external_reference no sensible: deriva del appointment_id interno (sin
  * guiones) + un sufijo aleatorio corto generado server-side. El sufijo es
  * necesario porque mercadopago_orders tiene UNIQUE (tenant_id,
@@ -380,16 +459,38 @@ export async function createMercadoPagoCheckoutForAppointment(params: {
 
     const json = await response.json().catch(() => null);
     if (!response.ok || !json?.id) {
-      // A. Sanitizado: nunca se guarda el body completo, sólo status HTTP +
-      // (si vino) status_detail de Mercado Pago, acotado. El UPDATE puede
-      // devolver `{ error }` sin lanzar — se inspecciona explícitamente; si
-      // falla, sólo queda logueado (la fila ya insertada sigue en
-      // 'created', lo cual es honesto: no sabemos si MP la aceptó o no).
+      // A. Diagnóstico seguro del rechazo de Mercado Pago: SÓLO campos
+      // conocidos y allowlisted (json.error/code/message/status/
+      // status_detail, y hasta 3 elementos de json.errors[]/json.cause[]
+      // con sus propios campos allowlisted) — nunca
+      // JSON.stringify(json) completo, nunca headers, nunca el request
+      // (Authorization/access_token/payer/datos del paciente no pasan por
+      // acá: esto sólo mira el body de la RESPUESTA de Mercado Pago).
+      const sanitizedError = extractSanitizedMercadoPagoError(json);
+      console.error('Mercado Pago orders API rejected request', {
+        httpStatus: response.status,
+        providerCode: sanitizedError.primary.code,
+        providerMessage: sanitizedError.primary.message,
+      });
+
+      // status_detail útil para diagnosticar sin exponer nada sensible:
+      // "<http_status>|<code>|<message>" (cada componente ya viene acotado
+      // a 200 caracteres por sanitizeScalarField; sanitizeStatusDetail
+      // vuelve a acotar el conjunto a 200). Si no vino ni code ni message
+      // reconocibles, cae al `http_<status>` de siempre.
+      const providerDetail = [String(response.status), sanitizedError.primary.code, sanitizedError.primary.message]
+        .filter((part): part is string => Boolean(part))
+        .join('|');
+
+      // El UPDATE puede devolver `{ error }` sin lanzar — se inspecciona
+      // explícitamente; si falla, sólo queda logueado (la fila ya
+      // insertada sigue en 'created', lo cual es honesto: no sabemos si MP
+      // la aceptó o no).
       const { error: markFailedError } = await serviceClient
         .from('mercadopago_orders')
         .update({
           status: 'failed',
-          status_detail: sanitizeStatusDetail(json?.status_detail || json?.message || `http_${response.status}`),
+          status_detail: sanitizeStatusDetail(providerDetail || `http_${response.status}`),
           updated_at: new Date().toISOString(),
         })
         .eq('id', orderRowId);
