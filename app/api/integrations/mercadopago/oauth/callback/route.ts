@@ -48,16 +48,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Diagnóstico temporal: sólo booleanos derivados, nunca los valores
-  // reales de code/state/verifier (no se loguean secretos ni cookies).
-  console.warn('Mercado Pago OAuth callback diagnostic', {
-    hasCode: Boolean(code),
-    hasState: Boolean(state),
-    hasExpectedState: Boolean(expectedState),
-    hasExpectedVerifier: Boolean(expectedVerifier),
-    stateMatches: Boolean(state && expectedState && state === expectedState),
-  });
-
   if (!code || !state || !expectedState || !expectedVerifier || state !== expectedState) {
     // Sanitizado: nunca se loguea code/state/verifier, sólo que faltó algo.
     console.warn('Mercado Pago OAuth callback: state/verifier inválido o code ausente');
