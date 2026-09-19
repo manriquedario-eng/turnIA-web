@@ -611,106 +611,99 @@ table tbody tr:hover {
   color: var(--color-success);
 }
 
-/* ---------- Login — Concepto C: Editorial Minimal ----------
-   Segunda generación del split-login: la v5 usaba una columna de tinta
-   oscura (dirección descartada). Ahora la columna izquierda es cálida y
-   clara — el mismo fondo marfil de la app, no un bloque oscuro — con
-   círculos botánicos decorativos muy discretos, un titular editorial grande
-   y tres beneficios con ícono-en-círculo. La prioridad máxima del pedido:
-   que se sienta completamente nuevo desde el primer segundo. */
+/* ---------- Login — Concepto C: Editorial Minimal (blueprint) ----------
+   Tercera generación, ahora traducida 1:1 desde la referencia aprobada:
+   ya no es un split duro en dos columnas de igual peso — es UNA sola
+   atmósfera cálida (gradiente + círculos suaves haciendo de "foto" de
+   ambiente, ya que no hay una fotografía real disponible acá) que ocupa
+   todo el fondo, con el contenido editorial flotando a la izquierda y la
+   tarjeta de acceso flotando a la derecha, con sombra real, no una
+   columna blanca separada por un borde. */
 .login-shell {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-  background: var(--color-surface);
-}
-
-.login-aside {
   position: relative;
+  min-height: 100vh;
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 56px;
-  background: var(--color-bg);
-  color: var(--color-text);
+  align-items: center;
+  justify-content: center;
+  gap: 56px;
+  padding: 48px 64px;
   overflow: hidden;
-  border-right: 1px solid var(--color-border-soft);
+  background:
+    radial-gradient(ellipse 640px 480px at 12% 18%, rgba(255, 255, 255, 0.75), transparent 60%),
+    radial-gradient(circle 320px at 82% 8%, var(--turnia-lilac-soft) 0%, transparent 72%),
+    radial-gradient(circle 300px at 92% 62%, var(--turnia-sand-soft) 0%, transparent 70%),
+    radial-gradient(circle 380px at 6% 88%, var(--turnia-green-soft) 0%, transparent 68%),
+    linear-gradient(150deg, #f6f2e8 0%, #efe9db 45%, #e9e2d1 100%);
 }
 
-/* Detalles botánicos discretos: círculos suaves de la paleta, apenas
-   visibles, nunca un gradiente vistoso — decoración, no protagonismo. */
-.login-aside::before,
-.login-aside::after {
+/* Trazos botánicos muy suaves de fondo — evocan las plantas/luz cálida de
+   la referencia sin depender de una fotografía. Puramente decorativos. */
+.login-shell::before {
   content: '';
   position: absolute;
-  border-radius: 999px;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(circle, rgba(95, 130, 111, 0.12) 1px, transparent 1.5px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 70% 60% at 30% 70%, black, transparent 75%);
 }
 
-.login-aside::before {
-  width: 420px;
-  height: 420px;
-  right: -160px;
-  bottom: -180px;
-  background: var(--turnia-green-soft);
-  opacity: 0.55;
-}
-
-.login-aside::after {
-  width: 220px;
-  height: 220px;
-  right: 90px;
-  bottom: 120px;
-  background: var(--turnia-sand-soft);
-  opacity: 0.7;
-}
-
-.login-aside-top {
+.login-hero {
   position: relative;
   z-index: 1;
+  max-width: 460px;
+  flex: 1 1 420px;
+}
+
+.login-hero-top {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-bottom: 44px;
 }
 
-.login-aside-content {
-  position: relative;
-  z-index: 1;
-  max-width: 440px;
-}
-
-.login-aside-eyebrow {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--color-primary-hover);
-  margin-bottom: 16px;
-}
-
-.login-aside-heading {
+.login-hero-tagline {
+  position: absolute;
+  top: -18px;
+  right: 12px;
+  max-width: 190px;
   font-family: var(--font-display);
-  font-size: 40px;
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--color-primary-hover);
+  transform: rotate(-3deg);
+}
+
+.login-hero-heading {
+  font-family: var(--font-display);
+  font-size: 44px;
   font-weight: 600;
-  line-height: 1.15;
+  line-height: 1.14;
   letter-spacing: -0.015em;
   color: var(--color-text-strong);
-  margin: 0 0 16px;
+  margin: 0 0 18px;
 }
 
-.login-aside-copy {
+.login-hero-heading em {
+  font-style: italic;
+  color: var(--color-primary-hover);
+}
+
+.login-hero-copy {
   font-size: 15px;
   line-height: 1.65;
   color: var(--color-text-muted);
   max-width: 380px;
-  margin-bottom: 32px;
+  margin-bottom: 34px;
 }
 
 .login-benefits {
-  position: relative;
-  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
   max-width: 380px;
 }
 
@@ -735,31 +728,62 @@ table tbody tr:hover {
   color: var(--color-text-muted);
 }
 
-.login-aside-footer {
-  position: relative;
-  z-index: 1;
-  font-size: 12px;
+.login-hero-footer {
+  margin-top: 40px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
   color: var(--color-text-faint);
 }
 
 .login-panel-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
 }
 
 .login-card {
   width: min(400px, 100%);
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: var(--shadow-lg);
 }
 
 .login-card-eyebrow {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+.login-card-brand {
+  font-family: var(--font-display);
+  font-size: 25px;
+  margin-bottom: 6px;
+}
+
+.login-field-icon {
+  position: relative;
+}
+
+.login-field-icon svg {
+  position: absolute;
+  left: 12px;
+  top: 41px;
   color: var(--color-text-faint);
-  margin-bottom: 8px;
+  pointer-events: none;
+}
+
+.login-field-icon input {
+  padding-left: 36px;
+}
+
+.login-field-icon .login-field-toggle {
+  position: absolute;
+  right: 12px;
+  top: 41px;
+  color: var(--color-text-faint);
+  cursor: default;
 }
 
 .login-form-row {
@@ -792,25 +816,78 @@ table tbody tr:hover {
   text-decoration: underline;
 }
 
-@media (max-width: 860px) {
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 14px;
+  font-size: 12px;
+  color: var(--color-text-faint);
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-soft);
+}
+
+.login-oauth-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.btn-oauth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn-oauth:hover {
+  background: var(--color-surface-soft);
+}
+
+.login-signup {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.login-signup a {
+  color: var(--color-primary-hover);
+  font-weight: 600;
+}
+
+.login-signup a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 900px) {
   .login-shell {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    padding: 32px 24px;
+    gap: 32px;
   }
 
-  .login-aside {
-    padding: 32px 28px;
-    min-height: 200px;
-    border-right: none;
-    border-bottom: 1px solid var(--color-border-soft);
+  .login-hero-heading {
+    font-size: 30px;
   }
 
-  .login-aside-heading {
-    font-size: 26px;
-  }
-
-  .login-aside-copy,
+  .login-hero-copy,
   .login-benefits,
-  .login-aside-footer {
+  .login-hero-footer,
+  .login-hero-tagline {
     display: none;
   }
 }
@@ -1558,13 +1635,12 @@ table tbody tr:hover {
   color: var(--color-text-strong);
 }
 
-/* Active state — fondo salvia muy suave, texto verde oscuro y un indicador
-   lateral fino en el color primario. Nada de bloques oscuros ni bronce. */
+/* Active state — sólo relleno salvia muy suave (igual que la referencia
+   aprobada: pastilla llena, sin barra lateral ni bloques oscuros). */
 .sidebar-link.active {
   background: var(--turnia-green-soft);
   color: var(--color-primary-hover);
   font-weight: 600;
-  box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 .sidebar-link.active svg {
@@ -2447,6 +2523,20 @@ table tbody tr:hover {
    de siempre — sólo cambia la composición visual.
    ========================================================================= */
 
+.dashboard-header-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.dashboard-greeting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .dashboard-hero {
   font-family: var(--font-display);
   font-size: 30px;
@@ -2456,21 +2546,63 @@ table tbody tr:hover {
   margin: 0;
 }
 
+.dashboard-header-side {
+  text-align: right;
+}
+
+.dashboard-header-date {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+  margin-bottom: 6px;
+}
+
+.dashboard-quote {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 260px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--color-text-muted);
+}
+
+.dashboard-quote-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--turnia-lilac);
+  flex-shrink: 0;
+}
+
+/* Fila de métricas — tarjetas verticales con el ícono-círculo arriba,
+   número grande, label y una flecha de acceso, tal como en la referencia
+   aprobada (en vez del patrón horizontal anterior). Mismos 3 datos de
+   siempre (turnos/cobrado/pendiente) — ningún dato nuevo. */
 .dashboard-metrics-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 14px;
 }
 
-.dashboard-metric-tile {
+.dashboard-metric-card {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 18px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
   background: var(--color-surface);
   border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
+}
+
+.dashboard-metric-card-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .dashboard-metric-copy {
@@ -2482,7 +2614,7 @@ table tbody tr:hover {
 
 .dashboard-metric-value {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--color-text-strong);
@@ -2496,6 +2628,11 @@ table tbody tr:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.dashboard-metric-arrow {
+  color: var(--color-text-faint);
+  flex-shrink: 0;
 }
 
 /* Puntos de color por estado — usados en la lista "Agenda de hoy" en vez de
@@ -2517,27 +2654,82 @@ table tbody tr:hover {
   background: var(--turnia-mauve);
 }
 
+/* Composición en 3 columnas del cuerpo del Dashboard (Agenda / Próximo
+   turno + Recordatorios / panel editorial), tal como en la referencia. */
+.dashboard-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.15fr) minmax(0, 0.9fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .dashboard-columns > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .dashboard-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-columns > :last-child {
+    grid-column: auto;
+  }
+}
+
+.dashboard-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* Pill chico reutilizable — "En 25 min", contador de recordatorios, etc. */
+.dashboard-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--turnia-green-soft);
+  color: var(--color-primary-hover);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 /* "Próximo turno" — panel destacado propio (antes era una franja angosta
-   incrustada arriba de la lista de Agenda). Fondo salvia muy suave para
-   que se lea como lo más importante del día sin usar un color sólido
-   fuerte ni una sombra pesada. */
+   incrustada arriba de la lista de Agenda), ahora una card blanca limpia
+   con avatar, badge de tiempo y CTA — igual que en la referencia. */
 .dashboard-next-panel {
   display: flex;
   align-items: center;
   gap: 14px;
   padding: 16px 18px;
-  background: var(--turnia-green-soft);
+  background: var(--color-surface);
   border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   color: inherit;
   text-decoration: none;
+}
+
+.dashboard-next-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .dashboard-next-panel-avatar {
   width: 44px;
   height: 44px;
   border-radius: 999px;
-  background: var(--color-surface);
+  background: var(--turnia-green-soft);
   color: var(--color-primary-hover);
   display: grid;
   place-items: center;
@@ -2561,7 +2753,7 @@ table tbody tr:hover {
 
 .dashboard-next-panel-name {
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--color-text-strong);
   white-space: nowrap;
@@ -2576,7 +2768,7 @@ table tbody tr:hover {
 
 .dashboard-next-panel-time {
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--color-text-strong);
   flex-shrink: 0;
@@ -2586,9 +2778,9 @@ table tbody tr:hover {
   flex-shrink: 0;
 }
 
-/* Checklist compacto de recordatorios — reemplaza la fila genérica por una
-   lista más liviana, con el check como círculo pequeño en vez de un botón
-   de ícono suelto. */
+/* Checklist compacto de recordatorios — checkbox a la izquierda, título +
+   hora al centro, igual lenguaje visual que la referencia (antes el botón
+   de "hecho" vivía a la derecha como ícono suelto). */
 .dashboard-checklist {
   display: flex;
   flex-direction: column;
@@ -2605,18 +2797,43 @@ table tbody tr:hover {
   padding: 6px 0;
 }
 
-/* Panel chico editorial/motivacional al final del riel lateral — texto
-   breve en la tipografía display, fondo tintado suave rotando entre los
-   acentos de la paleta; no agrega ningún dato nuevo. */
-.dashboard-note {
-  padding: 16px 18px;
-  background: var(--turnia-sand-soft);
+.dashboard-checklist-row .icon-btn.is-sm {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.dashboard-checklist-row .icon-btn.is-sm:hover {
+  background: var(--turnia-green-soft);
+  border-color: var(--color-primary);
+}
+
+/* Paneles editoriales/motivacionales del riel derecho — superficies
+   tintadas (salvia / arena) con ícono-círculo + frase corta, tal como en
+   la referencia. Texto decorativo, no agrega ningún dato nuevo. */
+.dashboard-panel-tinted {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
   border-radius: var(--radius-lg);
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
+  line-height: 1.35;
   color: var(--color-text-strong);
-  line-height: 1.4;
+  flex: 1;
+}
+
+.dashboard-panel-tinted.is-sage {
+  background: var(--turnia-green-soft);
+}
+
+.dashboard-panel-tinted.is-sand {
+  background: var(--turnia-sand-soft);
 }
 
 @media (max-width: 720px) {

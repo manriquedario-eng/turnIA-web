@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { statusLabel, modalityLabel } from '@/lib/labels';
 import { resolveDisplayName } from '@/lib/identity';
 import { setReminderStatus } from '@/app/(protected)/reminders/actions';
-import { IconCheck, IconPlus } from '@/components/ui/icons';
+import { IconCheck, IconPlus, IconLeaf, IconSun, IconChevronRight } from '@/components/ui/icons';
 
 // PARTE 5 del pedido: todo bloque del Dashboard que representa un recurso
 // existente (turno, paciente, pago pendiente, lista de espera, aviso) debe
@@ -64,6 +64,19 @@ function greeting() {
   if (hour < 12) return 'Buenos días';
   if (hour < 19) return 'Buenas tardes';
   return 'Buenas noches';
+}
+
+// Puramente de presentación (redondeo simple del delta entre ahora y el
+// inicio del turno ya calculado) — no es un dato nuevo, sólo un formato
+// distinto de algo que ya se muestra como hora exacta en la lista.
+function formatRelativeStart(iso: string, now: Date) {
+  const diffMs = new Date(iso).getTime() - now.getTime();
+  const diffMin = Math.max(0, Math.round(diffMs / 60000));
+  if (diffMin < 1) return 'Ahora';
+  if (diffMin < 60) return `En ${diffMin} min`;
+  const hours = Math.floor(diffMin / 60);
+  const mins = diffMin % 60;
+  return mins > 0 ? `En ${hours}h ${mins}min` : `En ${hours}h`;
 }
 
 export default async function DashboardPage() {
@@ -167,6 +180,7 @@ export default async function DashboardPage() {
   const waitlistServiceMap = new Map((waitlistServicesResult.data ?? []).map((s) => [s.id, s.name]));
 
   const displayName = resolveDisplayName(profileResult.data?.display_name, user.email);
+  const firstName = displayName.split(' ')[0];
 
   // Si la migración de professional_reminders todavía no se aplicó en esta
   // base, remindersResult.error viene seteado (tabla inexistente) — se trata
@@ -215,73 +229,94 @@ export default async function DashboardPage() {
 
   return (
     <section className="stack">
-      <div className="page-header">
-        <div>
-          <h1 className="dashboard-hero">{greeting()}, {displayName}</h1>
-          <p className="muted" style={{ textTransform: 'capitalize' }}>
-            {new Intl.DateTimeFormat('es-AR', { timeZone: TZ, dateStyle: 'full' }).format(new Date())}
-          </p>
+      {/* Concepto C (blueprint): saludo editorial grande con ícono de hoja,
+          fecha + una frase corta a la derecha a modo de "quote" — igual
+          composición que la referencia aprobada. Ningún dato nuevo. */}
+      <div className="dashboard-header-row">
+        <div className="dashboard-greeting">
+          <span className="icon-circle">
+            <IconLeaf size={18} />
+          </span>
+          <div>
+            <h1 className="dashboard-hero">Hola, {firstName}</h1>
+            <p className="muted" style={{ marginTop: 2 }}>Un nuevo día para organizar tu consultorio.</p>
+          </div>
         </div>
-        <div className="nav" style={{ flexWrap: 'wrap' }}>
+        <div className="dashboard-header-side">
+          <div className="dashboard-header-date" style={{ textTransform: 'capitalize' }}>
+            {new Intl.DateTimeFormat('es-AR', { timeZone: TZ, dateStyle: 'full' }).format(new Date())}
+          </div>
+          <div className="dashboard-quote">
+            <span className="dashboard-quote-dot" aria-hidden="true" />
+            "Pequeñas organizaciones hacen grandes jornadas."
+          </div>
+        </div>
+        <div className="nav" style={{ flexWrap: 'wrap', width: '100%', justifyContent: 'flex-end' }}>
           <Link className="btn" href={`/agenda?view=day&date=${today}`}><IconPlus size={14} /> Nuevo turno</Link>
           <Link className="btn secondary" href="/patients">Nuevo paciente</Link>
         </div>
       </div>
 
-      {/* Concepto C: franja de métricas como círculos-icono con fondo
-          tintado suave por métrica (salvia / lila / arena), en vez del
-          patrón "hero + franja" anterior. Mismos datos/cálculos de siempre,
-          sólo cambia la presentación. */}
+      {/* Franja de métricas — tarjetas verticales con ícono-círculo, número
+          grande y flecha de acceso, como en la referencia. Mismos 3 datos
+          de siempre (turnos/cobrado/pendiente) — ningún dato nuevo. */}
       <div className="dashboard-metrics-grid">
-        <div className="dashboard-metric-tile">
+        <Link href={`/agenda?view=day&date=${today}`} className="dashboard-metric-card">
           <span className="icon-circle">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="2" />
               <path d="M16 2v4M8 2v4M3 10h18" />
             </svg>
           </span>
-          <div className="dashboard-metric-copy">
+          <span className="dashboard-metric-copy">
             <span className="dashboard-metric-value">{activeAppointments.length}</span>
             <span className="dashboard-metric-label">
               Turnos de hoy · {confirmedAppointments.length} confirmado{confirmedAppointments.length === 1 ? '' : 's'}
               {cancelledAppointments.length > 0 ? ` · ${cancelledAppointments.length} cancelado${cancelledAppointments.length === 1 ? '' : 's'}` : ''}
             </span>
-          </div>
-        </div>
+          </span>
+          <span className="dashboard-metric-card-foot">
+            <span />
+            <span className="dashboard-metric-arrow"><IconChevronRight size={14} /></span>
+          </span>
+        </Link>
 
-        <div className="dashboard-metric-tile">
+        <Link href="/payments" className="dashboard-metric-card">
           <span className="icon-circle is-lilac">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
             </svg>
           </span>
-          <div className="dashboard-metric-copy">
+          <span className="dashboard-metric-copy">
             <span className="dashboard-metric-value">${collectedToday.toLocaleString('es-AR')}</span>
             <span className="dashboard-metric-label">Cobrado hoy</span>
-          </div>
-        </div>
+          </span>
+          <span className="dashboard-metric-card-foot">
+            <span />
+            <span className="dashboard-metric-arrow"><IconChevronRight size={14} /></span>
+          </span>
+        </Link>
 
-        <div className="dashboard-metric-tile">
+        <Link href="/payments" className="dashboard-metric-card">
           <span className="icon-circle is-sand">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="9" />
               <path d="M12 7v5l3 3" />
             </svg>
           </span>
-          <div className="dashboard-metric-copy">
+          <span className="dashboard-metric-copy">
             <span className={`dashboard-metric-value ${pendingToday > 0 ? 'is-pending' : ''}`}>${pendingToday.toLocaleString('es-AR')}</span>
             <span className="dashboard-metric-label">Pendiente de cobro</span>
-          </div>
-        </div>
+          </span>
+          <span className="dashboard-metric-card-foot">
+            <span />
+            <span className="dashboard-metric-arrow"><IconChevronRight size={14} /></span>
+          </span>
+        </Link>
       </div>
 
-      {/* "Requiere atención" — antes esta misma información (turnos
-          cancelados para reofrecer, cobros pendientes, lista de espera)
-          vivía como "Pendientes y oportunidades" al final de la página, bajo
-          la agenda y el rail lateral. Para que el Dashboard realmente
-          conteste "¿qué requiere atención?" sin scrollear, sube arriba de
-          todo, justo debajo de las métricas — mismos datos (opportunities),
-          sin ningún cálculo nuevo, sólo cambia dónde vive en la página. */}
+      {/* "Requiere atención" — mismos datos (opportunities), sin ningún
+          cálculo nuevo. */}
       {opportunities.length > 0 ? (
         <div className="dashboard-attention">
           <div className="dashboard-attention-title">Requiere atención</div>
@@ -298,102 +333,141 @@ export default async function DashboardPage() {
         </div>
       ) : null}
 
-      {/* Concepto C: "Próximo turno" pasa a ser un panel destacado propio
-          (fondo salvia suave, avatar con iniciales, botón "Ver paciente"),
-          en vez de una franja angosta incrustada arriba de la lista de
-          Agenda. Mismos datos ya calculados (nextAppointment), sin ninguna
-          consulta ni lógica nueva. */}
-      {nextAppointment ? (
-        <Link href={appointmentHref(today, nextAppointment.id)} className="dashboard-next-panel">
-          <span className="dashboard-next-panel-avatar">
-            {((nextAppointment as any).patients?.name ?? '—').trim().slice(0, 2).toUpperCase()}
-          </span>
-          <span className="dashboard-next-panel-copy">
-            <span className="dashboard-next-panel-eyebrow">Próximo turno</span>
-            <span className="dashboard-next-panel-name">{(nextAppointment as any).patients?.name ?? 'Sin paciente'}</span>
-            <span className="dashboard-next-panel-meta">
-              {(nextAppointment as any).services?.name ?? 'Sin servicio'} · {modalityLabel(nextAppointment.modality)}
-            </span>
-          </span>
-          <strong className="dashboard-next-panel-time">{formatTime(nextAppointment.starts_at)}</strong>
-          <span className="btn secondary btn-compact dashboard-next-panel-action">Ver paciente</span>
-        </Link>
-      ) : null}
-
-      <div className="split-main-side">
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', padding: '18px 20px 0' }}>
-            <h2>Agenda de hoy</h2>
-            <Link className="btn secondary" href={`/agenda?view=day&date=${today}`}>Abrir agenda</Link>
-          </div>
-
-          {appointments.length === 0 ? (
-            <div style={{ padding: '0 20px 20px' }}>
-              <EmptyState title="No hay turnos registrados para hoy" description="Cuando crees un turno para hoy, va a aparecer acá." />
+      {/* Composición en 3 columnas (Agenda de hoy / Próximo turno +
+          Recordatorios + Lista de espera / panel editorial), tal como en la
+          referencia aprobada. */}
+      <div className="dashboard-columns">
+        <div className="dashboard-col">
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', padding: '18px 20px 0' }}>
+              <h2>Agenda de hoy</h2>
+              <Link className="text-helper" href={`/agenda?view=day&date=${today}`}>Ver agenda completa →</Link>
             </div>
-          ) : (
-            <div className="stack" style={{ gap: 8, padding: '14px 20px 20px' }}>
-              {appointments.map((appointment: any) => {
-                const cancelled = isCancelled(appointment.status);
-                const isNext = nextAppointment?.id === appointment.id;
-                const confirmed = isConfirmedLike(appointment.status);
-                const dotClass = cancelled ? 'is-cancelled' : confirmed ? 'is-confirmed' : '';
-                const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : '', !cancelled ? 'appointment-card-link' : ''].filter(Boolean).join(' ');
-                const inner = (
-                  <>
-                    <div className="appointment-main">
-                      <span className={`dashboard-dot ${dotClass}`} aria-hidden="true" />
-                      <div className="appointment-time">{formatTime(appointment.starts_at)}</div>
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{appointment.patients?.name ?? 'Sin paciente'}</div>
-                        <div className="text-helper">
-                          {appointment.services?.name ?? 'Sin servicio'} · {modalityLabel(appointment.modality)}
+
+            {appointments.length === 0 ? (
+              <div style={{ padding: '0 20px 20px' }}>
+                <EmptyState title="No hay turnos registrados para hoy" description="Cuando crees un turno para hoy, va a aparecer acá." />
+              </div>
+            ) : (
+              <div className="stack" style={{ gap: 8, padding: '14px 20px 20px' }}>
+                {appointments.map((appointment: any) => {
+                  const cancelled = isCancelled(appointment.status);
+                  const isNext = nextAppointment?.id === appointment.id;
+                  const confirmed = isConfirmedLike(appointment.status);
+                  const dotClass = cancelled ? 'is-cancelled' : confirmed ? 'is-confirmed' : '';
+                  const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : '', !cancelled ? 'appointment-card-link' : ''].filter(Boolean).join(' ');
+                  const inner = (
+                    <>
+                      <div className="appointment-main">
+                        <span className={`dashboard-dot ${dotClass}`} aria-hidden="true" />
+                        <div className="appointment-time">{formatTime(appointment.starts_at)}</div>
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{appointment.patients?.name ?? 'Sin paciente'}</div>
+                          <div className="text-helper">
+                            {appointment.services?.name ?? 'Sin servicio'} · {modalityLabel(appointment.modality)}
+                          </div>
                         </div>
+                        {isNext ? <span className="badge badge-confirmado">Próximo</span> : null}
                       </div>
-                      {isNext ? <span className="badge badge-confirmado">Próximo</span> : null}
-                    </div>
-                    <div className="appointment-meta">
-                      <span className="muted" style={{ fontSize: 13 }}>
-                        {appointment.quoted_amount != null ? `${appointment.currency ?? 'ARS'} ${Number(appointment.quoted_amount).toLocaleString('es-AR')}` : '—'}
-                      </span>
-                      <StatusBadge status={appointment.status} label={statusLabel(appointment.status)} />
-                      {!cancelled ? <span className="timeline-item-chevron" aria-hidden="true">›</span> : null}
-                    </div>
-                  </>
-                );
-                // Turno no cancelado → toda la fila es un link a la agenda (editar
-                // ese turno concreto). Cancelado → sin acción (no se puede editar).
-                return cancelled ? (
-                  <div key={appointment.id} className={cardClass}>{inner}</div>
-                ) : (
-                  <Link key={appointment.id} href={appointmentHref(today, appointment.id)} className={cardClass}>
-                    {inner}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+                      <div className="appointment-meta">
+                        <span className="muted" style={{ fontSize: 13 }}>
+                          {appointment.quoted_amount != null ? `${appointment.currency ?? 'ARS'} ${Number(appointment.quoted_amount).toLocaleString('es-AR')}` : '—'}
+                        </span>
+                        <StatusBadge status={appointment.status} label={statusLabel(appointment.status)} />
+                        {!cancelled ? <span className="timeline-item-chevron" aria-hidden="true">›</span> : null}
+                      </div>
+                    </>
+                  );
+                  // Turno no cancelado → toda la fila es un link a la agenda (editar
+                  // ese turno concreto). Cancelado → sin acción (no se puede editar).
+                  return cancelled ? (
+                    <div key={appointment.id} className={cardClass}>{inner}</div>
+                  ) : (
+                    <Link key={appointment.id} href={appointmentHref(today, appointment.id)} className={cardClass}>
+                      {inner}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Rail lateral fusionado: antes eran 2 cards separadas ("Lista de
-            espera" y "Recordatorios"), cada una con su propio h2 de título
-            de card — pesaban visualmente lo mismo que "Agenda de hoy" pese a
-            ser contenido secundario. Ahora es UNA sola card con dos grupos
-            internos (mismo patrón .reminder-group ya usado en /reminders
-            para Vencidos/Hoy/Próximos): los títulos de grupo bajan a h3
-            (label chico, no card-title), reforzando que "Agenda de hoy" es
-            la jerarquía principal de la pantalla. Mismos datos, mismas
-            queries, cero lógica nueva. */}
-        <div className="stack" style={{ gap: 16 }}>
-        <div className="card">
-          <div className="reminder-group">
+        <div className="dashboard-col">
+          {/* "Próximo turno" — panel destacado propio, card blanca limpia
+              con avatar de iniciales, badge de tiempo relativo y CTA — igual
+              que en la referencia. Mismos datos ya calculados
+              (nextAppointment), sin ninguna consulta ni lógica nueva. */}
+          {nextAppointment ? (
+            <Link href={appointmentHref(today, nextAppointment.id)} className="dashboard-next-panel">
+              <span className="dashboard-next-panel-avatar">
+                {((nextAppointment as any).patients?.name ?? '—').trim().slice(0, 2).toUpperCase()}
+              </span>
+              <span className="dashboard-next-panel-copy">
+                <span className="dashboard-next-panel-head">
+                  <span className="dashboard-next-panel-eyebrow">Próximo turno</span>
+                  <span className="dashboard-pill">{formatRelativeStart(nextAppointment.starts_at, now)}</span>
+                </span>
+                <span className="dashboard-next-panel-name">{(nextAppointment as any).patients?.name ?? 'Sin paciente'}</span>
+                <span className="dashboard-next-panel-meta">
+                  {(nextAppointment as any).services?.name ?? 'Sin servicio'} · {formatTime(nextAppointment.starts_at)}
+                </span>
+              </span>
+              <span className="btn secondary btn-compact dashboard-next-panel-action">Ver paciente</span>
+            </Link>
+          ) : null}
+
+          {/* Recordatorios — checklist compacto, checkbox a la izquierda,
+              mismos datos/acción (setReminderStatus) de siempre. */}
+          <div className="card">
             <div className="nav" style={{ justifyContent: 'space-between' }}>
-              <h3>Lista de espera</h3>
-              <Link className="text-helper" href="/planning">Ver todo →</Link>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                Recordatorios
+                {reminders.length > 0 ? <span className="dashboard-pill">{reminders.length}</span> : null}
+              </h2>
+              <Link className="text-helper" href="/reminders">Ver todos →</Link>
             </div>
-            {waitlist.length === 0 ? (
-              <p className="text-helper" style={{ margin: '8px 0 0' }}>Sin pacientes en espera.</p>
+            {remindersToShow.length === 0 ? (
+              <p className="text-helper" style={{ margin: '8px 0 0' }}>Sin recordatorios pendientes.</p>
             ) : (
+              <ul className="dashboard-checklist">
+                {remindersToShow.map((reminder) => {
+                  const overdue = new Date(reminder.remind_at).getTime() < now.getTime();
+                  const isToday = dateKeyInTz(reminder.remind_at) === today;
+                  return (
+                    <li key={reminder.id} className={`dashboard-checklist-row ${overdue ? 'is-overdue' : isToday ? 'is-today' : ''}`}>
+                      <form action={setReminderStatus}>
+                        <input type="hidden" name="id" value={reminder.id} />
+                        <input type="hidden" name="status" value="done" />
+                        <input type="hidden" name="return_to" value="/dashboard" />
+                        <button className="icon-btn is-sm" type="submit" aria-label="Marcar como realizado" title="Marcar como realizado">
+                          <IconCheck size={12} />
+                        </button>
+                      </form>
+                      <Link href={`/reminders?edit=${reminder.id}`} className="dashboard-reminder-link" style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{reminder.title}</div>
+                        <div className="text-helper">
+                          {overdue ? 'Vencido · ' : isToday ? 'Hoy · ' : ''}
+                          {formatReminderDateTime(reminder.remind_at)}
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* Lista de espera — funcionalidad existente (no aparece en la
+              referencia, que no contempla este bloque), mantenida como
+              tercera card del mismo estilo para no perder nada de lo que
+              ya funciona. */}
+          {waitlist.length > 0 ? (
+            <div className="card">
+              <div className="nav" style={{ justifyContent: 'space-between' }}>
+                <h2>Lista de espera</h2>
+                <Link className="text-helper" href="/planning">Ver todo →</Link>
+              </div>
               <div className="stack" style={{ gap: 8, marginTop: 8 }}>
                 {waitlist.map((entry) => (
                   <Link
@@ -417,52 +491,26 @@ export default async function DashboardPage() {
                   </Link>
                 ))}
               </div>
-            )}
-          </div>
-
-          <div className="reminder-group">
-            <div className="nav" style={{ justifyContent: 'space-between' }}>
-              <h3>Recordatorios</h3>
-              <Link className="text-helper" href="/reminders">Ver todos →</Link>
             </div>
-            {remindersToShow.length === 0 ? (
-              <p className="text-helper" style={{ margin: '8px 0 0' }}>Sin recordatorios pendientes.</p>
-            ) : (
-              <ul className="dashboard-reminder-list dashboard-checklist" style={{ marginTop: 8 }}>
-                {remindersToShow.map((reminder) => {
-                  const overdue = new Date(reminder.remind_at).getTime() < now.getTime();
-                  const isToday = dateKeyInTz(reminder.remind_at) === today;
-                  return (
-                    <li key={reminder.id} className={`dashboard-reminder-row ${overdue ? 'is-overdue' : isToday ? 'is-today' : ''}`}>
-                      <Link href={`/reminders?edit=${reminder.id}`} className="dashboard-reminder-link">
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 13 }}>{reminder.title}</div>
-                          <div className="text-helper">
-                            {overdue ? 'Vencido · ' : isToday ? 'Hoy · ' : ''}
-                            {formatReminderDateTime(reminder.remind_at)}
-                          </div>
-                        </div>
-                      </Link>
-                      <form action={setReminderStatus}>
-                        <input type="hidden" name="id" value={reminder.id} />
-                        <input type="hidden" name="status" value="done" />
-                        <input type="hidden" name="return_to" value="/dashboard" />
-                        <button className="icon-btn is-sm" type="submit" aria-label="Marcar como realizado" title="Marcar como realizado">
-                          <IconCheck size={14} />
-                        </button>
-                      </form>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+          ) : null}
         </div>
 
-        {/* Panel editorial/motivacional chico — cierra el riel lateral con
-            algo de calma en vez de terminar en otro bloque de datos. No
-            agrega ninguna información nueva. */}
-        <div className="dashboard-note">Personas ordenadas, vidas más tranquilas.</div>
+        {/* Panel editorial/motivacional — dos superficies tintadas (salvia
+            y arena) con frase corta, tal como en la referencia. Texto
+            decorativo, no agrega ninguna información nueva. */}
+        <div className="dashboard-col">
+          <div className="dashboard-panel-tinted is-sage">
+            <span className="icon-circle is-sm">
+              <IconLeaf size={14} />
+            </span>
+            Personas ordenadas, vidas más tranquilas.
+          </div>
+          <div className="dashboard-panel-tinted is-sand">
+            <span className="icon-circle is-sm is-sand">
+              <IconSun size={14} />
+            </span>
+            Hoy también hacés la diferencia.
+          </div>
         </div>
       </div>
     </section>

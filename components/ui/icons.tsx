@@ -196,3 +196,43 @@ export function IconMic({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+/* Íconos agregados para el rediseño Concepto C (Editorial Minimal): hoja
+   (saludo del dashboard + panel motivacional), sol (panel motivacional),
+   candado y ojo (campo de contraseña, decorativos) — mismo trazo/estilo
+   que el resto del set. */
+export function IconLeaf({ size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" {...base}>
+      <path d="M4 16c-.6-6.5 3.4-11 12-11.5.5 8-3.7 12-11.5 12Z" />
+      <path d="M5 15c2.5-2.7 5-5 9.7-9" />
+    </svg>
+  );
+}
+
+export function IconSun({ size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" {...base}>
+      <circle cx="10" cy="10" r="3.4" />
+      <path d="M10 2.8v2M10 15.2v2M17.2 10h-2M4.8 10h-2M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4M15.1 15.1l-1.4-1.4M6.3 6.3 4.9 4.9" />
+    </svg>
+  );
+}
+
+export function IconLock({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" {...base}>
+      <rect x="4" y="9" width="12" height="8" rx="2" />
+      <path d="M6.5 9V6.3a3.5 3.5 0 0 1 7 0V9" />
+    </svg>
+  );
+}
+
+export function IconEye({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" {...base}>
+      <path d="M2 10s2.8-5.5 8-5.5S18 10 18 10s-2.8 5.5-8 5.5S2 10 2 10Z" />
+      <circle cx="10" cy="10" r="2.3" />
+    </svg>
+  );
+}
