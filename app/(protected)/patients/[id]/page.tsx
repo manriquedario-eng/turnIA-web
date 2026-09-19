@@ -39,6 +39,14 @@ function dateKeyInTz(iso: string) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
 }
 
+function safePatientName(name: string) {
+  const trimmed = name.trim();
+  if (!trimmed || /<[^>]*>/.test(trimmed) || /^(javascript:|data:)/i.test(trimmed)) {
+    return 'Paciente';
+  }
+  return trimmed;
+}
+
 const TIMELINE_TYPE_CLASS: Record<TimelineItem['type'], string> = {
   Turno: 'type-turno',
   Pago: 'type-pago',
@@ -219,8 +227,9 @@ export default async function PatientDetailPage({
     ] },
   ];
 
-  const initials = patient.name.trim().slice(0, 2).toUpperCase();
-  const firstName = patient.name.trim().split(/\s+/)[0] || patient.name;
+  const displayPatientName = safePatientName(patient.name);
+  const initials = displayPatientName.slice(0, 2).toUpperCase();
+  const firstName = displayPatientName.split(/\s+/)[0] || 'Paciente';
   const todayForNewAppointment = nextAppointment
     ? undefined
     : new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
@@ -247,7 +256,7 @@ export default async function PatientDetailPage({
             <div className="patient-avatar-lg">{initials}</div>
             <div>
               <div className="patient-header-eyebrow">Paciente</div>
-              <h1 style={{ margin: '2px 0 4px' }}>{patient.name}</h1>
+              <h1 style={{ margin: '2px 0 4px' }}>{displayPatientName}</h1>
               <div className="patient-contact-list">
                 {patient.phone ? <span><IconPhone size={14} /> {patient.phone}</span> : null}
                 {patient.email ? <span><IconMail size={14} /> {patient.email}</span> : null}
