@@ -100,7 +100,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         preferencias={
           <div className="stack">
             <div className="card">
-              <h2 style={{ marginTop: 0 }}>Datos profesionales</h2>
+              <h2>Datos profesionales</h2>
               <form action={updateSettings} className="form-grid">
                 <label>
                   Nombre visible
@@ -160,11 +160,16 @@ export default async function SettingsPage({ searchParams }: PageProps) {
               </form>
             </div>
 
-            <div className="card">
+            {/* Mismo acento "módulo premium" que en Deudas y métricas
+                (.module-active) cuando está activa — y el resumen de
+                minutos pasa a usar .stat-strip-item de verdad (antes tenía
+                la clase contenedora .stat-strip pero divs sueltos adentro,
+                sin los divisores/tipografía del resto de la app). */}
+            <div className={`card ${transcriptionEnabled ? 'module-active' : ''}`}>
               <div className="page-header" style={{ marginBottom: 12 }}>
                 <div>
                   <h2 style={{ margin: 0 }}>Transcripción con IA</h2>
-                  <p className="muted" style={{ margin: '6px 0 0', fontSize: 13 }}>
+                  <p className="text-helper" style={{ margin: '6px 0 0' }}>
                     Módulo opcional. TurnIA usa el audio sólo para convertirlo a texto y no conserva el archivo de audio.
                   </p>
                 </div>
@@ -176,17 +181,17 @@ export default async function SettingsPage({ searchParams }: PageProps) {
               {transcriptionAvailable ? (
                 <>
                   <div className="stat-strip" style={{ marginBottom: 14 }}>
-                    <div>
-                      <span className="muted">Minutos disponibles</span>
-                      <strong>{formatDuration(transcriptionBalanceSeconds)}</strong>
+                    <div className="stat-strip-item">
+                      <span className="stat-strip-label">Minutos disponibles</span>
+                      <span className="stat-strip-value">{formatDuration(transcriptionBalanceSeconds)}</span>
                     </div>
-                    <div>
-                      <span className="muted">Minutos utilizados</span>
-                      <strong>{formatDuration(transcriptionUsedSeconds)}</strong>
+                    <div className="stat-strip-item">
+                      <span className="stat-strip-label">Minutos utilizados</span>
+                      <span className="stat-strip-value">{formatDuration(transcriptionUsedSeconds)}</span>
                     </div>
                   </div>
 
-                  <p className="muted" style={{ fontSize: 13 }}>
+                  <p className="text-helper">
                     El dictado sólo funciona mientras el módulo esté activo y haya minutos disponibles.
                     La compra de paquetes se habilitará más adelante desde TurnIA.
                   </p>
@@ -208,8 +213,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         }
         integraciones={
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>Integraciones</h2>
-            <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+            <h2>Integraciones</h2>
+            <p className="text-helper">
               Cada profesional conecta sus propias integraciones. Nada de esto se comparte entre consultorios.
             </p>
 
@@ -229,16 +234,16 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 <div className="integration-row-action">
                   {googleConnected ? (
                     <form action={disconnectGoogleCalendar}>
-                      <button className="btn danger" type="submit" style={{ padding: '7px 12px', fontSize: 13 }}>
+                      <button className="btn danger btn-compact" type="submit">
                         Desconectar
                       </button>
                     </form>
                   ) : googleConfigured ? (
-                    <a className="btn secondary" style={{ padding: '7px 12px', fontSize: 13 }} href="/api/google/oauth/connect">
+                    <a className="btn secondary btn-compact" href="/api/google/oauth/connect">
                       Conectar
                     </a>
                   ) : (
-                    <span className="btn secondary" aria-disabled="true" style={{ padding: '7px 12px', fontSize: 13, opacity: 0.5, cursor: 'not-allowed' }}>
+                    <span className="btn secondary btn-compact" aria-disabled="true" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
                       Conectar
                     </span>
                   )}
@@ -260,16 +265,16 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 <div className="integration-row-action">
                   {mercadoPagoConnected ? (
                     <form action={disconnectMercadoPago}>
-                      <button className="btn danger" type="submit" style={{ padding: '7px 12px', fontSize: 13 }}>
+                      <button className="btn danger btn-compact" type="submit">
                         Desconectar
                       </button>
                     </form>
                   ) : mercadoPagoConfigured ? (
-                    <a className="btn secondary" style={{ padding: '7px 12px', fontSize: 13 }} href="/api/integrations/mercadopago/oauth/connect">
+                    <a className="btn secondary btn-compact" href="/api/integrations/mercadopago/oauth/connect">
                       Conectar
                     </a>
                   ) : (
-                    <span className="btn secondary" aria-disabled="true" style={{ padding: '7px 12px', fontSize: 13, opacity: 0.5, cursor: 'not-allowed' }}>
+                    <span className="btn secondary btn-compact" aria-disabled="true" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
                       Conectar
                     </span>
                   )}

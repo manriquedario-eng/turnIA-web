@@ -3,7 +3,7 @@ import { requireTenant } from '@/lib/auth/require-user';
 import { createPatient } from './actions';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PhoneInput } from '@/components/ui/PhoneInput';
-import { PatientRow } from '@/components/patients/PatientRow';
+import { PatientsTable } from '@/components/patients/PatientsTable';
 import { IconPlus } from '@/components/ui/icons';
 import { SimpleExportMenu } from '@/components/export/ExportMenu';
 
@@ -87,66 +87,58 @@ export default async function PatientsPage({
             <EmptyState title="Todavía no cargaste pacientes" description="Creá el primero con el formulario de abajo." />
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="table table-patients">
-              <thead>
-                <tr>
-                  <th>Paciente</th>
-                  <th>Contacto</th>
-                  <th>Próximo turno</th>
-                  <th>Estado</th>
-                  <th aria-hidden="true"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {(patients ?? []).map((patient) => {
-                  const next = nextByPatient.get(patient.id);
-                  const last = lastByPatient.get(patient.id);
-                  return (
-                    <PatientRow
-                      key={patient.id}
-                      patient={{
-                        id: patient.id,
-                        name: patient.name,
-                        phone: patient.phone,
-                        email: patient.email,
-                        nextLabel: next ? formatDate(next.starts_at) : null,
-                        nextStatus: next ? next.status : null,
-                        lastLabel: last ? formatDate(last.starts_at) : null,
-                      }}
-                    />
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <PatientsTable
+            patients={(patients ?? []).map((patient) => {
+              const next = nextByPatient.get(patient.id);
+              const last = lastByPatient.get(patient.id);
+              return {
+                id: patient.id,
+                name: patient.name,
+                phone: patient.phone,
+                email: patient.email,
+                nextLabel: next ? formatDate(next.starts_at) : null,
+                nextStatus: next ? next.status : null,
+                lastLabel: last ? formatDate(last.starts_at) : null,
+              };
+            })}
+          />
         )}
       </div>
 
+      {/* Formulario dividido en grupos con nombre (Fase 4 del pedido: "no
+          quiero campos flotando en una enorme card blanca") — antes eran 9
+          campos sueltos en un mismo form-grid + un h3 aislado sólo para
+          comunicación. Ahora 3 grupos con .form-section-divider (mismo
+          patrón ya usado en Configuración): Datos personales / Obra social
+          / Comunicación. Mismos names de campo, mismo server action. */}
       <div className="card" id="nuevo-paciente">
-        <h2 style={{ marginTop: 0 }}>Nuevo paciente</h2>
+        <h2>Nuevo paciente</h2>
         <form action={createPatient} className="form-grid">
           <label>Nombre<input name="name" required minLength={2} maxLength={160} /></label>
           <PhoneInput />
           <label>Email<input name="email" type="email" maxLength={200} /></label>
           <label>DNI<input name="dni" maxLength={160} /></label>
-          <label>Obra social<input name="insurance_name" maxLength={160} /></label>
-          <label>Nº afiliado<input name="insurance_member_number" maxLength={160} /></label>
-          <label>Plan<input name="insurance_plan" maxLength={160} /></label>
           <label>Lugar de atención<input name="care_location" maxLength={160} /></label>
           <label>Precio habitual<input name="default_price" type="number" min="0" step="0.01" /></label>
 
-          <div style={{ gridColumn: '1 / -1' }}>
-            <h3 style={{ margin: '4px 0' }}>Comunicación y recordatorios</h3>
-            <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+          <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
+            <h3>Obra social</h3>
+          </div>
+          <label>Obra social<input name="insurance_name" maxLength={160} /></label>
+          <label>Nº afiliado<input name="insurance_member_number" maxLength={160} /></label>
+          <label>Plan<input name="insurance_plan" maxLength={160} /></label>
+
+          <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
+            <h3>Comunicación y recordatorios</h3>
+            <p className="text-helper" style={{ marginTop: 4 }}>
               Sin autorización explícita, no se enviará ningún mensaje automático en el futuro.
             </p>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400 }}>
-              <input type="checkbox" name="whatsapp_consent" style={{ width: 'auto' }} />
+            <label className="checkbox-field">
+              <input type="checkbox" name="whatsapp_consent" />
               Autoriza recibir mensajes por WhatsApp
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400, marginTop: 6 }}>
-              <input type="checkbox" name="appointment_reminders_opt_in" style={{ width: 'auto' }} />
+            <label className="checkbox-field" style={{ marginTop: 6 }}>
+              <input type="checkbox" name="appointment_reminders_opt_in" />
               Recibir recordatorios automáticos de turnos
             </label>
           </div>

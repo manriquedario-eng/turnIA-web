@@ -224,37 +224,65 @@ export default async function DashboardPage() {
         </div>
         <div className="nav" style={{ flexWrap: 'wrap' }}>
           <Link className="btn" href={`/agenda?view=day&date=${today}`}><IconPlus size={14} /> Nuevo turno</Link>
-          <Link className="btn-ghost" href="/patients">Nuevo paciente</Link>
-          <Link className="btn-ghost" href="/payments">Registrar cobro</Link>
-          <Link className="btn-ghost" href="/reminders">Nuevo recordatorio</Link>
-          <Link className="btn-ghost" href={`/agenda?view=day&date=${today}`}>Ver agenda</Link>
+          <Link className="btn secondary" href="/patients">Nuevo paciente</Link>
         </div>
       </div>
 
-      <div className="stat-strip">
-        <div className="stat-strip-item">
-          <span className="stat-strip-label">Turnos de hoy</span>
-          <span className="stat-strip-value">{activeAppointments.length}</span>
-          <span className="stat-strip-hint">{confirmedAppointments.length} confirmados</span>
+      {/* Rediseño de composición del Dashboard: antes 4 números parejos en
+          una sola franja (ningún dato con más peso que otro, pese a que
+          "turnos de hoy" es la cifra que más importa para arrancar el día).
+          Ahora reutiliza el mismo patrón "hero + franja secundaria" que ya
+          existe en Deudas y métricas (.metrics-hero-row/-card): un número
+          grande con presencia real para lo más accionable, el resto en una
+          franja más chica al lado. Mismos datos/cálculos de siempre. */}
+      <div className="metrics-hero-row">
+        <div className="metrics-hero-card">
+          <span className="text-label">Turnos de hoy</span>
+          <span className="metrics-hero-value">{activeAppointments.length}</span>
+          <span className="patient-meta-hint">
+            {confirmedAppointments.length} confirmado{confirmedAppointments.length === 1 ? '' : 's'}
+            {cancelledAppointments.length > 0 ? ` · ${cancelledAppointments.length} cancelado${cancelledAppointments.length === 1 ? '' : 's'}` : ''}
+          </span>
         </div>
-        <div className="stat-strip-item">
-          <span className="stat-strip-label">Cancelados hoy</span>
-          <span className="stat-strip-value">{cancelledAppointments.length}</span>
-        </div>
-        <div className="stat-strip-item">
-          <span className="stat-strip-label">Cobrado hoy</span>
-          <span className="stat-strip-value stat-strip-value-money">${collectedToday.toLocaleString('es-AR')}</span>
-        </div>
-        <div className="stat-strip-item">
-          <span className="stat-strip-label">Pendiente de cobro</span>
-          <span className={`stat-strip-value stat-strip-value-money ${pendingToday > 0 ? 'is-pending' : ''}`}>${pendingToday.toLocaleString('es-AR')}</span>
+        <div className="stat-strip metrics-secondary-strip">
+          <div className="stat-strip-item">
+            <span className="stat-strip-label">Cobrado hoy</span>
+            <span className="stat-strip-value stat-strip-value-money">${collectedToday.toLocaleString('es-AR')}</span>
+          </div>
+          <div className="stat-strip-item">
+            <span className="stat-strip-label">Pendiente de cobro</span>
+            <span className={`stat-strip-value stat-strip-value-money ${pendingToday > 0 ? 'is-pending' : ''}`}>${pendingToday.toLocaleString('es-AR')}</span>
+          </div>
         </div>
       </div>
+
+      {/* "Requiere atención" — antes esta misma información (turnos
+          cancelados para reofrecer, cobros pendientes, lista de espera)
+          vivía como "Pendientes y oportunidades" al final de la página, bajo
+          la agenda y el rail lateral. Para que el Dashboard realmente
+          conteste "¿qué requiere atención?" sin scrollear, sube arriba de
+          todo, justo debajo de las métricas — mismos datos (opportunities),
+          sin ningún cálculo nuevo, sólo cambia dónde vive en la página. */}
+      {opportunities.length > 0 ? (
+        <div className="dashboard-attention">
+          <div className="dashboard-attention-title">Requiere atención</div>
+          <ul className="dashboard-opportunities" style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
+            {opportunities.map((item) => (
+              <li key={item.text}>
+                <Link href={item.href} className="dashboard-opportunity-link">
+                  <span>{item.text}</span>
+                  <span className="timeline-item-chevron" aria-hidden="true">›</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="split-main-side">
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', padding: '18px 20px 0' }}>
-            <h2 style={{ marginTop: 0 }}>Agenda de hoy</h2>
+            <h2>Agenda de hoy</h2>
             <Link className="btn secondary" href={`/agenda?view=day&date=${today}`}>Abrir agenda</Link>
           </div>
 
@@ -278,7 +306,7 @@ export default async function DashboardPage() {
                     <span className="dashboard-next-strip-label">Próximo</span>
                     <strong className="dashboard-next-strip-time">{formatTime(nextAppointment.starts_at)}</strong>
                     <span className="dashboard-next-strip-name">{(nextAppointment as any).patients?.name ?? 'Sin paciente'}</span>
-                    <span className="muted" style={{ fontSize: 12 }}>
+                    <span className="text-helper">
                       {(nextAppointment as any).services?.name ?? 'Sin servicio'} · {modalityLabel(nextAppointment.modality)}
                     </span>
                     <StatusBadge status={nextAppointment.status} label={statusLabel(nextAppointment.status)} />
@@ -297,7 +325,7 @@ export default async function DashboardPage() {
                       <div className="appointment-time">{formatTime(appointment.starts_at)}</div>
                       <div>
                         <div style={{ fontWeight: 600 }}>{appointment.patients?.name ?? 'Sin paciente'}</div>
-                        <div className="muted" style={{ fontSize: 12 }}>
+                        <div className="text-helper">
                           {appointment.services?.name ?? 'Sin servicio'} · {modalityLabel(appointment.modality)}
                         </div>
                       </div>
@@ -327,29 +355,37 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        <div className="stack">
-          <div className="card">
+        {/* Rail lateral fusionado: antes eran 2 cards separadas ("Lista de
+            espera" y "Recordatorios"), cada una con su propio h2 de título
+            de card — pesaban visualmente lo mismo que "Agenda de hoy" pese a
+            ser contenido secundario. Ahora es UNA sola card con dos grupos
+            internos (mismo patrón .reminder-group ya usado en /reminders
+            para Vencidos/Hoy/Próximos): los títulos de grupo bajan a h3
+            (label chico, no card-title), reforzando que "Agenda de hoy" es
+            la jerarquía principal de la pantalla. Mismos datos, mismas
+            queries, cero lógica nueva. */}
+        <div className="card">
+          <div className="reminder-group">
             <div className="nav" style={{ justifyContent: 'space-between' }}>
-              <h2 style={{ marginTop: 0 }}>Lista de espera</h2>
-              <Link className="muted" style={{ fontSize: 12 }} href="/planning">Ver todo →</Link>
+              <h3>Lista de espera</h3>
+              <Link className="text-helper" href="/planning">Ver todo →</Link>
             </div>
             {waitlist.length === 0 ? (
-              <EmptyState title="Sin pacientes en espera" description="Cuando agregues alguien, va a aparecer acá." />
+              <p className="text-helper" style={{ margin: '8px 0 0' }}>Sin pacientes en espera.</p>
             ) : (
-              <div className="stack" style={{ gap: 10 }}>
+              <div className="stack" style={{ gap: 8, marginTop: 8 }}>
                 {waitlist.map((entry) => (
                   <Link
                     key={entry.id}
                     href="/planning#lista-de-espera"
                     className="dashboard-waitlist-row"
-                    style={{ paddingBottom: 8, borderBottom: '1px solid var(--color-border-soft)' }}
                     aria-label={`Ver en lista de espera: ${waitlistPatientMap.get(entry.patient_id) ?? 'Paciente no disponible'}`}
                   >
                     <div>
                       <div style={{ fontWeight: 600, fontSize: 13 }}>
                         {waitlistPatientMap.get(entry.patient_id) ?? 'Paciente no disponible'}
                       </div>
-                      <div className="muted" style={{ fontSize: 12 }}>
+                      <div className="text-helper">
                         {entry.service_id ? waitlistServiceMap.get(entry.service_id) ?? 'Servicio no disponible' : 'Cualquier servicio'}
                         {entry.preferred_day || entry.preferred_time
                           ? ` · ${[entry.preferred_day, entry.preferred_time].filter(Boolean).join(' ')}`
@@ -363,15 +399,15 @@ export default async function DashboardPage() {
             )}
           </div>
 
-          <div className="card">
+          <div className="reminder-group">
             <div className="nav" style={{ justifyContent: 'space-between' }}>
-              <h2 style={{ marginTop: 0 }}>Recordatorios</h2>
-              <Link className="muted" style={{ fontSize: 12 }} href="/reminders">Ver todos →</Link>
+              <h3>Recordatorios</h3>
+              <Link className="text-helper" href="/reminders">Ver todos →</Link>
             </div>
             {remindersToShow.length === 0 ? (
-              <EmptyState title="Sin recordatorios pendientes" description="Tu agenda personal — llamadas, trámites, lo que necesites no olvidar." />
+              <p className="text-helper" style={{ margin: '8px 0 0' }}>Sin recordatorios pendientes.</p>
             ) : (
-              <ul className="dashboard-reminder-list">
+              <ul className="dashboard-reminder-list" style={{ marginTop: 8 }}>
                 {remindersToShow.map((reminder) => {
                   const overdue = new Date(reminder.remind_at).getTime() < now.getTime();
                   const isToday = dateKeyInTz(reminder.remind_at) === today;
@@ -380,7 +416,7 @@ export default async function DashboardPage() {
                       <Link href={`/reminders?edit=${reminder.id}`} className="dashboard-reminder-link">
                         <div>
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{reminder.title}</div>
-                          <div className="muted" style={{ fontSize: 12 }}>
+                          <div className="text-helper">
                             {overdue ? 'Vencido · ' : isToday ? 'Hoy · ' : ''}
                             {formatReminderDateTime(reminder.remind_at)}
                           </div>
@@ -390,7 +426,7 @@ export default async function DashboardPage() {
                         <input type="hidden" name="id" value={reminder.id} />
                         <input type="hidden" name="status" value="done" />
                         <input type="hidden" name="return_to" value="/dashboard" />
-                        <button className="btn-ghost" type="submit" aria-label="Marcar como realizado" title="Marcar como realizado">
+                        <button className="icon-btn is-sm" type="submit" aria-label="Marcar como realizado" title="Marcar como realizado">
                           <IconCheck size={14} />
                         </button>
                       </form>
@@ -401,24 +437,6 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
-      </div>
-
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>Pendientes y oportunidades</h2>
-        {opportunities.length === 0 ? (
-          <p className="muted">Sin pendientes detectados para hoy. Buen trabajo.</p>
-        ) : (
-          <ul className="dashboard-opportunities" style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
-            {opportunities.map((item) => (
-              <li key={item.text}>
-                <Link href={item.href} className="dashboard-opportunity-link">
-                  <span>{item.text}</span>
-                  <span className="timeline-item-chevron" aria-hidden="true">›</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
     </section>
   );

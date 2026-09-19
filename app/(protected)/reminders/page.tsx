@@ -162,7 +162,7 @@ export default async function RemindersPage({
       {error ? <p className="alert error">{error}</p> : null}
 
       <div className="card">
-        <h2 style={{ marginTop: 0 }}>Nuevo recordatorio</h2>
+        <h2>Nuevo recordatorio</h2>
         <form action={createReminder} className="form-grid">
           <input type="hidden" name="return_to" value={returnTo} />
           <label>Título<input name="title" required minLength={1} maxLength={160} placeholder="Ej. Llamar al contador" /></label>
@@ -185,7 +185,7 @@ export default async function RemindersPage({
             {overdue.length > 0 ? <span className="reminder-group-count is-overdue">{overdue.length}</span> : null}
           </div>
           {overdue.length === 0 ? (
-            <p className="muted" style={{ fontSize: 13, margin: 0 }}>Ningún recordatorio vencido.</p>
+            <p className="text-helper" style={{ margin: 0 }}>Ningún recordatorio vencido.</p>
           ) : (
             <ul className="reminder-list">{overdue.map((r) => <ReminderRowView key={r.id} reminder={r} tone="overdue" />)}</ul>
           )}
@@ -197,7 +197,7 @@ export default async function RemindersPage({
             {dueToday.length > 0 ? <span className="reminder-group-count is-today">{dueToday.length}</span> : null}
           </div>
           {dueToday.length === 0 ? (
-            <p className="muted" style={{ fontSize: 13, margin: 0 }}>Nada para hoy.</p>
+            <p className="text-helper" style={{ margin: 0 }}>Nada para hoy.</p>
           ) : (
             <ul className="reminder-list">{dueToday.map((r) => <ReminderRowView key={r.id} reminder={r} tone="today" />)}</ul>
           )}
@@ -209,7 +209,7 @@ export default async function RemindersPage({
             {upcoming.length > 0 ? <span className="reminder-group-count">{upcoming.length}</span> : null}
           </div>
           {upcoming.length === 0 ? (
-            <p className="muted" style={{ fontSize: 13, margin: 0 }}>Sin próximos recordatorios.</p>
+            <p className="text-helper" style={{ margin: 0 }}>Sin próximos recordatorios.</p>
           ) : (
             <ul className="reminder-list">{upcoming.map((r) => <ReminderRowView key={r.id} reminder={r} tone="upcoming" />)}</ul>
           )}
@@ -218,7 +218,7 @@ export default async function RemindersPage({
 
       {done.length > 0 ? (
         <div className="card">
-          <h2 style={{ marginTop: 0 }}>Realizados</h2>
+          <h2>Realizados</h2>
           <ul className="reminder-list">{done.slice(0, 20).map((r) => <ReminderRowView key={r.id} reminder={r} tone="done" />)}</ul>
         </div>
       ) : null}

@@ -320,8 +320,8 @@ export default async function PatientDetailPage({
       >
         <div data-tab="clinica">
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>Ficha clínica</h2>
-            <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+            <h2>Ficha clínica</h2>
+            <p className="text-helper" style={{ marginTop: 0 }}>
               Información clínica general del paciente. Se edita directamente acá.
             </p>
             <ClinicalRecordCard
@@ -335,8 +335,8 @@ export default async function PatientDetailPage({
         <div data-tab="sesiones">
           <div className="stack">
             <div className="card">
-              <h2 style={{ marginTop: 0 }}>Registrar nota de sesión</h2>
-              <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+              <h2>Registrar nota de sesión</h2>
+              <p className="text-helper" style={{ marginTop: 0 }}>
                 Asociada a un turno concreto: evolución, indicaciones y próximos pasos de esa atención.
               </p>
               <form action={createManualFollowUp} className="stack">
@@ -370,7 +370,7 @@ export default async function PatientDetailPage({
             </div>
 
             <div className="card">
-              <h2 style={{ marginTop: 0 }}>Sesiones de {firstName}</h2>
+              <h2>Sesiones de {firstName}</h2>
               {sessionNotes.length === 0 ? (
                 <EmptyState title="Todavía no hay sesiones registradas" description="Se completan desde el formulario de arriba, asociadas a un turno." />
               ) : (
@@ -398,7 +398,7 @@ export default async function PatientDetailPage({
 
         <div data-tab="actividad">
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>Actividad de {firstName}</h2>
+            <h2>Actividad de {firstName}</h2>
             <p className="muted">Turnos, pagos, seguimientos y actualización de ficha de {firstName} en una sola línea de tiempo.</p>
             {timeline.length === 0 ? (
               <EmptyState title="Todavía no hay actividad registrada" />
@@ -423,8 +423,8 @@ export default async function PatientDetailPage({
         <div data-tab="seguimientos">
           <div className="stack">
             <div className="card">
-              <h2 style={{ marginTop: 0 }}>Nuevo seguimiento</h2>
-              <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+              <h2>Nuevo seguimiento</h2>
+              <p className="text-helper" style={{ marginTop: 0 }}>
                 Notas posteriores, controles, tareas o recordatorios que no están atados a un turno puntual.
               </p>
               <form action={createManualFollowUp} className="stack">
@@ -447,7 +447,7 @@ export default async function PatientDetailPage({
             </div>
 
             <div className="card">
-              <h2 style={{ marginTop: 0 }}>Seguimientos de {firstName}</h2>
+              <h2>Seguimientos de {firstName}</h2>
               {generalFollowUps.length === 0 ? (
                 <EmptyState title="Todavía no hay seguimientos" />
               ) : (
@@ -470,41 +470,45 @@ export default async function PatientDetailPage({
         <div data-tab="datos">
           <div className="stack">
             <div className="card">
-              <h2 style={{ marginTop: 0 }}>Datos del paciente</h2>
+              <h2>Datos del paciente</h2>
+              {/* Mismos 3 grupos que "Nuevo paciente" en el listado — nombre
+                  de campo y server action intactos, sólo se agrupa. */}
               <form action={updatePatient} className="form-grid">
                 <input type="hidden" name="id" value={patient.id} />
                 <label>Nombre<input name="name" defaultValue={patient.name} required minLength={2} maxLength={160} /></label>
                 <PhoneInput defaultValue={patient.phone ?? ''} defaultE164={patient.phone_e164 ?? null} />
                 <label>Email<input name="email" type="email" defaultValue={patient.email ?? ''} maxLength={200} /></label>
                 <label>DNI<input name="dni" defaultValue={patient.dni ?? ''} maxLength={160} /></label>
-                <label>Obra social<input name="insurance_name" defaultValue={patient.insurance_name ?? ''} maxLength={160} /></label>
-                <label>Nº afiliado<input name="insurance_member_number" defaultValue={patient.insurance_member_number ?? ''} maxLength={160} /></label>
-                <label>Plan<input name="insurance_plan" defaultValue={patient.insurance_plan ?? ''} maxLength={160} /></label>
                 <label>Lugar de atención<input name="care_location" defaultValue={patient.care_location ?? ''} maxLength={160} /></label>
                 <label>Precio habitual<input name="default_price" type="number" min="0" step="0.01" defaultValue={patient.default_price ?? ''} /></label>
 
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <h3 style={{ margin: '4px 0' }}>Comunicación y recordatorios</h3>
-                  <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+                <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
+                  <h3>Obra social</h3>
+                </div>
+                <label>Obra social<input name="insurance_name" defaultValue={patient.insurance_name ?? ''} maxLength={160} /></label>
+                <label>Nº afiliado<input name="insurance_member_number" defaultValue={patient.insurance_member_number ?? ''} maxLength={160} /></label>
+                <label>Plan<input name="insurance_plan" defaultValue={patient.insurance_plan ?? ''} maxLength={160} /></label>
+
+                <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
+                  <h3>Comunicación y recordatorios</h3>
+                  <p className="text-helper" style={{ marginTop: 4 }}>
                     Sin autorización explícita, no se enviará ningún mensaje automático en el futuro.
                     {(patient as any).whatsapp_consent_at
                       ? ` Autorización registrada el ${formatDateTime((patient as any).whatsapp_consent_at)}.`
                       : ''}
                   </p>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400 }}>
+                  <label className="checkbox-field">
                     <input
                       type="checkbox"
                       name="whatsapp_consent"
-                      style={{ width: 'auto' }}
                       defaultChecked={Boolean((patient as any).whatsapp_consent)}
                     />
                     Autoriza recibir mensajes por WhatsApp
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400, marginTop: 6 }}>
+                  <label className="checkbox-field" style={{ marginTop: 6 }}>
                     <input
                       type="checkbox"
                       name="appointment_reminders_opt_in"
-                      style={{ width: 'auto' }}
                       defaultChecked={Boolean((patient as any).appointment_reminders_opt_in)}
                     />
                     Recibir recordatorios automáticos de turnos
@@ -517,9 +521,14 @@ export default async function PatientDetailPage({
               </form>
             </div>
 
-            <div className="card">
-              <h2 style={{ marginTop: 0 }}>Archivar paciente</h2>
-              <p className="muted">No elimina físicamente los datos. Marca el paciente como archivado.</p>
+            {/* "Archivar" es destructivo/irreversible en la práctica — antes
+                era una card idéntica a "Datos del paciente" (mismo peso
+                visual que una acción de guardado normal). Ahora usa un
+                acento de borde danger, mismo lenguaje que .metrics-hero-card
+                para separar visualmente "zona de riesgo" del resto. */}
+            <div className="card danger-zone">
+              <h2>Archivar paciente</h2>
+              <p className="text-helper">No elimina físicamente los datos. Marca el paciente como archivado.</p>
               <form action={archivePatient}>
                 <input type="hidden" name="id" value={patient.id} />
                 <button className="btn danger" type="submit">Archivar</button>

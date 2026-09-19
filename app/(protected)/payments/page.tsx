@@ -59,22 +59,28 @@ export default async function PaymentsPage({
       {params.ok ? <p className="alert success">{params.ok}</p> : null}
       {params.error ? <p className="alert error">{params.error}</p> : null}
 
-      <div className="stat-strip">
-        <div className="stat-strip-item">
-          <span className="stat-strip-label">Caja actual</span>
-          <span className="stat-strip-value stat-strip-value-money">${balance.toLocaleString('es-AR')}</span>
+      {/* Mismo patrón "hero + franja secundaria" que Dashboard/Métricas —
+          Caja actual es el número que más importa acá (cuánto hay en caja
+          ahora), Cobrado queda como dato de contexto al lado. Mismos
+          cálculos, cero queries nuevas. */}
+      <div className="metrics-hero-row">
+        <div className="metrics-hero-card">
+          <span className="text-label">Caja actual</span>
+          <span className="metrics-hero-value">${balance.toLocaleString('es-AR')}</span>
         </div>
-        <div className="stat-strip-item">
-          <span className="stat-strip-label">Cobrado</span>
-          <span className="stat-strip-value stat-strip-value-money">${collected.toLocaleString('es-AR')}</span>
-          <span className="stat-strip-hint">últimos 50 pagos</span>
+        <div className="stat-strip metrics-secondary-strip">
+          <div className="stat-strip-item">
+            <span className="stat-strip-label">Cobrado</span>
+            <span className="stat-strip-value stat-strip-value-money">${collected.toLocaleString('es-AR')}</span>
+            <span className="stat-strip-hint">últimos 50 pagos</span>
+          </div>
         </div>
       </div>
 
       <div className="split-main-side">
         <div className="stack">
           <section className="card">
-            <h2 style={{ marginTop: 0 }}>Registrar pago</h2>
+            <h2>Registrar pago</h2>
             <form action={registerPayment} className="form-grid">
               <label>Turno
                 <select name="appointment_id" required defaultValue="">
@@ -107,7 +113,7 @@ export default async function PaymentsPage({
           </section>
 
           <section className="card">
-            <h2 style={{ marginTop: 0 }}>Movimiento manual de caja</h2>
+            <h2>Movimiento manual de caja</h2>
             <form action={registerCashMovement} className="form-grid">
               <label>Tipo
                 <select name="kind" defaultValue="out">
@@ -129,14 +135,14 @@ export default async function PaymentsPage({
         </div>
 
         <section className="card">
-          <h2 style={{ marginTop: 0 }}>Últimos movimientos de caja</h2>
+          <h2>Últimos movimientos de caja</h2>
           {(cashMovements || []).length === 0 ? (
             <EmptyState title="Sin movimientos" description="Los movimientos manuales de caja van a aparecer acá." />
           ) : (
             <div className="stack" style={{ gap: 0 }}>
               {(cashMovements || []).slice(0, 10).map((movement: any) => (
                 <div key={movement.id} className="cash-movement-row">
-                  <span className="muted" style={{ fontSize: 13 }}>
+                  <span className="text-helper">
                     {paymentMethodLabel(movement.method)} · {new Date(movement.created_at).toLocaleString('es-AR')}
                   </span>
                   <strong className={`cash-movement-amount ${movement.kind === 'in' ? 'is-in' : 'is-out'}`}>
@@ -147,7 +153,7 @@ export default async function PaymentsPage({
             </div>
           )}
           {(cashMovements || []).length > 10 ? (
-            <p className="muted" style={{ fontSize: 12, marginTop: 8, marginBottom: 0 }}>
+            <p className="text-caption" style={{ marginTop: 8, marginBottom: 0 }}>
               Mostrando los últimos 10 movimientos.
             </p>
           ) : null}
@@ -160,17 +166,17 @@ export default async function PaymentsPage({
           contenedor. En mobile (≤640px) se reemplaza por una lista
           compacta en vez de forzar la tabla a un scroll horizontal. */}
       <section className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <h2 style={{ margin: '18px 20px 0' }}>Últimos pagos</h2>
+        <h2 style={{ margin: '18px 20px 12px' }}>Últimos pagos</h2>
         {(payments || []).length === 0 ? (
           <div style={{ padding: '0 20px 20px' }}>
             <EmptyState title="Sin pagos registrados" description="Los pagos que registres van a aparecer acá." />
           </div>
         ) : (
           <>
-            <div className="payments-table-wrap" style={{ marginTop: 12, paddingBottom: 8 }}>
+            <div className="payments-table-wrap" style={{ paddingBottom: 8 }}>
               <table className="table">
                 <thead>
-                  <tr><th>Fecha</th><th>Paciente</th><th>Medio</th><th style={{ textAlign: 'right' }}>Importe</th></tr>
+                  <tr><th>Fecha</th><th>Paciente</th><th>Medio</th><th className="table-cell-amount">Importe</th></tr>
                 </thead>
                 <tbody>
                   {(payments || []).map((payment: any) => (
@@ -192,7 +198,7 @@ export default async function PaymentsPage({
                     <strong>{payment.patients?.name ?? 'Sin paciente'}</strong>
                     <strong>${Number(payment.amount).toLocaleString('es-AR')} {payment.currency}</strong>
                   </div>
-                  <span className="muted" style={{ fontSize: 13 }}>
+                  <span className="text-helper">
                     {new Date(payment.created_at).toLocaleDateString('es-AR')} · {paymentMethodLabel(payment.method)}
                   </span>
                 </div>

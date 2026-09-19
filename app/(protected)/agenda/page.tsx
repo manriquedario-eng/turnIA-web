@@ -129,6 +129,18 @@ function isCancelled(status: string | null) {
   return status === 'cancelled' || status === 'cancelado';
 }
 
+// Acento visual por estado en .appointment-card (ver globals.css) — permite
+// escanear la agenda del día sin leer cada badge. Cualquier estado no
+// contemplado simplemente no agrega clase (la card queda neutra, como
+// antes).
+function statusAccentClass(status: string | null) {
+  const value = (status ?? '').toLowerCase();
+  if (['confirmado', 'confirmed', 'pendiente', 'pending', 'programado', 'scheduled'].includes(value)) {
+    return `status-accent-${value}`;
+  }
+  return '';
+}
+
 function isValidDate(value: unknown): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
@@ -468,7 +480,7 @@ export default async function AgendaPage({
                   const service = a.service_id ? serviceMap.get(a.service_id) : undefined;
                   const cancelled = isCancelled(a.status);
                   const isNext = nextAppointment?.id === a.id;
-                  const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : ''].filter(Boolean).join(' ');
+                  const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : '', statusAccentClass(a.status)].filter(Boolean).join(' ');
                   const isOnline = a.modality === 'online';
 
                   return (
@@ -506,19 +518,19 @@ export default async function AgendaPage({
                       </div>
 
                       <div className="appointment-meta">
-                        <span className="muted" style={{ fontSize: 13, minWidth: 90, textAlign: 'right' }}>
+                        <span className="appointment-amount">
                           {a.quoted_amount != null ? `${a.currency ?? 'ARS'} ${Number(a.quoted_amount).toLocaleString('es-AR')}` : '—'}
                         </span>
                         <StatusBadge status={a.status} label={statusLabel(a.status)} />
                         {!cancelled ? (
-                          <div className="nav" style={{ gap: 4 }}>
-                            <Link href={`${returnTo}&edit=${a.id}#turno-drawer`} className="btn-ghost" style={{ fontSize: 13 }}>
+                          <div className="appointment-row-actions">
+                            <Link href={`${returnTo}&edit=${a.id}#turno-drawer`} className="btn-ghost">
                               Editar
                             </Link>
                             <form action={cancelAppointment}>
                               <input type="hidden" name="id" value={a.id} />
                               <input type="hidden" name="return_to" value={returnTo} />
-                              <button className="btn-ghost danger" type="submit" style={{ fontSize: 13 }}>
+                              <button className="btn-ghost danger" type="submit">
                                 Cancelar
                               </button>
                             </form>

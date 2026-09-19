@@ -133,6 +133,40 @@ p {
   color: var(--color-text-muted);
 }
 
+/* ---------- Utilidades tipográficas compartidas ----------
+   Antes cada pantalla definía su propio tamaño para "número grande"
+   (.stat-value, .metrics-hero-value, .patient-meta-value...) con valores
+   parecidos pero no idénticos entre sí. Estas utilidades no reemplazan esas
+   clases existentes (para no reescribir cada componente ya afinado) — son
+   para texto nuevo, y para ir migrando gradualmente sin inventar otro
+   tamaño más cada vez. */
+.text-metric {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-strong);
+}
+
+.text-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.text-caption {
+  font-size: 12px;
+  color: var(--color-text-faint);
+}
+
+.text-helper {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
 /* ---------- Layout primitives ---------- */
 
 .stack {
@@ -280,6 +314,128 @@ button.btn-ghost.danger {
 .btn-ghost.danger:hover,
 button.btn-ghost.danger:hover {
   background: var(--color-danger-bg);
+}
+
+/* ---------- Botones: foco, disabled, loading ----------
+   Antes ningún botón tenía :focus-visible propio (dependía del outline por
+   defecto del navegador) ni estado :disabled/loading definido en ningún
+   lado. Mismo lenguaje de foco que los inputs (anillo suave del primario),
+   sólo el color cambia para danger. */
+
+.btn:focus-visible,
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.btn.secondary:focus-visible,
+button.secondary:focus-visible {
+  border-color: var(--color-primary);
+}
+
+.btn.danger:focus-visible,
+button.danger:focus-visible,
+.btn-ghost.danger:focus-visible,
+button.btn-ghost.danger:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-danger-bg);
+}
+
+.btn:disabled,
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Loading: el botón conserva su ancho (nada de "salto" de layout) — el
+   contenido se oculta con visibility (no display:none) y un spinner se
+   centra encima con :after. */
+.btn.is-loading,
+button.is-loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.btn.is-loading > *,
+button.is-loading > * {
+  visibility: hidden;
+}
+
+.btn.is-loading::after,
+button.is-loading::after {
+  content: '';
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  border-top-color: transparent;
+  animation: btn-spin 0.6s linear infinite;
+}
+
+.btn.secondary.is-loading::after,
+.btn-ghost.is-loading::after,
+button.secondary.is-loading::after,
+button.btn-ghost.is-loading::after {
+  border-color: var(--color-text-muted);
+  border-top-color: transparent;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Botón de sólo ícono — mismo lenguaje visual que los botones normales
+   pero cuadrado, para acciones pequeñas repetidas (fila de tabla, cabecera
+   de card, controles de navegación). Reemplaza estilos ad hoc como
+   .date-nav-btn/.drawer-close en componentes nuevos; los existentes quedan
+   intactos para no tocar más de lo necesario en esta pasada. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid transparent;
+  flex-shrink: 0;
+}
+
+.icon-btn:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.icon-btn.is-sm {
+  width: 30px;
+  height: 30px;
+}
+
+.icon-btn.bordered {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.icon-btn.danger:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* ---------- Forms ---------- */
@@ -599,6 +755,26 @@ table tbody tr:hover {
   border-left: 3px solid var(--color-warning);
 }
 
+/* "Zona de riesgo" — acciones irreversibles/destructivas (Archivar
+   paciente, y cualquier otra en el futuro) no deben verse como una card de
+   guardado normal. Mismo lenguaje que .has-debt pero en danger. */
+.danger-zone {
+  border-left: 3px solid var(--color-danger);
+}
+
+/* Módulo premium opcional activo (Transcripción IA) — mismo acento de
+   borde, en el accent teal en vez de warning/danger. */
+.module-active {
+  border-left: 3px solid var(--color-accent);
+}
+
+/* Botón chico dentro de una fila densa (filas de Integraciones) — antes era
+   un style inline repetido (padding+fontSize) en cada Conectar/Desconectar. */
+.btn-compact {
+  padding: 7px 12px;
+  font-size: 13px;
+}
+
 .metrics-hero-value {
   font-size: 30px;
   font-weight: 700;
@@ -725,6 +901,59 @@ table tbody tr:hover {
 
 .table-cell-chevron .timeline-item-chevron {
   opacity: 0.5;
+}
+
+/* Buscador en vivo de la tabla de Pacientes (Fase 9) — mismo lenguaje
+   visual que .topbar-search (píldora, foco discreto en marca), integrado
+   como cabecera de la card de la tabla en vez de flotar aislado. */
+.patients-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 20px;
+  padding: 0 12px;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-soft);
+  color: var(--color-text-faint);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.patients-search:focus-within {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.patients-search svg {
+  flex-shrink: 0;
+}
+
+.patients-search input {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  width: 100%;
+  font-size: 13px;
+}
+
+.patients-search input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Checkbox + texto en línea, usado en varios formularios (Nuevo paciente,
+   Configuración) — antes era un style inline repetido por cada checkbox. */
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+
+.checkbox-field input[type='checkbox'] {
+  width: auto;
 }
 
 .row-link:hover .timeline-item-chevron {
@@ -983,16 +1212,23 @@ table tbody tr:hover {
    poco más de tracking negativo para sentirse como wordmark, no como
    texto suelto al lado de un ícono. */
 .app-sidebar .brand-mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   background: var(--color-primary);
   display: grid;
   place-items: center;
   color: #fff;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
+  letter-spacing: -0.02em;
   flex-shrink: 0;
+  /* Depth sin gradiente: un highlight interior sutil arriba (no un degradé
+     de fondo) + una sombra muy corta — refuerza que es "el logo", sin
+     volverse un efecto decorativo. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 1px 2px rgba(15, 23, 42, 0.18);
 }
 
 .app-sidebar .brand-name {
@@ -1433,8 +1669,40 @@ table tbody tr:hover {
   box-shadow: 0 0 0 1px var(--color-primary);
 }
 
+/* Acento de estado por color a la izquierda de cada turno — permite escanear
+   la agenda del día de un vistazo sin tener que leer cada badge. Mismo
+   truco que .sidebar-link.active (box-shadow inset, respeta el
+   border-radius de la card en vez de un border-left que lo rompería). No
+   aplica si is-cancelled/is-next ya están dando su propia señal. */
+.appointment-card.status-accent-confirmado:not(.is-cancelled):not(.is-next),
+.appointment-card.status-accent-confirmed:not(.is-cancelled):not(.is-next) {
+  box-shadow: inset 3px 0 0 var(--color-success);
+}
+
+.appointment-card.status-accent-pendiente:not(.is-cancelled):not(.is-next),
+.appointment-card.status-accent-pending:not(.is-cancelled):not(.is-next) {
+  box-shadow: inset 3px 0 0 var(--color-warning);
+}
+
+.appointment-card.status-accent-programado:not(.is-cancelled):not(.is-next),
+.appointment-card.status-accent-scheduled:not(.is-cancelled):not(.is-next) {
+  box-shadow: inset 3px 0 0 var(--color-secondary);
+}
+
+/* Cancelado debe verse claramente cancelado sin depender sólo de opacidad
+   (que se confunde con "cargando"/"deshabilitado") — fondo rosa/rojo muy
+   suave + borde acorde, mismo lenguaje que .badge-cancelado. El texto en sí
+   no pierde opacidad (la información sigue siendo legible), lo que cambia
+   es la superficie de la card. */
 .appointment-card.is-cancelled {
-  opacity: 0.6;
+  background: var(--color-danger-bg);
+  border-color: rgba(220, 38, 38, 0.18);
+}
+
+.appointment-card.is-cancelled .appointment-time {
+  text-decoration: line-through;
+  text-decoration-color: var(--color-danger);
+  opacity: 0.7;
 }
 
 .appointment-time {
@@ -1465,6 +1733,25 @@ table tbody tr:hover {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.appointment-amount {
+  min-width: 90px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.appointment-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.appointment-row-actions .btn-ghost {
+  font-size: 13px;
 }
 
 @media (max-width: 640px) {
@@ -1847,9 +2134,13 @@ table tbody tr:hover {
   text-decoration: none;
   cursor: pointer;
   margin: 0 -8px;
-  padding-left: 8px;
-  padding-right: 8px;
+  padding: 6px 8px 8px;
   border-radius: var(--radius-sm);
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.dashboard-waitlist-row:last-child {
+  border-bottom: none;
 }
 
 .dashboard-waitlist-row:hover {
@@ -1863,6 +2154,37 @@ table tbody tr:hover {
 
 .dashboard-opportunities li {
   margin-bottom: 6px;
+}
+
+/* "Requiere atención" — panel compacto arriba del fold (Dashboard), no otra
+   card grande compitiendo con Agenda de hoy. Acento de borde izquierdo
+   (mismo lenguaje que .metrics-hero-card.has-debt), superficie neutra —
+   nada de fondo sólido warning para no volverse pesado. */
+.dashboard-attention {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-left: 3px solid var(--color-warning);
+  border-radius: var(--radius-lg);
+  padding: 12px 18px 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-attention-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-warning);
+  margin-bottom: 2px;
+}
+
+/* Título de grupo dentro de una card fusionada (Dashboard: Lista de espera
+   / Recordatorios comparten una sola card ahora) — un h3 normal ya viene en
+   mayúsculas/chico por el estilo global de h3, pero acá necesita quedar en
+   la misma línea que el link "Ver todo" sin heredar su margin-bottom por
+   defecto (ya lo maneja el .nav contenedor). */
+.reminder-group h3 {
+  margin: 0;
 }
 
 .dashboard-opportunity-link {
@@ -2118,10 +2440,16 @@ table tbody tr:hover {
   filter: brightness(0.97);
 }
 
+/* Antes era gris neutro + tachado — se confundía con "otro mes"/"sin
+   turnos" a simple vista, dependiendo sólo del tachado (pedido explícito:
+   "no depender solamente de text-decoration"). Ahora usa el mismo rosa/rojo
+   suave que .badge-cancelado, consistente entre Mes y Semana (ambas vistas
+   comparten .month-chip). */
 .month-chip.is-cancelled {
-  background: var(--color-surface-sunken);
-  color: var(--color-text-faint);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
   text-decoration: line-through;
+  opacity: 0.85;
 }
 
 /* Fila que agrupa el chip de turno (Link, abre el drawer) + el link "Meet"

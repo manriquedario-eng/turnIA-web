@@ -211,8 +211,8 @@ export default async function MetricsPage() {
               style={{ justifyContent: 'space-between', flexWrap: 'wrap', padding: '20px 20px 0' }}
             >
               <div>
-                <h2 style={{ marginTop: 0 }}>Saldos por cobrar</h2>
-                <p className="muted" style={{ marginTop: 0 }}>
+                <h2>Saldos por cobrar</h2>
+                <p className="text-helper">
                   Turnos no cancelados cuyo importe registrado supera los pagos asociados.
                 </p>
               </div>
@@ -233,9 +233,9 @@ export default async function MetricsPage() {
                     <tr>
                       <th>Paciente</th>
                       <th>Fecha</th>
-                      <th style={{ textAlign: 'right' }}>Importe</th>
-                      <th style={{ textAlign: 'right' }}>Pagado</th>
-                      <th style={{ textAlign: 'right' }}>Saldo</th>
+                      <th className="table-cell-amount">Importe</th>
+                      <th className="table-cell-amount">Pagado</th>
+                      <th className="table-cell-amount">Saldo</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -266,7 +266,7 @@ export default async function MetricsPage() {
 
         <div data-tab="turnos" className="stack">
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>Actividad de turnos y pacientes</h2>
+            <h2>Actividad de turnos y pacientes</h2>
             <div className="metrics-activity-row">
               <div className="metrics-activity-item">
                 <span className="metrics-activity-value">{appointments.length}</span>
@@ -295,11 +295,15 @@ export default async function MetricsPage() {
         </div>
 
         <div data-tab="transcripcion" className="stack">
-          <div className="card">
+          {/* Acento en accent (teal) cuando está activa — refuerza que es un
+              módulo premium opcional, no otra card administrativa más
+              (pedido explícito de Fase 10). Mismo lenguaje que .has-debt/
+              .danger-zone, sólo cambia el color. */}
+          <div className={`card ${transcriptionAccount?.enabled ? 'module-active' : ''}`}>
             <div className="page-header" style={{ marginBottom: 14 }}>
               <div>
                 <h2 style={{ margin: 0 }}>Transcripción con IA</h2>
-                <p className="muted" style={{ margin: '6px 0 0', fontSize: 13 }}>
+                <p className="text-helper" style={{ margin: '6px 0 0' }}>
                   Consumo actualizado del módulo opcional de dictado.
                 </p>
               </div>
@@ -329,7 +333,7 @@ export default async function MetricsPage() {
           </div>
 
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>Uso por tipo</h2>
+            <h2>Uso por tipo</h2>
             <div className="metrics-activity-row">
               <div className="metrics-activity-item">
                 <span className="metrics-activity-value">{formatDuration(sessionSeconds)}</span>
@@ -359,8 +363,8 @@ export default async function MetricsPage() {
 
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '20px 20px 0' }}>
-              <h2 style={{ marginTop: 0 }}>Consumo por paciente · este mes</h2>
-              <p className="muted" style={{ marginTop: 0 }}>
+              <h2>Consumo por paciente · este mes</h2>
+              <p className="text-helper">
                 Segundos utilizados en notas dictadas para cada paciente.
               </p>
             </div>
@@ -375,8 +379,8 @@ export default async function MetricsPage() {
                   <thead>
                     <tr>
                       <th>Paciente</th>
-                      <th style={{ textAlign: 'right' }}>Dictados</th>
-                      <th style={{ textAlign: 'right' }}>Tiempo consumido</th>
+                      <th className="table-cell-amount">Dictados</th>
+                      <th className="table-cell-amount">Tiempo consumido</th>
                     </tr>
                   </thead>
                   <tbody>

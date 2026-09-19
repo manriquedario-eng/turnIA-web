@@ -168,3 +168,31 @@ export function IconLogout({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+/* Spinner de carga para botones/estados is-loading (Fase 1 — sistema de
+   botones ampliado). Usa la misma animación btn-spin definida en
+   globals.css para los botones nativos con .is-loading, así ambos giran
+   igual sin duplicar el keyframe. */
+export function IconSpinner({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 20 20"
+      fill="none"
+      style={{ animation: 'btn-spin 0.6s linear infinite' }}
+    >
+      <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="2" opacity="0.25" />
+      <path d="M17.5 10a7.5 7.5 0 0 0-7.5-7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconMic({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" {...base}>
+      <rect x="7" y="2.5" width="6" height="10" rx="3" />
+      <path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5M7 17.5h6" />
+    </svg>
+  );
+}
