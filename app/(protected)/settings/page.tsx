@@ -1,5 +1,5 @@
 import { requireTenant } from '@/lib/auth/require-user';
-import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago } from './actions';
+import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago, updateAiTranscriptionSetting } from './actions';
 import { isGoogleOAuthConfigured } from '@/lib/google/oauth';
 import { isMercadoPagoOAuthConfigured } from '@/lib/mercadopago/oauth';
 import { isWhatsAppConfigured } from '@/lib/whatsapp/provider';
@@ -14,7 +14,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
   const { supabase, user, tenantId } = await requireTenant();
 
-  const [{ data: profile }, { data: settings }, { data: googleIntegration }, { data: mercadoPagoIntegration }] = await Promise.all([
+  const [{ data: profile }, { data: settings }, { data: googleIntegration }, { data: mercadoPagoIntegration }, { data: transcriptionAccount, error: transcriptionAccountError }] = await Promise.all([
     supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
     // `profile` acá es la columna jsonb existente de `settings` (datos del
     // profesional/consultorio) — no confundir con la tabla `profiles`
@@ -37,6 +37,11 @@ export default async function SettingsPage({ searchParams }: PageProps) {
       .eq('tenant_id', tenantId)
       .eq('user_id', user.id)
       .eq('provider', 'mercadopago')
+      .maybeSingle(),
+    supabase
+      .from('ai_transcription_accounts')
+      .select('enabled,balance_seconds,lifetime_used_seconds')
+      .eq('tenant_id', tenantId)
       .maybeSingle(),
   ]);
 
@@ -65,6 +70,10 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const mercadoPagoConfigured = isMercadoPagoOAuthConfigured();
   const whatsappConfigured = isWhatsAppConfigured();
   const emailConfigured = isEmailConfigured();
+  const transcriptionAvailable = !transcriptionAccountError && Boolean(transcriptionAccount);
+  const transcriptionEnabled = Boolean(transcriptionAccount?.enabled);
+  const transcriptionBalanceMinutes = Math.floor(Number(transcriptionAccount?.balance_seconds ?? 0) / 60);
+  const transcriptionUsedMinutes = Math.ceil(Number(transcriptionAccount?.lifetime_used_seconds ?? 0) / 60);
 
   return (
     <section className="stack">
@@ -140,6 +149,51 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                   <button className="btn" type="submit">Guardar configuración</button>
                 </div>
               </form>
+            </div>
+
+            <div className="card">
+              <div className="page-header" style={{ marginBottom: 12 }}>
+                <div>
+                  <h2 style={{ margin: 0 }}>Transcripción con IA</h2>
+                  <p className="muted" style={{ margin: '6px 0 0', fontSize: 13 }}>
+                    Módulo opcional. TurnIA usa el audio sólo para convertirlo a texto y no conserva el archivo de audio.
+                  </p>
+                </div>
+                <span className={`badge ${transcriptionEnabled ? 'badge-confirmado' : 'badge-neutral'}`}>
+                  {transcriptionEnabled ? 'Activa' : 'Desactivada'}
+                </span>
+              </div>
+
+              {transcriptionAvailable ? (
+                <>
+                  <div className="stat-strip" style={{ marginBottom: 14 }}>
+                    <div>
+                      <span className="muted">Minutos disponibles</span>
+                      <strong>{transcriptionBalanceMinutes.toLocaleString('es-AR')}</strong>
+                    </div>
+                    <div>
+                      <span className="muted">Minutos utilizados</span>
+                      <strong>{transcriptionUsedMinutes.toLocaleString('es-AR')}</strong>
+                    </div>
+                  </div>
+
+                  <p className="muted" style={{ fontSize: 13 }}>
+                    El dictado sólo funciona mientras el módulo esté activo y haya minutos disponibles.
+                    La compra de paquetes se habilitará más adelante desde TurnIA.
+                  </p>
+
+                  <form action={updateAiTranscriptionSetting}>
+                    <input type="hidden" name="enabled" value={transcriptionEnabled ? 'false' : 'true'} />
+                    <button className={`btn ${transcriptionEnabled ? 'secondary' : ''}`} type="submit">
+                      {transcriptionEnabled ? 'Desactivar transcripción' : 'Activar transcripción'}
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <p className="alert error" style={{ marginBottom: 0 }}>
+                  El control de Transcripción IA todavía no está habilitado en esta base de datos.
+                </p>
+              )}
             </div>
           </div>
         }
