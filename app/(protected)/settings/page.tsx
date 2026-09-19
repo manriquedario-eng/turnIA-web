@@ -202,7 +202,11 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                       </button>
                     </form>
                   ) : mercadoPagoConfigured ? (
-                    <a className="btn secondary" style={{ padding: '7px 12px', fontSize: 13 }} href="/api/integrations/mercadopago/oauth/connect">
+                    <a
+                      className="btn secondary"
+                      style={{ padding: '7px 12px', fontSize: 13 }}
+                      href="https://www.turniahealth.com.ar/api/integrations/mercadopago/oauth/connect"
+                    >
                       Conectar
                     </a>
                   ) : (

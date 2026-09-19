@@ -7,12 +7,14 @@
 // apex sin www, se redirige a www ANTES de generar nada -> se verifica que
 // el environment de Vercel sea 'production' (ver isProductionEnvironment
 // más abajo) -> se genera un `state` aleatorio (CSRF) y un par PKCE
-// (code_verifier/code_challenge) -> state y code_verifier se guardan en DOS
-// cookies httpOnly separadas de corta vida -> se redirige a Mercado Pago.
-// El callback valida ambos antes de intercambiar el `code`.
+// (code_verifier/code_challenge) -> state y code_verifier se setean como
+// cookies httpOnly DIRECTAMENTE sobre el NextResponse de redirect a Mercado
+// Pago (nunca vía cookies() de next/headers: en un GET seguido de redirect,
+// eso puede terminar sin adjuntarse de forma confiable a la respuesta real
+// que ve el browser) -> se redirige a Mercado Pago. El callback valida
+// ambos antes de intercambiar el `code`.
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { randomBytes } from 'node:crypto';
 import { requireTenant } from '@/lib/auth/require-user';
 import { buildMercadoPagoAuthUrl, generateMercadoPagoPkcePair, isMercadoPagoOAuthConfigured } from '@/lib/mercadopago/oauth';
@@ -105,7 +107,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const cookieStore = await cookies();
+  // Cookies seteadas DIRECTAMENTE sobre la response de redirect (no vía
+  // cookies() de next/headers) para garantizar que viajan en la respuesta
+  // real que recibe el browser. Host-only a propósito: sin `domain`, para
+  // que sólo existan en el host exacto que las setea (www.turniahealth.com.ar
+  // en producción, nunca .turniahealth.com.ar).
+  const response = NextResponse.redirect(authUrlResult.data);
   const cookieOptions = {
     httpOnly: true,
     secure: true,
@@ -116,8 +123,8 @@ export async function GET(request: NextRequest) {
   // Cookies SEPARADAS a propósito (nunca un solo valor combinado): state es
   // el anti-CSRF de siempre, code_verifier es el secreto PKCE — mezclarlos
   // no aporta nada y complica poder invalidar/leer cada uno por separado.
-  cookieStore.set(STATE_COOKIE, state, cookieOptions);
-  cookieStore.set(VERIFIER_COOKIE, codeVerifier, cookieOptions);
+  response.cookies.set(STATE_COOKIE, state, cookieOptions);
+  response.cookies.set(VERIFIER_COOKIE, codeVerifier, cookieOptions);
 
-  return NextResponse.redirect(authUrlResult.data);
+  return response;
 }
