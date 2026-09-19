@@ -2,39 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-type SpeechRecognitionEventLike = {
-  resultIndex: number;
-  results: ArrayLike<{
-    isFinal: boolean;
-    0: { transcript: string };
-  }>;
-};
-
-type SpeechRecognitionErrorEventLike = {
-  error?: string;
-};
-
-type SpeechRecognitionLike = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
-  onend: (() => void) | null;
-};
-
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
-
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  }
-}
-
 type Props = {
   name: string;
   label: string;
@@ -44,6 +11,24 @@ type Props = {
   maxLength?: number;
   placeholder?: string;
 };
+
+function preferredMimeType() {
+  if (typeof MediaRecorder === 'undefined') return '';
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/mp4',
+  ];
+  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? '';
+}
+
+function fileExtension(mimeType: string) {
+  if (mimeType.includes('ogg')) return 'ogg';
+  if (mimeType.includes('mp4')) return 'mp4';
+  if (mimeType.includes('wav')) return 'wav';
+  return 'webm';
+}
 
 export function VoiceTranscriptionTextarea({
   name,
@@ -55,158 +40,137 @@ export function VoiceTranscriptionTextarea({
   placeholder,
 }: Props) {
   const [value, setValue] = useState('');
-  const [listening, setListening] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [supported, setSupported] = useState(true);
   const [error, setError] = useState('');
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const committedValueRef = useRef('');
-  const microphonePermissionRef = useRef<PermissionState | 'unknown'>('unknown');
+  const [seconds, setSeconds] = useState(0);
+
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    let permissionStatus: PermissionStatus | null = null;
-
-    void (async () => {
-      try {
-        if (navigator.permissions?.query) {
-          permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-          microphonePermissionRef.current = permissionStatus.state;
-
-          const syncPermission = () => {
-            microphonePermissionRef.current = permissionStatus?.state ?? 'unknown';
-            if (permissionStatus?.state === 'granted') {
-              setError((current) =>
-                current.includes('permiso') || current.includes('bloqueó') ? '' : current,
-              );
-            }
-          };
-
-          permissionStatus.addEventListener('change', syncPermission);
-        }
-      } catch {
-        microphonePermissionRef.current = 'unknown';
-      }
-    })();
-
-    const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
-    if (!Recognition) {
-      setSupported(false);
-      return;
-    }
-
-    const recognition = new Recognition();
-    recognition.lang = 'es-AR';
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    recognition.onresult = (event) => {
-      let finalChunk = '';
-      let interimChunk = '';
-
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
-        const result = event.results[i];
-        const transcript = result[0]?.transcript ?? '';
-        if (result.isFinal) finalChunk += transcript;
-        else interimChunk += transcript;
-      }
-
-      if (finalChunk) {
-        const base = committedValueRef.current.trim();
-        const next = [base, finalChunk.trim()].filter(Boolean).join(' ');
-        committedValueRef.current = next;
-        setValue(next);
-      } else if (interimChunk) {
-        const base = committedValueRef.current.trim();
-        setValue([base, interimChunk.trim()].filter(Boolean).join(' '));
-      }
-    };
-
-    recognition.onerror = (event) => {
-      setListening(false);
-      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-        if (microphonePermissionRef.current === 'granted') {
-          setError('El micrófono está permitido, pero Chrome no pudo iniciar el reconocimiento de voz. Recargá la página y volvé a intentar; si continúa, revisaremos el motor de transcripción.');
-        } else {
-          setError('Chrome no tiene permiso para usar el micrófono en TurnIA. Abrí los permisos del sitio → Micrófono → Permitir y recargá la página.');
-        }
-      } else if (event.error === 'no-speech') {
-        setError('No se detectó voz. Acercate al micrófono y volvé a intentar.');
-      } else if (event.error === 'audio-capture') {
-        setError('Chrome no pudo capturar audio del micrófono seleccionado.');
-      } else {
-        setError('No se pudo continuar con el dictado. Podés escribir la nota manualmente.');
-      }
-    };
-
-    recognition.onend = () => {
-      setListening(false);
-      setValue(committedValueRef.current);
-    };
-
-    recognitionRef.current = recognition;
+    const available =
+      typeof navigator !== 'undefined' &&
+      !!navigator.mediaDevices?.getUserMedia &&
+      typeof MediaRecorder !== 'undefined';
+    setSupported(available);
 
     return () => {
-      recognition.abort();
-      recognitionRef.current = null;
-      if (permissionStatus) {
-        permissionStatus.onchange = null;
-      }
+      if (timerRef.current != null) window.clearInterval(timerRef.current);
+      recorderRef.current?.state !== 'inactive' && recorderRef.current?.stop();
+      streamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
 
-  async function toggleDictation() {
-    const recognition = recognitionRef.current;
-    if (!recognition) return;
-
+  async function transcribe(blob: Blob, mimeType: string) {
+    setTranscribing(true);
     setError('');
 
-    if (listening) {
-      recognition.stop();
-      setListening(false);
-      return;
-    }
-
-    // Chrome exige que el permiso del micrófono se solicite desde una acción
-    // explícita del usuario. Pedimos acceso primero, soltamos inmediatamente
-    // el stream (TurnIA no graba ni conserva audio) y recién después iniciamos
-    // SpeechRecognition para convertir la voz en texto.
     try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setError('Este navegador no permite solicitar acceso al micrófono desde TurnIA.');
+      const extension = fileExtension(mimeType);
+      const file = new File([blob], `nota-turnia.${extension}`, {
+        type: mimeType || 'audio/webm',
+      });
+      const form = new FormData();
+      form.append('audio', file);
+
+      const response = await fetch('/api/transcription', {
+        method: 'POST',
+        body: form,
+        cache: 'no-store',
+      });
+
+      const payload = await response.json().catch(() => ({})) as { text?: string; error?: string };
+
+      if (!response.ok || !payload.text) {
+        setError(payload.error || 'No se pudo transcribir la nota.');
         return;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      microphonePermissionRef.current = 'granted';
-      setError('');
-      stream.getTracks().forEach((track) => track.stop());
-    } catch (permissionError) {
-      const name = permissionError instanceof DOMException ? permissionError.name : '';
-      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-        if (microphonePermissionRef.current === 'granted') {
-          setError('Chrome tiene permitido el micrófono para TurnIA, pero Windows o el dispositivo está bloqueando el acceso. Revisá Configuración de Windows → Privacidad y seguridad → Micrófono.');
-        } else {
-          setError('Chrome no tiene permiso para usar el micrófono en TurnIA. Abrí los permisos del sitio → Micrófono → Permitir y recargá la página.');
-        }
-      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-        setError('No se encontró ningún micrófono disponible en este equipo.');
-      } else {
-        setError('No se pudo acceder al micrófono. Revisá los permisos de Chrome y de Windows.');
-      }
-      return;
-    }
-
-    committedValueRef.current = value.trim();
-    try {
-      recognition.start();
-      setListening(true);
+      const base = value.trim();
+      const next = [base, payload.text.trim()].filter(Boolean).join(base ? '\n' : '');
+      setValue(next);
     } catch {
-      setError('No se pudo iniciar el dictado. Esperá un instante y volvé a intentar.');
+      setError('No se pudo enviar el audio para transcribir.');
+    } finally {
+      setTranscribing(false);
     }
   }
 
-  function handleChange(next: string) {
-    setValue(next);
-    committedValueRef.current = next;
+  async function startRecording() {
+    setError('');
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+
+      const mimeType = preferredMimeType();
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
+      recorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunksRef.current.push(event.data);
+      };
+
+      recorder.onerror = () => {
+        setError('Se produjo un error mientras se grababa la nota.');
+      };
+
+      recorder.onstop = () => {
+        if (timerRef.current != null) {
+          window.clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+
+        const actualType = recorder.mimeType || mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: actualType });
+
+        chunksRef.current = [];
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        recorderRef.current = null;
+        setRecording(false);
+        setSeconds(0);
+
+        if (blob.size > 0) void transcribe(blob, actualType);
+        else setError('No se capturó audio. Volvé a intentar.');
+      };
+
+      recorder.start(250);
+      setSeconds(0);
+      setRecording(true);
+      timerRef.current = window.setInterval(() => {
+        setSeconds((current) => current + 1);
+      }, 1000);
+    } catch (permissionError) {
+      const errorName = permissionError instanceof DOMException ? permissionError.name : '';
+      if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
+        setError('El sistema no permitió abrir el micrófono. Verificá que Chrome tenga acceso al dispositivo.');
+      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
+        setError('No se encontró ningún micrófono disponible.');
+      } else {
+        setError('No se pudo abrir el micrófono.');
+      }
+    }
+  }
+
+  function stopRecording() {
+    const recorder = recorderRef.current;
+    if (!recorder || recorder.state === 'inactive') return;
+    recorder.stop();
+  }
+
+  function toggleRecording() {
+    if (transcribing) return;
+    if (recording) stopRecording();
+    else void startRecording();
   }
 
   return (
@@ -215,15 +179,15 @@ export function VoiceTranscriptionTextarea({
         <label htmlFor={`voice-note-${name}`}>{label}</label>
         <button
           type="button"
-          className={`voice-note-button ${listening ? 'is-listening' : ''}`}
-          onClick={toggleDictation}
-          disabled={!supported}
-          aria-pressed={listening}
+          className={`voice-note-button ${recording ? 'is-listening' : ''}`}
+          onClick={toggleRecording}
+          disabled={!supported || transcribing}
+          aria-pressed={recording}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 14.5a3.5 3.5 0 0 0 3.5-3.5V6a3.5 3.5 0 1 0-7 0v5a3.5 3.5 0 0 0 3.5 3.5Zm-6-3.75a.75.75 0 0 1 1.5 0 4.5 4.5 0 0 0 9 0 .75.75 0 0 1 1.5 0 6 6 0 0 1-5.25 5.95V20h2.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1 0-1.5h2.5v-3.3A6 6 0 0 1 6 10.75Z" />
           </svg>
-          {listening ? 'Detener dictado' : 'Dictar nota'}
+          {transcribing ? 'Transcribiendo…' : recording ? `Detener · ${seconds}s` : 'Dictar nota'}
         </button>
       </div>
 
@@ -236,17 +200,19 @@ export function VoiceTranscriptionTextarea({
         rows={rows}
         placeholder={placeholder}
         value={value}
-        onChange={(event) => handleChange(event.target.value)}
+        onChange={(event) => setValue(event.target.value)}
         style={{ width: '100%' }}
       />
 
       <div className="voice-note-help">
-        {listening ? (
-          <span className="voice-note-status"><span className="voice-note-dot" /> Escuchando… el texto aparece mientras hablás.</span>
+        {recording ? (
+          <span className="voice-note-status"><span className="voice-note-dot" /> Grabando… tocá “Detener” cuando termines.</span>
+        ) : transcribing ? (
+          <span>Procesando la nota y convirtiéndola a texto…</span>
         ) : supported ? (
-          <span>TurnIA conserva sólo el texto de la nota; no guarda un archivo de audio.</span>
+          <span>TurnIA usa el audio sólo para transcribir esta nota y conserva únicamente el texto.</span>
         ) : (
-          <span>El dictado por voz no está disponible en este navegador. Podés escribir la nota normalmente.</span>
+          <span>La grabación de voz no está disponible en este navegador.</span>
         )}
       </div>
 
