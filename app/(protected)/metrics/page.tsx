@@ -5,10 +5,22 @@ import { EmptyState } from '@/components/ui/EmptyState';
 const CANCELLED = new Set(['cancelled', 'cancelado']);
 const NO_SHOW = new Set(['no_show', 'no-show', 'ausente']);
 
+function formatDuration(totalSeconds: number) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  if (minutes === 0) return `${remainder} s`;
+  if (remainder === 0) return `${minutes} min`;
+  return `${minutes} min ${remainder} s`;
+}
+
 export default async function MetricsPage() {
   const { supabase, tenantId } = await requireTenant();
 
-  const [appointmentsResult, paymentsResult] = await Promise.all([
+  const now = new Date();
+  const monthStart = new Date(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01T00:00:00-03:00`).toISOString();
+
+  const [appointmentsResult, paymentsResult, transcriptionAccountResult, transcriptionUsageResult] = await Promise.all([
     supabase
       .from('appointments')
       .select('id, patient_id, starts_at, status, quoted_amount, currency, patients(name)')
@@ -18,10 +30,32 @@ export default async function MetricsPage() {
       .from('payments')
       .select('appointment_id, amount')
       .eq('tenant_id', tenantId),
+    supabase
+      .from('ai_transcription_accounts')
+      .select('enabled,balance_seconds,lifetime_used_seconds')
+      .eq('tenant_id', tenantId)
+      .maybeSingle(),
+    supabase
+      .from('ai_transcription_ledger')
+      .select('seconds,usage_context,created_at')
+      .eq('tenant_id', tenantId)
+      .eq('kind', 'usage')
+      .gte('created_at', monthStart)
+      .order('created_at', { ascending: false }),
   ]);
 
   const appointments = appointmentsResult.data ?? [];
   const payments = paymentsResult.data ?? [];
+  const transcriptionAccount = transcriptionAccountResult.data;
+  const transcriptionUsage = transcriptionUsageResult.data ?? [];
+
+  const transcriptionBalanceSeconds = Number(transcriptionAccount?.balance_seconds ?? 0);
+  const transcriptionMonthSeconds = transcriptionUsage.reduce((sum, row) => sum + Number(row.seconds ?? 0), 0);
+  const transcriptionCount = transcriptionUsage.length;
+  const sessionTranscriptions = transcriptionUsage.filter((row) => row.usage_context === 'session');
+  const followUpTranscriptions = transcriptionUsage.filter((row) => row.usage_context === 'follow_up');
+  const sessionSeconds = sessionTranscriptions.reduce((sum, row) => sum + Number(row.seconds ?? 0), 0);
+  const followUpSeconds = followUpTranscriptions.reduce((sum, row) => sum + Number(row.seconds ?? 0), 0);
   const paidByAppointment = new Map<string, number>();
   for (const payment of payments) {
     paidByAppointment.set(payment.appointment_id, (paidByAppointment.get(payment.appointment_id) ?? 0) + Number(payment.amount ?? 0));
@@ -111,6 +145,42 @@ export default async function MetricsPage() {
             </table>
           </div>
         )}
+      </div>
+
+      <div className="card">
+        <div className="page-header" style={{ marginBottom: 14 }}>
+          <div>
+            <h2 style={{ margin: 0 }}>Transcripción con IA</h2>
+            <p className="muted" style={{ margin: '6px 0 0', fontSize: 13 }}>
+              Consumo del mes actual y saldo disponible del módulo opcional.
+            </p>
+          </div>
+          <span className={`badge ${transcriptionAccount?.enabled ? 'badge-confirmado' : 'badge-neutral'}`}>
+            {transcriptionAccount?.enabled ? 'Activa' : 'Desactivada'}
+          </span>
+        </div>
+
+        <div className="metrics-activity-row">
+          <div className="metrics-activity-item">
+            <span className="metrics-activity-value">{formatDuration(transcriptionBalanceSeconds)}</span>
+            <span className="patient-meta-label">Saldo disponible</span>
+          </div>
+          <div className="metrics-activity-item">
+            <span className="metrics-activity-value">{formatDuration(transcriptionMonthSeconds)}</span>
+            <span className="patient-meta-label">Usado este mes</span>
+            <span className="stat-strip-hint">{transcriptionCount} transcripción{transcriptionCount === 1 ? '' : 'es'}</span>
+          </div>
+          <div className="metrics-activity-item">
+            <span className="metrics-activity-value">{formatDuration(sessionSeconds)}</span>
+            <span className="patient-meta-label">En sesiones</span>
+            <span className="stat-strip-hint">{sessionTranscriptions.length} dictado{sessionTranscriptions.length === 1 ? '' : 's'}</span>
+          </div>
+          <div className="metrics-activity-item">
+            <span className="metrics-activity-value">{formatDuration(followUpSeconds)}</span>
+            <span className="patient-meta-label">En seguimientos</span>
+            <span className="stat-strip-hint">{followUpTranscriptions.length} dictado{followUpTranscriptions.length === 1 ? '' : 's'}</span>
+          </div>
+        </div>
       </div>
 
       <div className="card">
