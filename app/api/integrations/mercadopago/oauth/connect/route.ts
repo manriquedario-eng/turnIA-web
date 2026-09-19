@@ -3,12 +3,13 @@
 // llega acá desde un link normal en Settings, nunca desde un fetch/XHR.
 // Mismo patrón que app/api/google/oauth/connect/route.ts.
 //
-// Flujo: requireTenant() exige sesión válida -> se verifica que el request
-// corre bajo el host canónico de producción (ver más abajo) -> se genera un
-// `state` aleatorio (CSRF) y un par PKCE (code_verifier/code_challenge) ->
-// state y code_verifier se guardan en DOS cookies httpOnly separadas de
-// corta vida -> se redirige a Mercado Pago. El callback valida ambos antes
-// de intercambiar el `code`.
+// Flujo: requireTenant() exige sesión válida -> se determina el host público
+// real de la request (ver getPublicHost más abajo) -> se verifica que corre
+// bajo el host canónico de producción -> se genera un `state` aleatorio
+// (CSRF) y un par PKCE (code_verifier/code_challenge) -> state y
+// code_verifier se guardan en DOS cookies httpOnly separadas de corta vida
+// -> se redirige a Mercado Pago. El callback valida ambos antes de
+// intercambiar el `code`.
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
@@ -29,15 +30,43 @@ const VERIFIER_COOKIE = 'turnia_mp_oauth_verifier';
 // dominio del preview, pero Mercado Pago va a redirigir siempre al callback
 // de producción (el host fijo de MP_REDIRECT_URI), donde esas cookies no
 // existen. En vez de dejar que eso falle de forma confusa en el callback,
-// se corta acá: si el request no corre bajo el host canónico, no se inicia
-// nada de OAuth (nunca se generan cookies, nunca se llama a Mercado Pago).
+// se corta acá: si el request no corre bajo el host canónico (ni bajo el
+// apex, que se redirige a www antes de generar nada), no se inicia nada de
+// OAuth (nunca se generan cookies, nunca se llama a Mercado Pago).
 const MP_CANONICAL_HOST = 'www.turniahealth.com.ar';
+const MP_APEX_HOST = 'turniahealth.com.ar';
+
+// Detecta el host público real de la request. Detrás de Vercel/un proxy,
+// `request.nextUrl.hostname` puede no reflejar el host que el cliente (o
+// Mercado Pago) efectivamente ve, así que priorizamos las cabeceras que
+// setea el proxy:
+//   1. x-forwarded-host (si el proxy encadena varios, tomamos el primero)
+//   2. host
+//   3. request.nextUrl.host como último fallback
+// El resultado se normaliza a lowercase, sin espacios y sin puerto, para
+// que la comparación contra MP_CANONICAL_HOST / MP_APEX_HOST sea exacta.
+function getPublicHost(request: NextRequest): string {
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const rawHost = forwardedHost ? forwardedHost.split(',')[0] : request.headers.get('host') ?? request.nextUrl.host;
+
+  return rawHost.trim().toLowerCase().replace(/:\d+$/, '');
+}
 
 export async function GET(request: NextRequest) {
   // Exige sesión + tenant, igual que cualquier página de /(protected)/.
   await requireTenant();
 
-  if (request.nextUrl.hostname !== MP_CANONICAL_HOST) {
+  const publicHost = getPublicHost(request);
+
+  // Apex sin www: todavía no generamos state/PKCE/cookies. Redirigimos de
+  // una al mismo path bajo www para que esas cookies nazcan directamente
+  // en el dominio que Mercado Pago va a usar para volver al callback
+  // (https://www.turniahealth.com.ar/api/integrations/mercadopago/oauth/callback).
+  if (publicHost === MP_APEX_HOST) {
+    return NextResponse.redirect(`https://${MP_CANONICAL_HOST}/api/integrations/mercadopago/oauth/connect`);
+  }
+
+  if (publicHost !== MP_CANONICAL_HOST) {
     return NextResponse.redirect(
       new URL(
         `/settings?error=${encodeURIComponent('La conexión con Mercado Pago debe realizarse desde la versión de producción de TurnIA.')}#integraciones`,
