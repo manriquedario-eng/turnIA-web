@@ -60,8 +60,33 @@ export function VoiceTranscriptionTextarea({
   const [error, setError] = useState('');
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const committedValueRef = useRef('');
+  const microphonePermissionRef = useRef<PermissionState | 'unknown'>('unknown');
 
   useEffect(() => {
+    let permissionStatus: PermissionStatus | null = null;
+
+    void (async () => {
+      try {
+        if (navigator.permissions?.query) {
+          permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          microphonePermissionRef.current = permissionStatus.state;
+
+          const syncPermission = () => {
+            microphonePermissionRef.current = permissionStatus?.state ?? 'unknown';
+            if (permissionStatus?.state === 'granted') {
+              setError((current) =>
+                current.includes('permiso') || current.includes('bloqueó') ? '' : current,
+              );
+            }
+          };
+
+          permissionStatus.addEventListener('change', syncPermission);
+        }
+      } catch {
+        microphonePermissionRef.current = 'unknown';
+      }
+    })();
+
     const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     if (!Recognition) {
       setSupported(false);
@@ -98,7 +123,15 @@ export function VoiceTranscriptionTextarea({
     recognition.onerror = (event) => {
       setListening(false);
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-        setError('Chrome bloqueó el reconocimiento de voz. Verificá el permiso de Micrófono para este sitio y volvé a intentar.');
+        if (microphonePermissionRef.current === 'granted') {
+          setError('El micrófono está permitido, pero Chrome no pudo iniciar el reconocimiento de voz. Recargá la página y volvé a intentar; si continúa, revisaremos el motor de transcripción.');
+        } else {
+          setError('Chrome no tiene permiso para usar el micrófono en TurnIA. Abrí los permisos del sitio → Micrófono → Permitir y recargá la página.');
+        }
+      } else if (event.error === 'no-speech') {
+        setError('No se detectó voz. Acercate al micrófono y volvé a intentar.');
+      } else if (event.error === 'audio-capture') {
+        setError('Chrome no pudo capturar audio del micrófono seleccionado.');
       } else {
         setError('No se pudo continuar con el dictado. Podés escribir la nota manualmente.');
       }
@@ -114,6 +147,9 @@ export function VoiceTranscriptionTextarea({
     return () => {
       recognition.abort();
       recognitionRef.current = null;
+      if (permissionStatus) {
+        permissionStatus.onchange = null;
+      }
     };
   }, []);
 
@@ -140,6 +176,8 @@ export function VoiceTranscriptionTextarea({
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      microphonePermissionRef.current = 'granted';
+      setError('');
       stream.getTracks().forEach((track) => track.stop());
     } catch (permissionError) {
       const name = permissionError instanceof DOMException ? permissionError.name : '';
