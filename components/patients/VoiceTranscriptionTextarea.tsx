@@ -98,7 +98,7 @@ export function VoiceTranscriptionTextarea({
     recognition.onerror = (event) => {
       setListening(false);
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-        setError('El navegador bloqueó el micrófono. Habilitalo para TurnIA y volvé a intentar.');
+        setError('Chrome bloqueó el reconocimiento de voz. Verificá el permiso de Micrófono para este sitio y volvé a intentar.');
       } else {
         setError('No se pudo continuar con el dictado. Podés escribir la nota manualmente.');
       }
@@ -117,7 +117,7 @@ export function VoiceTranscriptionTextarea({
     };
   }, []);
 
-  function toggleDictation() {
+  async function toggleDictation() {
     const recognition = recognitionRef.current;
     if (!recognition) return;
 
@@ -129,13 +129,36 @@ export function VoiceTranscriptionTextarea({
       return;
     }
 
+    // Chrome exige que el permiso del micrófono se solicite desde una acción
+    // explícita del usuario. Pedimos acceso primero, soltamos inmediatamente
+    // el stream (TurnIA no graba ni conserva audio) y recién después iniciamos
+    // SpeechRecognition para convertir la voz en texto.
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError('Este navegador no permite solicitar acceso al micrófono desde TurnIA.');
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+    } catch (permissionError) {
+      const name = permissionError instanceof DOMException ? permissionError.name : '';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        setError('Chrome no tiene permiso para usar el micrófono en TurnIA. Tocá el candado de la barra de direcciones → Micrófono → Permitir y volvé a intentar.');
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        setError('No se encontró ningún micrófono disponible en este equipo.');
+      } else {
+        setError('No se pudo acceder al micrófono. Revisá los permisos de Chrome y de Windows.');
+      }
+      return;
+    }
+
     committedValueRef.current = value.trim();
     try {
       recognition.start();
       setListening(true);
     } catch {
-      // Algunos navegadores lanzan InvalidStateError si start() se dispara
-      // dos veces muy rápido. No se pierde el texto ya dictado.
+      setError('No se pudo iniciar el dictado. Esperá un instante y volvé a intentar.');
     }
   }
 
