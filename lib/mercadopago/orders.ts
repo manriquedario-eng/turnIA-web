@@ -557,7 +557,6 @@ export async function createMercadoPagoCheckoutForAppointment(params: {
             quantity: 1,
             unit_price: amountStr,
             total_amount: amountStr,
-            unit_measure: 'unit',
           },
         ],
       }),
