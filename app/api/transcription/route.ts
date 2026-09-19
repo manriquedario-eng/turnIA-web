@@ -18,7 +18,7 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 export async function POST(request: Request) {
-  await requireTenant();
+  const { supabase, user, tenantId } = await requireTenant();
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -36,8 +36,42 @@ export async function POST(request: Request) {
   }
 
   const audio = formData.get('audio');
+  const durationRaw = formData.get('duration_seconds');
+  const durationSeconds = Math.ceil(Number(durationRaw));
+
   if (!(audio instanceof File)) {
     return NextResponse.json({ error: 'Falta el archivo de audio.' }, { status: 400 });
+  }
+
+  if (!Number.isFinite(durationSeconds) || durationSeconds < 1 || durationSeconds > 900) {
+    return NextResponse.json({ error: 'Duración de audio inválida.' }, { status: 400 });
+  }
+
+  const { data: account, error: accountError } = await supabase
+    .from('ai_transcription_accounts')
+    .select('enabled,balance_seconds')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (accountError) {
+    return NextResponse.json(
+      { error: 'El control de Transcripción IA todavía no está habilitado en este entorno.' },
+      { status: 503 },
+    );
+  }
+
+  if (!account?.enabled) {
+    return NextResponse.json(
+      { error: 'La Transcripción IA está desactivada. Podés activarla desde Configuración.' },
+      { status: 403 },
+    );
+  }
+
+  if (Number(account.balance_seconds ?? 0) < durationSeconds) {
+    return NextResponse.json(
+      { error: 'No tenés minutos de transcripción disponibles.' },
+      { status: 402 },
+    );
   }
 
   if (audio.size <= 0 || audio.size > MAX_AUDIO_BYTES) {
@@ -83,8 +117,24 @@ export async function POST(request: Request) {
       );
     }
 
+    const { data: consumed, error: consumeError } = await supabase.rpc(
+      'consume_ai_transcription_seconds',
+      {
+        p_tenant_id: tenantId,
+        p_professional_id: user.id,
+        p_seconds: durationSeconds,
+      },
+    );
+
+    if (consumeError || consumed !== true) {
+      return NextResponse.json(
+        { error: 'La nota fue transcripta, pero no pudimos registrar el consumo. Volvé a intentar.' },
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json(
-      { text },
+      { text, consumed_seconds: durationSeconds },
       { headers: { 'Cache-Control': 'no-store, max-age=0' } },
     );
   } catch {
