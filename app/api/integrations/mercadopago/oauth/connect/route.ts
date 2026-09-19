@@ -3,13 +3,13 @@
 // llega acá desde un link normal en Settings, nunca desde un fetch/XHR.
 // Mismo patrón que app/api/google/oauth/connect/route.ts.
 //
-// Flujo: requireTenant() exige sesión válida -> se determina el host público
-// real de la request (ver getPublicHost más abajo) -> se verifica que corre
-// bajo el host canónico de producción -> se genera un `state` aleatorio
-// (CSRF) y un par PKCE (code_verifier/code_challenge) -> state y
-// code_verifier se guardan en DOS cookies httpOnly separadas de corta vida
-// -> se redirige a Mercado Pago. El callback valida ambos antes de
-// intercambiar el `code`.
+// Flujo: requireTenant() exige sesión válida -> si el host público es el
+// apex sin www, se redirige a www ANTES de generar nada -> se verifica que
+// el environment de Vercel sea 'production' (ver isProductionEnvironment
+// más abajo) -> se genera un `state` aleatorio (CSRF) y un par PKCE
+// (code_verifier/code_challenge) -> state y code_verifier se guardan en DOS
+// cookies httpOnly separadas de corta vida -> se redirige a Mercado Pago.
+// El callback valida ambos antes de intercambiar el `code`.
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
@@ -30,26 +30,39 @@ const VERIFIER_COOKIE = 'turnia_mp_oauth_verifier';
 // dominio del preview, pero Mercado Pago va a redirigir siempre al callback
 // de producción (el host fijo de MP_REDIRECT_URI), donde esas cookies no
 // existen. En vez de dejar que eso falle de forma confusa en el callback,
-// se corta acá: si el request no corre bajo el host canónico (ni bajo el
-// apex, que se redirige a www antes de generar nada), no se inicia nada de
-// OAuth (nunca se generan cookies, nunca se llama a Mercado Pago).
+// se corta acá.
+//
+// Ojo: la fuente de verdad sobre "¿esto es Production?" NO es el host. Detrás
+// de Vercel, x-forwarded-host/host pueden reflejar infraestructura interna
+// (edge, dominios de Vercel, etc.) y no el environment real del deployment —
+// eso fue justamente lo que rompió el guard anterior basado en host una vez
+// mergeado a Production. La fuente de verdad es process.env.VERCEL_ENV, que
+// Vercel setea de forma confiable en runtime: 'production' | 'preview' |
+// 'development'. El host público sigue usándose, pero solo para UNA cosa:
+// mandar el apex (turniahealth.com.ar, sin www) a www antes de generar
+// cookies, para que nazcan bajo el dominio que el callback espera.
 const MP_CANONICAL_HOST = 'www.turniahealth.com.ar';
 const MP_APEX_HOST = 'turniahealth.com.ar';
+const MP_BLOCKED_MESSAGE = 'La conexión con Mercado Pago debe realizarse desde la versión de producción de TurnIA.';
 
-// Detecta el host público real de la request. Detrás de Vercel/un proxy,
-// `request.nextUrl.hostname` puede no reflejar el host que el cliente (o
-// Mercado Pago) efectivamente ve, así que priorizamos las cabeceras que
-// setea el proxy:
+// Detecta el host público real de la request, priorizando las cabeceras que
+// setea el proxy (útil solo para el redirect de apex -> www, ver más abajo):
 //   1. x-forwarded-host (si el proxy encadena varios, tomamos el primero)
 //   2. host
 //   3. request.nextUrl.host como último fallback
-// El resultado se normaliza a lowercase, sin espacios y sin puerto, para
-// que la comparación contra MP_CANONICAL_HOST / MP_APEX_HOST sea exacta.
+// Normalizado a lowercase, sin espacios y sin puerto.
 function getPublicHost(request: NextRequest): string {
   const forwardedHost = request.headers.get('x-forwarded-host');
   const rawHost = forwardedHost ? forwardedHost.split(',')[0] : request.headers.get('host') ?? request.nextUrl.host;
 
   return rawHost.trim().toLowerCase().replace(/:\d+$/, '');
+}
+
+// Única fuente de verdad sobre el environment: VERCEL_ENV. 'production'
+// habilita el flujo; 'preview', 'development', o ausente (fail closed) lo
+// bloquean. No confiar en NODE_ENV ni en el host para esto.
+function isProductionEnvironment(): boolean {
+  return process.env.VERCEL_ENV === 'production';
 }
 
 export async function GET(request: NextRequest) {
@@ -66,13 +79,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`https://${MP_CANONICAL_HOST}/api/integrations/mercadopago/oauth/connect`);
   }
 
-  if (publicHost !== MP_CANONICAL_HOST) {
-    return NextResponse.redirect(
-      new URL(
-        `/settings?error=${encodeURIComponent('La conexión con Mercado Pago debe realizarse desde la versión de producción de TurnIA.')}#integraciones`,
-        request.url
-      )
-    );
+  // Gate real de Production: VERCEL_ENV === 'production'. Preview y
+  // development quedan bloqueados aunque el host de la request "parezca"
+  // www.turniahealth.com.ar.
+  if (!isProductionEnvironment()) {
+    return NextResponse.redirect(new URL(`/settings?error=${encodeURIComponent(MP_BLOCKED_MESSAGE)}#integraciones`, request.url));
   }
 
   if (!isMercadoPagoOAuthConfigured()) {
