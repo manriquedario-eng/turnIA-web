@@ -355,6 +355,7 @@ export default async function PatientDetailPage({
                 <VoiceTranscriptionTextarea
                   name="content"
                   label="Notas de la sesión"
+                  usageContext="session"
                   required
                   minLength={2}
                   maxLength={10000}
@@ -430,6 +431,7 @@ export default async function PatientDetailPage({
                 <VoiceTranscriptionTextarea
                   name="content"
                   label="Nota de seguimiento"
+                  usageContext="follow_up"
                   required
                   minLength={2}
                   maxLength={10000}
