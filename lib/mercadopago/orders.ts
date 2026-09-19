@@ -537,11 +537,17 @@ export async function createMercadoPagoCheckoutForAppointment(params: {
       // paciente, ya validado arriba) y se quita `description` para probar
       // contra un body más cercano al mínimo documentado. Nunca se loguea
       // este body ni el email.
+      //
+      // PRUEBA DE AISLAMIENTO ADICIONAL (ver pedido): se quita TEMPORALMENTE
+      // `external_reference` del payload que viaja a Mercado Pago, para
+      // determinar si es esa propiedad la que dispara `unsupported_properties`.
+      // La variable `externalReference` NO se toca: sigue usándose para la
+      // fila local de mercadopago_orders (deduplicación/trazabilidad interna,
+      // ver el INSERT más arriba) — sólo deja de enviarse en este `fetch`.
       body: JSON.stringify({
         type: 'online',
         processing_mode: 'manual',
         total_amount: amountStr,
-        external_reference: externalReference,
         payer: {
           email: patientEmail,
         },
