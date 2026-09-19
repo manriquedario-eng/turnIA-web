@@ -10,6 +10,15 @@ type PageProps = {
   searchParams?: Promise<{ ok?: string; error?: string }>;
 };
 
+function formatDuration(totalSeconds: number) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  if (minutes === 0) return `${remainder} s`;
+  if (remainder === 0) return `${minutes} min`;
+  return `${minutes} min ${remainder} s`;
+}
+
 export default async function SettingsPage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
   const { supabase, user, tenantId } = await requireTenant();
@@ -72,8 +81,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const emailConfigured = isEmailConfigured();
   const transcriptionAvailable = !transcriptionAccountError && Boolean(transcriptionAccount);
   const transcriptionEnabled = Boolean(transcriptionAccount?.enabled);
-  const transcriptionBalanceMinutes = Math.floor(Number(transcriptionAccount?.balance_seconds ?? 0) / 60);
-  const transcriptionUsedMinutes = Math.ceil(Number(transcriptionAccount?.lifetime_used_seconds ?? 0) / 60);
+  const transcriptionBalanceSeconds = Number(transcriptionAccount?.balance_seconds ?? 0);
+  const transcriptionUsedSeconds = Number(transcriptionAccount?.lifetime_used_seconds ?? 0);
 
   return (
     <section className="stack">
@@ -169,11 +178,11 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                   <div className="stat-strip" style={{ marginBottom: 14 }}>
                     <div>
                       <span className="muted">Minutos disponibles</span>
-                      <strong>{transcriptionBalanceMinutes.toLocaleString('es-AR')}</strong>
+                      <strong>{formatDuration(transcriptionBalanceSeconds)}</strong>
                     </div>
                     <div>
                       <span className="muted">Minutos utilizados</span>
-                      <strong>{transcriptionUsedMinutes.toLocaleString('es-AR')}</strong>
+                      <strong>{formatDuration(transcriptionUsedSeconds)}</strong>
                     </div>
                   </div>
 
