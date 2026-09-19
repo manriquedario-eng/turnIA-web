@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 type Props = {
   name: string;
   label: string;
+  usageContext?: 'session' | 'follow_up' | 'other';
   rows?: number;
   required?: boolean;
   minLength?: number;
@@ -38,6 +39,7 @@ export function VoiceTranscriptionTextarea({
   minLength,
   maxLength,
   placeholder,
+  usageContext = 'other',
 }: Props) {
   const [value, setValue] = useState('');
   const [recording, setRecording] = useState(false);
@@ -78,6 +80,7 @@ export function VoiceTranscriptionTextarea({
       const form = new FormData();
       form.append('audio', file);
       form.append('duration_seconds', String(Math.max(1, Math.min(900, Math.ceil(durationSeconds)))));
+      form.append('usage_context', usageContext);
 
       const response = await fetch('/api/transcription', {
         method: 'POST',
