@@ -163,3 +163,25 @@ export async function disconnectMercadoPago() {
   revalidatePath('/settings');
   redirect('/settings?ok=Mercado%20Pago%20desconectado#integraciones');
 }
+
+
+export async function updateAiTranscriptionSetting(formData: FormData) {
+  const { supabase, tenantId } = await requireTenant();
+  const enabled = formData.get('enabled') === 'true';
+
+  const { error } = await supabase
+    .from('ai_transcription_accounts')
+    .update({ enabled, updated_at: new Date().toISOString() })
+    .eq('tenant_id', tenantId);
+
+  if (error) {
+    redirect(`/settings?error=${encodeURIComponent('No se pudo actualizar Transcripción IA.')}`);
+  }
+
+  revalidatePath('/settings');
+  redirect(
+    enabled
+      ? '/settings?ok=Transcripción%20IA%20activada'
+      : '/settings?ok=Transcripción%20IA%20desactivada'
+  );
+}
