@@ -1,68 +1,78 @@
 /* =========================================================================
-   TurnIA — Sistema visual (Fase UI v4 — PALETA DEFINITIVA APROBADA)
-   Azul petróleo (#0F6E78) como primario — identidad salud + tecnología,
-   NUNCA índigo/violeta, NUNCA terracota/marrón/beige dominante. Acento teal
-   (#14B8A6) y azul clínico (#2563EB, "secondary") para usos puntuales de
-   estado (Agendado, info). Regla de uso estricta pedida por el cliente:
-   ~80-85% blanco/neutro claro, ~10-15% primario (sólo en logo, CTA, nav
-   activo, tabs activas, links clave, foco, indicadores chicos — NUNCA como
-   fondo dominante de cards grandes). Sin gradientes decorativos, sin
-   glassmorphism, sin neón.
-   Mantiene los nombres de clase usados por las páginas existentes
-   (card, btn, nav, table, form-grid, alert, muted, grid, stack...) — sólo
-   cambian valores/uso de color, no la lógica de negocio.
+   TurnIA — Sistema visual (Fase UI v6 — CONCEPTO C: EDITORIAL MINIMAL)
+   Tercera generación de identidad. Se descarta la dirección v5 (tinta
+   oscura + bronce) por la dirección aprobada por el cliente como director
+   visual del producto: fondo cálido muy claro, superficies blancas limpias,
+   verde salvia como color principal, lila/malva/arena como acentos suaves
+   en círculos, mucho aire, composición editorial en vez de administrativa.
+   Mismos NOMBRES de variable que las versiones anteriores (para no
+   reescribir cientos de referencias en todo el CSS) — cambian los valores,
+   y en sidebar/login/dashboard también cambia la estructura visual.
    ========================================================================= */
 
 :root {
-  /* ---- Tokens con los nombres EXACTOS pedidos (paleta aprobada) ---- */
-  --color-primary: #0f6e78;
-  --color-primary-hover: #0b5961;
-  --color-primary-soft: #e6f4f5;
-  --color-secondary: #2563eb;
-  --color-accent: #14b8a6;
-  --color-bg: #f7fafc;
-  --color-surface: #ffffff;
-  --color-surface-soft: #f1f5f9;
-  --color-text: #0f172a;
-  --color-text-muted: #64748b;
-  --color-border: #d9e2eb;
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-danger: #dc2626;
+  /* ---- Paleta base Concepto C (nombres tal como los definió el cliente) ---- */
+  --turnia-green: #5f826f;
+  --turnia-green-soft: #dce8df;
+  --turnia-lilac: #d8c9e4;
+  --turnia-lilac-soft: #ede6f2;
+  --turnia-mauve: #be8e9a;
+  --turnia-mauve-soft: #f3e3e7;
+  --turnia-sand: #e9d9c7;
+  --turnia-sand-soft: #f6eee4;
 
-  /* ---- Alias internos (mismos valores, nombres históricos usados en el
-     resto de este archivo) — se mantienen para no reescribir cientos de
-     referencias; ningún alias introduce un color nuevo, todos derivan de
-     los tokens de arriba o de tintes/variantes mínimas necesarias para que
-     bordes muy sutiles ("border-soft") sigan distinguiéndose de fondos
-     ("surface-soft") sin agregar otra familia de color. */
+  /* ---- Marca / semántica — se apoyan en la paleta base de arriba. Los
+     tonos "-strong" son versiones oscurecidas SOLO para texto/ícono sobre
+     fondo claro (accesibilidad) — el círculo de fondo sigue siendo el tono
+     suave de la paleta base, nunca el saturado como relleno grande. ---- */
+  --color-primary: #5f826f;
+  --color-primary-hover: #4a6b58;
+  --color-primary-soft: #dce8df;
+  --color-secondary: #8a6ba3;
+  --color-accent: #be8e9a;
+  --color-bg: #f8f6f1;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f1ece3;
+  --color-text: #1f2b33;
+  --color-text-muted: #6d777c;
+  --color-border: #e6e1d9;
+  --color-success: #4a6b58;
+  --color-warning: #a97c34;
+  --color-danger: #9c5164;
+
+  /* ---- Alias internos (mismos nombres históricos usados en el resto de
+     este archivo) — todos derivan de los tokens de arriba. */
   --color-primary-strong: var(--color-primary-hover);
-  --color-primary-soft-strong: #d3ecee;
+  --color-primary-soft-strong: #cbe0d3;
   --color-surface-sunken: var(--color-surface-soft);
   --color-surface-raised: var(--color-surface);
-  --color-border-soft: #e8edf3;
-  --color-text-strong: var(--color-text);
-  --color-text-faint: #94a3b8;
-  --color-secondary-soft: #dbeafe;
-  --color-success-bg: #dcfce7;
-  --color-warning-bg: #fef3c7;
-  --color-danger-bg: #fee2e2;
+  --color-border-soft: #ede8df;
+  --color-text-strong: #16212a;
+  --color-text-faint: #9aa3a6;
+  --color-secondary-soft: var(--turnia-lilac-soft);
+  --color-success-bg: var(--turnia-green-soft);
+  --color-warning-bg: var(--turnia-sand-soft);
+  --color-danger-bg: var(--turnia-mauve-soft);
   --color-info: var(--color-secondary);
   --color-info-bg: var(--color-secondary-soft);
-  --color-accent-soft: #ccfbf1;
+  --color-accent-soft: var(--turnia-mauve-soft);
 
   /* Layout */
-  --sidebar-width: 248px;
+  --sidebar-width: 260px;
   --sidebar-width-collapsed: 76px;
-  --topbar-height: 64px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 6px 20px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.16);
+  --topbar-height: 68px;
+  --radius-sm: 11px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --shadow-sm: 0 1px 2px rgba(31, 43, 51, 0.04);
+  --shadow-md: 0 6px 20px rgba(31, 43, 51, 0.07);
+  --shadow-lg: 0 18px 44px rgba(31, 43, 51, 0.12);
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Fuente editorial — títulos grandes, hero numbers y wordmark. Reservada
+     a momentos puntuales (h1, login, métricas hero); el resto de la UI
+     sigue en Inter para no perder legibilidad/densidad operativa. */
+  --font-display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
 
   color-scheme: light;
 }
@@ -101,9 +111,11 @@ select {
    grande, Section/Card title (h2) claramente un escalón abajo con menos
    peso, Label (h3) sin cambios (ya funcionaba bien como caption/label). */
 h1 {
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
   color: var(--color-text-strong);
   margin: 0 0 4px;
 }
@@ -117,11 +129,11 @@ h2 {
 }
 
 h3 {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   margin: 0 0 8px;
 }
 
@@ -141,8 +153,9 @@ p {
    para texto nuevo, y para ir migrando gradualmente sin inventar otro
    tamaño más cada vez. */
 .text-metric {
+  font-family: var(--font-display);
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-strong);
@@ -166,6 +179,42 @@ p {
   color: var(--color-text-muted);
   line-height: 1.5;
 }
+
+/* ---------- Círculos de color (Concepto C — Editorial Minimal) ----------
+   Parte central de la identidad: íconos, iniciales y pequeños acentos viven
+   dentro de círculos de color suave en vez de badges rectangulares o cards
+   propias. Cuatro variantes de la paleta base + una versión "strong" para
+   los pocos casos con ícono/inicial en blanco sobre color sólido (avatar de
+   "próximo turno", símbolo de marca). Se usa con moderación — no todo
+   ícono necesita un círculo. */
+.icon-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  background: var(--turnia-green-soft);
+  color: var(--color-primary-hover);
+}
+
+.icon-circle.is-sm { width: 30px; height: 30px; }
+.icon-circle.is-lg { width: 52px; height: 52px; }
+
+.icon-circle.is-lilac { background: var(--turnia-lilac-soft); color: var(--color-secondary); }
+.icon-circle.is-mauve { background: var(--turnia-mauve-soft); color: var(--color-danger); }
+.icon-circle.is-sand { background: var(--turnia-sand-soft); color: var(--color-warning); }
+
+/* Versión sólida — texto/ícono blanco encima, reservada a avatares y al
+   símbolo de marca (uso puntual, nunca el default). */
+.icon-circle.is-strong {
+  background: var(--color-primary);
+  color: #fff;
+}
+.icon-circle.is-strong.is-lilac { background: #a98fc0; color: #fff; }
+.icon-circle.is-strong.is-mauve { background: var(--turnia-mauve); color: #fff; }
+.icon-circle.is-strong.is-sand { background: #c9a876; color: #fff; }
 
 /* ---------- Layout primitives ---------- */
 
@@ -562,21 +611,208 @@ table tbody tr:hover {
   color: var(--color-success);
 }
 
-/* ---------- Login ---------- */
-
-/* Fondo plano, sin gradiente decorativo (paleta aprobada: "prohibido
-   gradientes decorativos") — un solo neutro claro, coherente con el resto
-   de la app. */
-.login-wrap {
+/* ---------- Login — Concepto C: Editorial Minimal ----------
+   Segunda generación del split-login: la v5 usaba una columna de tinta
+   oscura (dirección descartada). Ahora la columna izquierda es cálida y
+   clara — el mismo fondo marfil de la app, no un bloque oscuro — con
+   círculos botánicos decorativos muy discretos, un titular editorial grande
+   y tres beneficios con ícono-en-círculo. La prioridad máxima del pedido:
+   que se sienta completamente nuevo desde el primer segundo. */
+.login-shell {
   min-height: 100vh;
   display: grid;
-  place-items: center;
-  padding: 24px;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  background: var(--color-surface);
+}
+
+.login-aside {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 56px;
   background: var(--color-bg);
+  color: var(--color-text);
+  overflow: hidden;
+  border-right: 1px solid var(--color-border-soft);
+}
+
+/* Detalles botánicos discretos: círculos suaves de la paleta, apenas
+   visibles, nunca un gradiente vistoso — decoración, no protagonismo. */
+.login-aside::before,
+.login-aside::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+}
+
+.login-aside::before {
+  width: 420px;
+  height: 420px;
+  right: -160px;
+  bottom: -180px;
+  background: var(--turnia-green-soft);
+  opacity: 0.55;
+}
+
+.login-aside::after {
+  width: 220px;
+  height: 220px;
+  right: 90px;
+  bottom: 120px;
+  background: var(--turnia-sand-soft);
+  opacity: 0.7;
+}
+
+.login-aside-top {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.login-aside-content {
+  position: relative;
+  z-index: 1;
+  max-width: 440px;
+}
+
+.login-aside-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-primary-hover);
+  margin-bottom: 16px;
+}
+
+.login-aside-heading {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--color-text-strong);
+  margin: 0 0 16px;
+}
+
+.login-aside-copy {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--color-text-muted);
+  max-width: 380px;
+  margin-bottom: 32px;
+}
+
+.login-benefits {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 380px;
+}
+
+.login-benefit {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.login-benefit-copy {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.login-benefit-title {
+  font-weight: 600;
+  color: var(--color-text-strong);
+  display: block;
+}
+
+.login-benefit-desc {
+  color: var(--color-text-muted);
+}
+
+.login-aside-footer {
+  position: relative;
+  z-index: 1;
+  font-size: 12px;
+  color: var(--color-text-faint);
+}
+
+.login-panel-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
 }
 
 .login-card {
-  width: min(420px, 100%);
+  width: min(400px, 100%);
+}
+
+.login-card-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-faint);
+  margin-bottom: 8px;
+}
+
+.login-form-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 0 4px;
+  font-size: 13px;
+}
+
+.login-remember {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.login-remember input[type='checkbox'] {
+  width: auto;
+}
+
+.login-forgot {
+  color: var(--color-primary-hover);
+  font-weight: 600;
+}
+
+.login-forgot:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 860px) {
+  .login-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .login-aside {
+    padding: 32px 28px;
+    min-height: 200px;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border-soft);
+  }
+
+  .login-aside-heading {
+    font-size: 26px;
+  }
+
+  .login-aside-copy,
+  .login-benefits,
+  .login-aside-footer {
+    display: none;
+  }
 }
 
 /* ---------- Status badges ---------- */
@@ -776,8 +1012,9 @@ table tbody tr:hover {
 }
 
 .metrics-hero-value {
-  font-size: 30px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--color-text-strong);
   font-variant-numeric: tabular-nums;
@@ -1172,7 +1409,10 @@ table tbody tr:hover {
   background: var(--color-bg);
 }
 
-/* --- Sidebar (desktop) — card flotante clara, no panel oscuro --- */
+/* --- Sidebar (desktop) — Concepto C / Editorial Minimal: columna clara y
+   cálida (blanco suave), NO una barra oscura. Se separa del contenido por
+   borde sutil + sombra mínima, no por contraste de color. El estado activo
+   usa un fondo salvia muy suave en vez de un bloque de color fuerte. --- */
 
 .app-sidebar {
   width: var(--sidebar-width);
@@ -1181,60 +1421,51 @@ table tbody tr:hover {
   color: var(--color-text);
   display: flex;
   flex-direction: column;
-  padding: 18px 14px;
-  border: 1px solid var(--color-border);
+  padding: 20px 14px;
+  border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   position: sticky;
   top: 20px;
   height: calc(100vh - 40px);
-  /* Acento de marca — una línea superior en el primario, discreta pero
-     suficiente para que el sidebar se sienta "de TurnIA" y no un panel
-     genérico de cualquier dashboard (pedido explícito: "más sólido y más
-     marca TurnIA"). */
-  border-top: 3px solid var(--color-primary);
 }
 
 .app-sidebar .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 8px 16px;
-  margin-bottom: 4px;
+  padding: 4px 8px 18px;
+  margin-bottom: 6px;
   font-weight: 700;
   font-size: 17px;
-  color: var(--color-text);
+  color: var(--color-text-strong);
   border-bottom: 1px solid var(--color-border-soft);
 }
 
-/* Logo con más presencia: marca cuadrada llena de primario (uno de los
-   usos explícitamente permitidos, "logo"), tipografía con más peso y un
-   poco más de tracking negativo para sentirse como wordmark, no como
-   texto suelto al lado de un ícono. */
-.app-sidebar .brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: var(--color-primary);
-  display: grid;
-  place-items: center;
-  color: #fff;
-  font-weight: 700;
-  font-size: 15px;
+/* Wordmark de marca ("Turn" oscuro + "IA" en salvia) en vez del monograma
+   "T en un cuadrado" anterior — más presencia sin necesitar un isotipo. */
+.brand-mark {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 20px;
   letter-spacing: -0.02em;
   flex-shrink: 0;
-  /* Depth sin gradiente: un highlight interior sutil arriba (no un degradé
-     de fondo) + una sombra muy corta — refuerza que es "el logo", sin
-     volverse un efecto decorativo. */
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 1px 2px rgba(15, 23, 42, 0.18);
+}
+
+.brand-mark::before {
+  content: 'Turn';
+  color: var(--color-text-strong);
+}
+
+.brand-mark::after {
+  content: 'IA';
+  color: var(--color-primary);
 }
 
 .app-sidebar .brand-name {
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  display: none;
 }
 
 /* --- Profile card (arriba del sidebar) --- */
@@ -1243,7 +1474,7 @@ table tbody tr:hover {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 8px 16px;
+  padding: 12px 8px 16px;
   margin-bottom: 8px;
   border-bottom: 1px solid var(--color-border-soft);
 }
@@ -1251,9 +1482,9 @@ table tbody tr:hover {
 .sidebar-profile .sidebar-profile-avatar {
   width: 38px;
   height: 38px;
-  border-radius: var(--radius-md);
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
+  border-radius: 999px;
+  background: var(--turnia-green-soft);
+  color: var(--color-primary-hover);
   display: grid;
   place-items: center;
   font-weight: 700;
@@ -1268,7 +1499,7 @@ table tbody tr:hover {
 .sidebar-profile .sidebar-profile-name {
   font-weight: 700;
   font-size: 13px;
-  color: var(--color-text);
+  color: var(--color-text-strong);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1284,10 +1515,10 @@ table tbody tr:hover {
 }
 
 .sidebar-section-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--color-text-faint);
   padding: 18px 12px 8px;
 }
@@ -1319,23 +1550,19 @@ table tbody tr:hover {
 
 .sidebar-link svg {
   flex-shrink: 0;
-  opacity: 0.75;
+  opacity: 0.8;
 }
 
 .sidebar-link:hover {
-  background: var(--color-surface-sunken);
-  color: var(--color-text);
+  background: var(--color-surface-soft);
+  color: var(--color-text-strong);
 }
 
-/* Active state moderno (PARTE 4 del pedido de rediseño): nada de "pastilla
-   marrón gigante" de fondo sólido — fondo muy claro del color primario,
-   texto/icono del color primario, y un indicador lateral fino (box-shadow
-   inset, no un pseudo-elemento que sobresalga del link: .sidebar-nav tiene
-   overflow-y:auto, que computa overflow-x a "auto" también, así que nada
-   fuera del propio box del link llega a verse). */
+/* Active state — fondo salvia muy suave, texto verde oscuro y un indicador
+   lateral fino en el color primario. Nada de bloques oscuros ni bronce. */
 .sidebar-link.active {
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
+  background: var(--turnia-green-soft);
+  color: var(--color-primary-hover);
   font-weight: 600;
   box-shadow: inset 3px 0 0 var(--color-primary);
 }
@@ -1350,23 +1577,22 @@ table tbody tr:hover {
   margin-top: 10px;
 }
 
-/* "Salir" es una acción terciaria — texto simple sin borde, no un botón
-   secundario de ancho completo compitiendo visualmente con la navegación
-   de arriba. Mismo tratamiento que .btn-ghost. */
+/* "Salir" es una acción terciaria y discreta — texto simple sin borde, no
+   un botón secundario de ancho completo compitiendo con la navegación. */
 .sidebar-footer form button {
   width: 100%;
   justify-content: flex-start;
   background: transparent;
   border: none;
-  color: var(--color-text-faint);
+  color: var(--color-text-muted);
   font-weight: 500;
   font-size: 13px;
   padding: 8px 12px;
 }
 
 .sidebar-footer form button:hover {
-  background: var(--color-surface-sunken);
-  color: var(--color-text-muted);
+  background: var(--color-surface-soft);
+  color: var(--color-text-strong);
 }
 
 /* --- Topbar --- */
@@ -1398,12 +1624,12 @@ table tbody tr:hover {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 0 24px;
-  /* Antes era un blanco genérico idéntico al fondo del contenido, sin
-     ninguna diferenciación — ahora usa el mismo neutro muy sutil que
-     separa header de contenido en toda la app (surface-soft), integrado
-     con el resto de la experiencia en vez de sentirse una barra suelta. */
-  background: var(--color-surface-soft);
+  padding: 0 4px 0 8px;
+  /* v5: ya no es una barra administrativa con su propio fondo/borde — queda
+     transparente, integrada al fondo marfil de la página, con sólo un
+     hairline apenas visible abajo. El peso visual pasa a estar en el título
+     (tipografía editorial) en vez de en el contenedor. */
+  background: transparent;
   border-bottom: 1px solid var(--color-border-soft);
   position: sticky;
   top: 0;
@@ -1411,8 +1637,10 @@ table tbody tr:hover {
 }
 
 .app-topbar .topbar-title {
-  font-weight: 700;
-  font-size: 15px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: -0.01em;
   color: var(--color-text-strong);
 }
 
@@ -1420,6 +1648,7 @@ table tbody tr:hover {
   font-size: 12px;
   color: var(--color-text-muted);
   margin-top: 1px;
+  text-transform: capitalize;
 }
 
 .topbar-search {
@@ -2207,6 +2436,187 @@ table tbody tr:hover {
 .dashboard-opportunity-link:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+
+/* =========================================================================
+   Dashboard — Concepto C / Editorial Minimal. Saludo grande editorial,
+   franja de métricas con círculos-icono y fondo tintado suave, "Próximo
+   turno" como panel destacado propio, puntos de color por estado en la
+   lista de turnos, checklist compacto de recordatorios y un panel chico
+   editorial/motivacional al final del riel lateral. Mismos datos/queries
+   de siempre — sólo cambia la composición visual.
+   ========================================================================= */
+
+.dashboard-hero {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--color-text-strong);
+  margin: 0;
+}
+
+.dashboard-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+
+.dashboard-metric-tile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-metric-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.dashboard-metric-value {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-text-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.dashboard-metric-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Puntos de color por estado — usados en la lista "Agenda de hoy" en vez de
+   depender únicamente del badge de texto para distinguir el estado a
+   simple vista (confirmado = salvia, pendiente = arena, cancelado = malva). */
+.dashboard-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--turnia-sand);
+}
+
+.dashboard-dot.is-confirmed {
+  background: var(--turnia-green);
+}
+
+.dashboard-dot.is-cancelled {
+  background: var(--turnia-mauve);
+}
+
+/* "Próximo turno" — panel destacado propio (antes era una franja angosta
+   incrustada arriba de la lista de Agenda). Fondo salvia muy suave para
+   que se lea como lo más importante del día sin usar un color sólido
+   fuerte ni una sombra pesada. */
+.dashboard-next-panel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--turnia-green-soft);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  color: inherit;
+  text-decoration: none;
+}
+
+.dashboard-next-panel-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-primary-hover);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.dashboard-next-panel-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-next-panel-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-primary-hover);
+}
+
+.dashboard-next-panel-name {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-next-panel-meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.dashboard-next-panel-time {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+  flex-shrink: 0;
+}
+
+.dashboard-next-panel-action {
+  flex-shrink: 0;
+}
+
+/* Checklist compacto de recordatorios — reemplaza la fila genérica por una
+   lista más liviana, con el check como círculo pequeño en vez de un botón
+   de ícono suelto. */
+.dashboard-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.dashboard-checklist-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+/* Panel chico editorial/motivacional al final del riel lateral — texto
+   breve en la tipografía display, fondo tintado suave rotando entre los
+   acentos de la paleta; no agrega ningún dato nuevo. */
+.dashboard-note {
+  padding: 16px 18px;
+  background: var(--turnia-sand-soft);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-strong);
+  line-height: 1.4;
 }
 
 @media (max-width: 720px) {

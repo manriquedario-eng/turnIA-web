@@ -27,8 +27,7 @@ export function Sidebar({
       <div className={`sidebar-backdrop ${open ? 'open' : ''}`} onClick={onClose} aria-hidden="true" />
       <aside className={`app-sidebar ${open ? 'open' : ''}`}>
         <div className="brand">
-          <span className="brand-mark">T</span>
-          <span className="brand-name">TurnIA</span>
+          <span className="brand-mark" />
         </div>
 
         <div className="sidebar-profile">

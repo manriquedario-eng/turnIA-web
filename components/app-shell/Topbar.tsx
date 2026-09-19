@@ -40,7 +40,7 @@ export function Topbar({
         </button>
         <div>
           <div className="topbar-title">{titleFor(pathname)}</div>
-          <div className="topbar-date" style={{ textTransform: 'capitalize' }}>{today}</div>
+          <div className="topbar-date">{today}</div>
         </div>
       </div>
 
