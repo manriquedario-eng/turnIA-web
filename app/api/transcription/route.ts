@@ -43,6 +43,8 @@ export async function POST(request: Request) {
     usageContextRaw === 'session' || usageContextRaw === 'follow_up'
       ? usageContextRaw
       : 'other';
+  const patientIdRaw = formData.get('patient_id');
+  const patientId = typeof patientIdRaw === 'string' && patientIdRaw ? patientIdRaw : null;
 
   if (!(audio instanceof File)) {
     return NextResponse.json({ error: 'Falta el archivo de audio.' }, { status: 400 });
@@ -129,6 +131,7 @@ export async function POST(request: Request) {
         p_professional_id: user.id,
         p_seconds: durationSeconds,
         p_usage_context: usageContext,
+        p_patient_id: patientId,
       },
     );
 
