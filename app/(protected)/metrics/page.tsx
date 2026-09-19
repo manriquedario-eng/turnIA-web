@@ -44,7 +44,14 @@ export default async function MetricsPage() {
   const monthStart = `${local.year}-${local.month}-01T00:00:00-03:00`;
   const todayStart = `${local.year}-${local.month}-${local.day}T00:00:00-03:00`;
 
-  const [appointmentsResult, paymentsResult, transcriptionAccountResult, transcriptionUsageResult] = await Promise.all([
+  const [
+    appointmentsResult,
+    paymentsResult,
+    transcriptionAccountResult,
+    transcriptionUsageResult,
+    sessionUsageResult,
+    followUpUsageResult,
+  ] = await Promise.all([
     supabase
       .from('appointments')
       .select('id, patient_id, starts_at, status, quoted_amount, currency, patients(name)')
@@ -66,6 +73,20 @@ export default async function MetricsPage() {
       .eq('kind', 'usage')
       .gte('created_at', monthStart)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('ai_transcription_ledger')
+      .select('seconds,created_at')
+      .eq('tenant_id', tenantId)
+      .eq('kind', 'usage')
+      .eq('usage_context', 'session')
+      .gte('created_at', monthStart),
+    supabase
+      .from('ai_transcription_ledger')
+      .select('seconds,created_at')
+      .eq('tenant_id', tenantId)
+      .eq('kind', 'usage')
+      .eq('usage_context', 'follow_up')
+      .gte('created_at', monthStart),
   ]);
 
   const appointments = appointmentsResult.data ?? [];
@@ -108,10 +129,18 @@ export default async function MetricsPage() {
     .filter((row) => new Date(row.created_at).getTime() >= new Date(todayStart).getTime())
     .reduce((sum, row) => sum + Number(row.seconds ?? 0), 0);
 
-  const sessionTranscriptions = transcriptionUsage.filter((row) => row.usage_context === 'session');
-  const followUpTranscriptions = transcriptionUsage.filter((row) => row.usage_context === 'follow_up');
+  const sessionTranscriptions = sessionUsageResult.data ?? [];
+  const followUpTranscriptions = followUpUsageResult.data ?? [];
   const sessionSeconds = sessionTranscriptions.reduce((sum, row) => sum + Number(row.seconds ?? 0), 0);
   const followUpSeconds = followUpTranscriptions.reduce((sum, row) => sum + Number(row.seconds ?? 0), 0);
+  const unclassifiedSeconds = Math.max(
+    transcriptionMonthSeconds - sessionSeconds - followUpSeconds,
+    0,
+  );
+  const unclassifiedCount = Math.max(
+    transcriptionUsage.length - sessionTranscriptions.length - followUpTranscriptions.length,
+    0,
+  );
 
   const patientUsage = new Map<string, { name: string; seconds: number; count: number }>();
   for (const row of transcriptionUsage as any[]) {
@@ -308,6 +337,15 @@ export default async function MetricsPage() {
                   {followUpTranscriptions.length} dictado{followUpTranscriptions.length === 1 ? '' : 's'}
                 </span>
               </div>
+              {unclassifiedSeconds > 0 ? (
+                <div className="metrics-activity-item">
+                  <span className="metrics-activity-value">{formatDuration(unclassifiedSeconds)}</span>
+                  <span className="patient-meta-label">Sin clasificar</span>
+                  <span className="stat-strip-hint">
+                    {unclassifiedCount} dictado{unclassifiedCount === 1 ? '' : 's'} anterior{unclassifiedCount === 1 ? '' : 'es'}
+                  </span>
+                </div>
+              ) : null}
             </div>
           </div>
 
