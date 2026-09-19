@@ -38,6 +38,11 @@ export async function POST(request: Request) {
   const audio = formData.get('audio');
   const durationRaw = formData.get('duration_seconds');
   const durationSeconds = Math.ceil(Number(durationRaw));
+  const usageContextRaw = formData.get('usage_context');
+  const usageContext =
+    usageContextRaw === 'session' || usageContextRaw === 'follow_up'
+      ? usageContextRaw
+      : 'other';
 
   if (!(audio instanceof File)) {
     return NextResponse.json({ error: 'Falta el archivo de audio.' }, { status: 400 });
@@ -123,6 +128,7 @@ export async function POST(request: Request) {
         p_tenant_id: tenantId,
         p_professional_id: user.id,
         p_seconds: durationSeconds,
+        p_usage_context: usageContext,
       },
     );
 
