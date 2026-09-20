@@ -6,6 +6,7 @@ import { isWhatsAppConfigured } from '@/lib/whatsapp/provider';
 import { isEmailConfigured } from '@/lib/email/provider';
 import { isArcaWsaaConfigured, getArcaConnectionSummary } from '@/lib/arca/wsaa';
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
+import { ArcaWsfeParameters } from '@/components/settings/ArcaWsfeParameters';
 
 type PageProps = {
   searchParams?: Promise<{ ok?: string; error?: string }>;
@@ -378,6 +379,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                       <button className="btn" type="submit">Guardar y conectar</button>
                     </div>
                   </form>
+
+                  {arcaConnected ? <ArcaWsfeParameters /> : null}
                 </>
               )}
             </div>
