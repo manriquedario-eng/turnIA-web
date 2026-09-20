@@ -26,6 +26,7 @@ type Snapshot = {
   conceptTypes: ParameterItem[];
   vatRates: ParameterItem[];
   receiverVatConditions: ParameterItem[];
+  warnings: string[];
   fetchedAt: string;
 };
 
@@ -128,6 +129,14 @@ export function ArcaWsfeParameters() {
           <p className="muted" style={{ fontSize: 12 }}>
             Última consulta: {new Date(snapshot.fetchedAt).toLocaleString('es-AR')}
           </p>
+
+          {snapshot.warnings.length > 0 ? (
+            <div className="alert" style={{ marginTop: 12 }}>
+              {snapshot.warnings.map((warning) => (
+                <div key={warning}>{warning}</div>
+              ))}
+            </div>
+          ) : null}
 
           <div style={{ marginTop: 12 }}>
             <h3 style={{ marginBottom: 8 }}>Puntos de venta</h3>
