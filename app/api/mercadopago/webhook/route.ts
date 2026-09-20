@@ -6,18 +6,25 @@
 //   https://<dominio>/api/mercadopago/webhook
 //
 // Ya validado en producción antes de esta fase: Mercado Pago confirmó una
-// prueba real con HTTP 200.
+// prueba real con HTTP 200, y una compra real de prueba (orden
+// ORDEN_REAL_ELIMINADA) llegó acá con firma válida.
 //
-// Alcance de ESTA implementación (ver tarea original): validar
-// criptográficamente la firma `x-signature` de cada notificación entrante.
-// Explícitamente NO todavía: no actualiza Supabase, no modifica pagos ni
-// turnos, no llama a la API de Mercado Pago, no implementa ninguna lógica
-// de negocio — sólo confirma de forma segura que la notificación es
-// auténtica y responde `{ received: true }`.
+// Alcance de ESTA implementación: validar criptográficamente la firma
+// `x-signature` de cada notificación entrante (SIN CAMBIOS respecto a la
+// fase anterior — ver lib/mercadopago/webhook-signature.ts) y, si la
+// notificación corresponde a una Order, disparar la conciliación real
+// contra la Orders API a través de lib/mercadopago/reconcile.ts. Esta ruta
+// deliberadamente NO contiene lógica de negocio propia: sólo valida firma,
+// extrae `data.id`, llama a `reconcileMercadoPagoOrder` y traduce su
+// resultado a una respuesta HTTP — toda la conciliación (consulta a
+// Mercado Pago, validaciones, registro atómico del pago) vive en ese
+// helper.
 //
 // Formato de la firma y construcción exacta del manifest: ver
 // lib/mercadopago/webhook-signature.ts (funciones puras, con la
-// documentación oficial citada ahí).
+// documentación oficial citada ahí) — NO se modificó nada de esa
+// validación en esta fase (mismo MP_WEBHOOK_SECRET, mismo x-signature,
+// mismo timingSafeEqual, mismo manifest).
 //
 // Variable de entorno:
 //   MP_WEBHOOK_SECRET   Secret Key de Webhooks de la app de Mercado Pago
@@ -36,6 +43,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyMercadoPagoSignature } from '@/lib/mercadopago/webhook-signature';
+import { reconcileMercadoPagoOrder } from '@/lib/mercadopago/reconcile';
 
 // Ruta 100% dinámica: no debe cachearse ni pre-renderizarse (mismo criterio
 // que el webhook de WhatsApp).
@@ -188,10 +196,77 @@ export async function POST(request: NextRequest) {
     console.warn('Mercado Pago webhook: payload no es JSON válido o no es un objeto');
   }
 
-  // TODO (fase siguiente, fuera de este alcance): usar `data.id` para
-  // buscar el recurso en la API de Mercado Pago y actualizar el estado del
-  // pago/turno correspondiente en Supabase (mercadopago_orders / payments).
-  // Por ahora este endpoint sólo valida la firma y confirma la recepción.
+  // A partir de acá: si la notificación corresponde a una Order, conciliar
+  // de verdad. `data.id` para la CONCILIACIÓN puede venir del body o del
+  // query param `id` viejo — a diferencia de la firma (que exige
+  // exactamente `data.id` del query, ver arriba), acá sí tiene sentido el
+  // fallback: el objetivo es no perder una notificación válida por una
+  // diferencia de formato entre integraciones antiguas/nuevas de Mercado
+  // Pago, no validar criptográficamente nada más.
+  const dataId = signatureDataId;
+  const notificationType = String(payload?.type ?? queryType ?? '').toLowerCase();
+  const isOrderNotification =
+    notificationType === 'order' ||
+    notificationType === 'orders' ||
+    (typeof payload?.action === 'string' && payload.action.toLowerCase().startsWith('order.'));
 
+  if (!isOrderNotification) {
+    // Tipo de notificación que esta integración no maneja (por ejemplo,
+    // eventos de prueba del panel como "application.authorized", o un tipo
+    // que no existe todavía en esta integración). Nada que reintentando se
+    // vaya a resolver — se confirma la recepción igual.
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
+
+  if (!dataId) {
+    console.warn('Mercado Pago webhook: notificación de Order sin data.id utilizable, no se concilia nada');
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
+
+  const result = await reconcileMercadoPagoOrder(String(dataId));
+
+  if (result.ok) {
+    // Log seguro: sólo el resultado de la conciliación (nunca datos del
+    // paciente, nunca el access_token, nunca el body de Mercado Pago).
+    console.log('Mercado Pago webhook: conciliación completada', {
+      outcome: result.outcome,
+      localOrderId: 'localOrderId' in result ? result.localOrderId : undefined,
+    });
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
+
+  // `ok: false` distingue varios escenarios (ver lib/mercadopago/reconcile.ts):
+  //   - notificación auténtica pero orden no encontrada todavía (carrera) →
+  //     transient, se pide reintento
+  //   - error temporal consultando Mercado Pago/Supabase → transient
+  //   - orden encontrada pero aún no pagada (created/processing/
+  //     action_required) → esto NUNCA llega acá como `ok:false`: ver
+  //     reconcile.ts, ese caso es `ok:true, outcome:'status_updated'`
+  //   - inconsistencia estructural (id/reference/amount no coinciden,
+  //     status desconocido, sin conexión del profesional) → no transient,
+  //     reintentar no lo arregla, queda registrado para revisión manual
+  //   - webhook repetido / pago ya conciliado → esto tampoco llega acá:
+  //     reconcile.ts lo resuelve como `ok:true,
+  //     outcome:'payment_already_recorded'`
+  console.error('Mercado Pago webhook: conciliación no exitosa', {
+    reason: result.reason,
+    transient: result.transient,
+    localOrderId: result.localOrderId,
+  });
+
+  if (result.transient) {
+    // 500 deliberado: le indica a Mercado Pago que reintente la
+    // notificación más tarde, para los casos donde reintentar SÍ puede
+    // resolver el problema (carrera de creación de la orden local, error
+    // de red/servidor consultando Mercado Pago, error transitorio de
+    // Supabase). Nunca se devuelve información sensible en el body.
+    return NextResponse.json({ error: 'temporary_error' }, { status: 500 });
+  }
+
+  // No transitorio: reintentar no va a cambiar el resultado (referencia/
+  // monto que no coinciden, conexión no encontrada, status inesperado,
+  // etc.) — se confirma la recepción igual para no generar reintentos
+  // infinitos de Mercado Pago; el diagnóstico completo ya quedó en los
+  // logs de arriba (sanitizados) para revisión manual.
   return NextResponse.json({ received: true }, { status: 200 });
 }
