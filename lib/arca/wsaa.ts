@@ -543,6 +543,69 @@ export async function getOrRefreshWsaaTicket(params: {
   return { ok: true, data: { reused: false } };
 }
 
+// ----------------------------------------------------------------------------
+// 9) Contexto de autenticación para WSFEv1 (server-only)
+// ----------------------------------------------------------------------------
+//
+// Este helper NO se expone al browser. Asegura primero que exista un TA
+// vigente para service="wsfe" y recién después lee + descifra Token/Sign y
+// el CUIT representado. Los secretos sólo viven en memoria del servidor
+// durante la llamada al WS de negocio.
+export async function getWsaaAuthContext(params: {
+  tenantId: string;
+  userId: string;
+  environment: ArcaEnvironment;
+}): Promise<ArcaResult<{ token: string; sign: string; cuit: string }>> {
+  const ensured = await getOrRefreshWsaaTicket({
+    tenantId: params.tenantId,
+    userId: params.userId,
+    environment: params.environment,
+    service: 'wsfe',
+  });
+  if (!ensured.ok) return ensured;
+
+  if (!isArcaWsaaConfigured()) {
+    return { ok: false, reason: 'not_configured', errorMessage: 'La integración ARCA no está configurada.' };
+  }
+
+  const serviceClient = createSupabaseServiceClient();
+
+  const [{ data: connection }, { data: ticket }] = await Promise.all([
+    serviceClient
+      .from('arca_connections')
+      .select('cuit')
+      .eq('tenant_id', params.tenantId)
+      .eq('user_id', params.userId)
+      .eq('environment', params.environment)
+      .is('revoked_at', null)
+      .maybeSingle(),
+    serviceClient
+      .from('arca_auth_tickets')
+      .select('token_ciphertext, sign_ciphertext, expires_at')
+      .eq('tenant_id', params.tenantId)
+      .eq('user_id', params.userId)
+      .eq('environment', params.environment)
+      .eq('service', 'wsfe')
+      .maybeSingle(),
+  ]);
+
+  if (!connection || !ticket) {
+    return { ok: false, reason: 'not_connected', errorMessage: 'No hay una autenticación ARCA disponible.' };
+  }
+
+  if (new Date(ticket.expires_at).getTime() - Date.now() <= EXPIRY_SAFETY_MARGIN_MS) {
+    return { ok: false, reason: 'provider_error', errorMessage: 'El ticket ARCA expiró antes de poder usarlo. Probá nuevamente.' };
+  }
+
+  const token = decryptArcaSecret(ticket.token_ciphertext);
+  const sign = decryptArcaSecret(ticket.sign_ciphertext);
+  if (!token.ok || !sign.ok) {
+    return { ok: false, reason: 'provider_error', errorMessage: 'No se pudo leer el ticket ARCA guardado.' };
+  }
+
+  return { ok: true, data: { token: token.data, sign: sign.data, cuit: connection.cuit } };
+}
+
 // Wrapper de cara al botón "Probar conexión" — nunca devuelve token/sign/
 // cert/key, sólo éxito o un mensaje sanitizado.
 export async function testArcaConnection(params: { tenantId: string; userId: string }): Promise<ArcaResult<true>> {
