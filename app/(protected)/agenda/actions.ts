@@ -202,6 +202,34 @@ export async function createAppointment(formData: FormData) {
       }
     }
 
+    // 5) Mercado Pago — checkout opcional para incluir en el email de
+    // confirmación. Se genera (o reutiliza, vía la misma función que usa el
+    // botón manual de Agenda) ANTES de armar el email, para poder pasarle un
+    // checkout_url real. Aislado en su propio try/catch, igual que Google
+    // Meet: un fallo acá (no conectado, sin monto, email de paciente
+    // inválido, error del proveedor, etc.) NUNCA debe impedir crear el turno
+    // (ya creado más arriba) ni enviar el resto del email — sólo deja
+    // paymentUrl en null, y el email sale igual pero sin el bloque de pago.
+    // createMercadoPagoCheckoutForAppointment ya hace todas las
+    // validaciones (conexión vigente, amount server-side, email del
+    // paciente, reutilización de una orden existente) — no se duplica nada
+    // de esa lógica acá.
+    let paymentUrl: string | null = null;
+    if (patient) {
+      try {
+        const checkoutResult = await createMercadoPagoCheckoutForAppointment({
+          tenantId,
+          userId: user.id,
+          appointmentId: created.id,
+        });
+        if (checkoutResult.ok) {
+          paymentUrl = checkoutResult.checkoutUrl;
+        }
+      } catch (err) {
+        console.error('Error inesperado generando el checkout de Mercado Pago para el email', created.id, err instanceof Error ? err.message : 'error desconocido');
+      }
+    }
+
     // 6) Email de confirmación — aislado, nunca afecta al turno ya creado.
     if (patient) {
       // El link público (Confirmar/Cancelar/Reprogramar) depende de la
@@ -236,6 +264,7 @@ export async function createAppointment(formData: FormData) {
           modality: parsed.data.modality,
           meetingUrl,
           publicToken,
+          paymentUrl,
         });
       } catch {
         // sendAppointmentConfirmationEmail ya no debería lanzar nunca; se
@@ -347,13 +376,21 @@ export async function cancelAppointment(formData: FormData) {
   redirect(`${returnTo}&ok=Turno%20cancelado`);
 }
 
-// FASE 3 de Mercado Pago: genera (o reutiliza) una orden de cobro Checkout
-// Pro para un turno, usando la conexión OAuth del profesional dueño de ese
-// turno. Toda la lógica de seguridad (service-role, amount server-side,
-// idempotencia, validación de checkout_url, etc.) vive en
-// lib/mercadopago/orders.ts — esta acción sólo valida el input del form,
-// llama a esa función y redirige con un mensaje humano. Nunca expone el
-// access_token ni construye la request a Mercado Pago acá.
+// FASE 3 de Mercado Pago (mejorada): genera (o reutiliza, si ya existe una
+// orden todavía utilizable para este turno) una orden de cobro Checkout Pro,
+// usando la conexión OAuth del profesional dueño de ese turno, y REDIRIGE
+// DE UNA al checkout_url de Mercado Pago — un único click desde Agenda o
+// desde el turno abierto, sin pasar primero por una pantalla intermedia de
+// "cobro generado" con un segundo botón "Abrir Mercado Pago".
+//
+// Toda la lógica de seguridad (service-role, amount server-side,
+// idempotencia, no duplicar órdenes, validación de checkout_url contra
+// isTrustedMercadoPagoCheckoutUrl) vive en lib/mercadopago/orders.ts — esta
+// acción sólo valida el input del form, llama a esa función UNA vez y
+// redirige con el checkoutUrl que esa función ya validó. Nunca redirige a
+// una URL recibida del browser/formData: el único destino posible es
+// result.checkoutUrl, devuelto por createMercadoPagoCheckoutForAppointment.
+// Nunca expone el access_token ni construye la request a Mercado Pago acá.
 export async function generateMercadoPagoCheckout(formData: FormData) {
   const { user, tenantId } = await requireTenant();
   const returnTo = safeReturn(formData);
@@ -369,5 +406,5 @@ export async function generateMercadoPagoCheckout(formData: FormData) {
   if (!result.ok) redirect(`${returnTo}&error=${encodeURIComponent(result.message)}`);
 
   revalidatePath('/agenda');
-  redirect(`${returnTo}&ok=Cobro%20de%20Mercado%20Pago%20generado`);
+  redirect(result.checkoutUrl);
 }
