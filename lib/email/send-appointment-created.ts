@@ -41,6 +41,15 @@ export type SendAppointmentConfirmationEmailInput = {
       migración que agrega esa columna todavía no corrió — en ese caso el
       email sale igual, simplemente sin esos tres botones. */
   publicToken?: string | null;
+  /** checkout_url de Mercado Pago ya generado/reutilizado por
+      lib/mercadopago/orders.ts para este turno — SIEMPRE validado ahí
+      (isTrustedMercadoPagoCheckoutUrl) antes de llegar acá; esta función
+      nunca genera ni valida un checkout, sólo lo muestra si vino. `null` o
+      `undefined` cuando Mercado Pago no está conectado, el turno no tiene
+      monto, el paciente no tiene email válido, o no se pudo generar el
+      checkout — en cualquiera de esos casos el email sale igual, sólo sin
+      el bloque de pago (nunca bloquea el envío del resto del email). */
+  paymentUrl?: string | null;
 };
 
 export type SendAppointmentConfirmationEmailResult =
@@ -90,6 +99,7 @@ function buildAppointmentConfirmationEmail(input: {
   modality: SendAppointmentConfirmationEmailInput['modality'];
   meetingUrl: string | null;
   publicToken: string | null;
+  paymentUrl: string | null;
 }) {
   const subject = `Turno con ${input.professionalName} — ${input.dateLabel}`;
   const modalityText = modalityLabel(input.modality);
@@ -110,6 +120,11 @@ function buildAppointmentConfirmationEmail(input: {
   }
   if (publicUrl) {
     lines.push('', `Confirmar, cancelar o solicitar otro horario: ${publicUrl}`);
+  }
+  // Pago opcional (nunca obligatorio en el tono): sólo si vino un
+  // checkout_url ya validado por lib/mercadopago/orders.ts.
+  if (input.paymentUrl) {
+    lines.push('', 'Si querés, podés pagar tu turno ahora.', input.paymentUrl);
   }
   lines.push('', 'Este es un mensaje automático de TurnIA.');
   const text = lines.join('\n');
@@ -140,6 +155,17 @@ function buildAppointmentConfirmationEmail(input: {
     `
     : '';
 
+  // Bloque de pago — tono opcional ("si querés"), nunca presentado como
+  // obligatorio. No se muestra nada de pago si `paymentUrl` es null (MP no
+  // conectado, turno sin monto, email de paciente inválido, o no se pudo
+  // generar el checkout — ver createAppointment en agenda/actions.ts).
+  const paymentBlock = input.paymentUrl
+    ? `
+      <p style="margin:24px 0 8px;color:#374151;">Si querés, podés pagar tu turno ahora.</p>
+      <p style="margin:0 0 24px;"><a href="${escapeHtml(input.paymentUrl)}" style="background:#009ee3;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;">Pagar con Mercado Pago</a></p>
+    `
+    : '';
+
   const html = `
     <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px;margin:0 auto;color:#111827;">
       <p style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;margin-bottom:24px;">TurnIA</p>
@@ -153,6 +179,7 @@ function buildAppointmentConfirmationEmail(input: {
       </table>
       ${meetingBlock}
       ${actionsBlock}
+      ${paymentBlock}
       <p style="font-size:12px;color:#9ca3af;margin-top:32px;">Este es un mensaje automático de TurnIA.</p>
     </div>
   `.trim();
@@ -182,6 +209,7 @@ export async function sendAppointmentConfirmationEmail(
     modality: input.modality,
     meetingUrl: input.meetingUrl,
     publicToken: input.publicToken ?? null,
+    paymentUrl: input.paymentUrl ?? null,
   });
 
   try {
