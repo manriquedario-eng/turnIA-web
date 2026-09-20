@@ -168,8 +168,16 @@ function extractResult(body: Dict, responseName: string, resultName: string): Ar
   const resultNode = asRecord(responseNode[resultName]);
 
   const errors = extractMessages(resultNode.Errors, 'Err');
-  if (errors.length > 0) {
-    return { ok: false, reason: 'provider_error', errorMessage: errors.join(' | ').slice(0, 300) };
+
+  // Código 602 de WSFEv1 significa "Sin Resultados". Para métodos de
+  // parámetros no es un fallo de autenticación ni de conexión: simplemente
+  // la CUIT no tiene filas para ese catálogo (por ejemplo, ningún punto de
+  // venta WS gestionado todavía en homologación). Lo tratamos como conjunto
+  // vacío para poder continuar consultando el resto de parámetros.
+  const realErrors = errors.filter((message) => !/^602:\s/i.test(message));
+
+  if (realErrors.length > 0) {
+    return { ok: false, reason: 'provider_error', errorMessage: realErrors.join(' | ').slice(0, 300) };
   }
 
   return { ok: true, data: resultNode };
