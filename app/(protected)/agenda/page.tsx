@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
 import { cancelAppointment, createAppointment, generateMercadoPagoCheckout, updateAppointment } from './actions';
-import { getReusableMercadoPagoCheckoutsForAppointments } from '@/lib/mercadopago/orders';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconChevronLeft, IconChevronRight, IconClose, IconPlus } from '@/components/ui/icons';
@@ -266,14 +265,6 @@ export default async function AgendaPage({
   const googleConnected = googleIntegration?.status === 'connected';
   const mercadoPagoConnected = mercadoPagoIntegration?.status === 'connected';
 
-  // Checkouts de Mercado Pago ya generados y todavía reutilizables para los
-  // turnos visibles en este rango — se lee siempre vía lib/mercadopago/orders
-  // (service-role), nunca con el cliente RLS normal (ver ese archivo).
-  const mercadoPagoCheckoutsByAppointment = await getReusableMercadoPagoCheckoutsForAppointments({
-    tenantId,
-    appointmentIds: appointments.map((a) => a.id),
-  });
-
   const patientMap = new Map((patients ?? []).map((p) => [p.id, p]));
   const serviceMap = new Map((services ?? []).map((s) => [s.id, s]));
   const editing = editId ? appointments.find((a) => a.id === editId) : undefined;
@@ -285,6 +276,23 @@ export default async function AgendaPage({
   const initialDurationMinutes = editing
     ? Math.round((new Date(editing.ends_at).getTime() - new Date(editing.starts_at).getTime()) / 60000)
     : undefined;
+
+  // Acción de Mercado Pago dentro del turno abierto (drawer de editar /
+  // reprogramar) — mismo criterio que ya usa la tarjeta del turno en la
+  // lista del día: no cancelado, monto válido (quoted_amount del turno o
+  // price del servicio), Mercado Pago conectado, y el turno pertenece al
+  // profesional logueado. La verificación real (conexión vigente,
+  // revoked_at, amount server-side) siempre se re-hace en
+  // lib/mercadopago/orders.ts al generar el cobro — esto es sólo para no
+  // mostrar un botón que va a fallar.
+  const editingServiceForMp = editing?.service_id ? serviceMap.get(editing.service_id) : undefined;
+  const editingAmount = editing
+    ? (editing.quoted_amount != null && Number(editing.quoted_amount) > 0 ? Number(editing.quoted_amount) : Number(editingServiceForMp?.price ?? 0))
+    : 0;
+  const canChargeEditingAppointment = Boolean(
+    editing && !isCancelled(editing.status) && mercadoPagoConnected && editingAmount > 0 && editing.professional_id === user.id
+  );
+
   const returnTo = `/agenda?view=${view}&date=${date}`;
   const ok = typeof params.ok === 'string' ? params.ok : undefined;
   const error = typeof params.error === 'string' ? params.error : undefined;
@@ -516,9 +524,13 @@ export default async function AgendaPage({
                   // cancelado, tiene un monto > 0, MP está conectado para
                   // este profesional y el turno le pertenece (mismo chequeo
                   // que hace lib/mercadopago/orders.ts server-side — esto es
-                  // sólo para no mostrar un botón que va a fallar).
+                  // sólo para no mostrar un botón que va a fallar). Un único
+                  // botón: el click siempre pasa por generateMercadoPagoCheckout,
+                  // que reutiliza el checkout existente si lo hay o genera uno
+                  // nuevo, y redirige de una al checkout_url — nunca hay una
+                  // pantalla intermedia de "cobro generado" con un segundo
+                  // botón "Abrir Mercado Pago".
                   const appointmentAmount = a.quoted_amount != null && Number(a.quoted_amount) > 0 ? Number(a.quoted_amount) : Number(service?.price ?? 0);
-                  const existingMpCheckoutUrl = mercadoPagoCheckoutsByAppointment.get(a.id) ?? null;
                   const canGenerateMercadoPagoCheckout =
                     !cancelled && mercadoPagoConnected && appointmentAmount > 0 && a.professional_id === user.id;
 
@@ -573,22 +585,12 @@ export default async function AgendaPage({
                                 Cancelar
                               </button>
                             </form>
-                            {existingMpCheckoutUrl ? (
-                              <a
-                                className="btn secondary"
-                                style={{ fontSize: 13 }}
-                                href={existingMpCheckoutUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                Abrir Mercado Pago
-                              </a>
-                            ) : canGenerateMercadoPagoCheckout ? (
+                            {canGenerateMercadoPagoCheckout ? (
                               <form action={generateMercadoPagoCheckout}>
                                 <input type="hidden" name="appointment_id" value={a.id} />
                                 <input type="hidden" name="return_to" value={returnTo} />
                                 <button className="btn-ghost" type="submit" style={{ fontSize: 13 }}>
-                                  Generar cobro Mercado Pago
+                                  Cobrar con Mercado Pago
                                 </button>
                               </form>
                             ) : null}
@@ -649,6 +651,26 @@ export default async function AgendaPage({
                   googleConnected={googleConnected}
                 />
               </AppointmentForm>
+
+              {/* PARTE 2: acción de Mercado Pago dentro del turno abierto.
+                  Deliberadamente FUERA de <AppointmentForm> (que ya es su
+                  propio <form> de editar/reprogramar) — un <form> no puede
+                  anidar otro <form>, y esto tiene su propia server action
+                  independiente, para no tocar en nada el submit de editar.
+                  Un único click: generateMercadoPagoCheckout reutiliza el
+                  checkout existente o genera uno nuevo y redirige de una al
+                  checkout_url, nunca un flujo "Generar" -> "Abrir". No se
+                  muestra si el turno está cancelado (canChargeEditingAppointment
+                  ya lo excluye). */}
+              {canChargeEditingAppointment && editing ? (
+                <form action={generateMercadoPagoCheckout} className="drawer-footer" style={{ paddingTop: 0 }}>
+                  <input type="hidden" name="appointment_id" value={editing.id} />
+                  <input type="hidden" name="return_to" value={returnTo} />
+                  <button className="btn secondary" type="submit" style={{ width: '100%' }}>
+                    Cobrar con Mercado Pago
+                  </button>
+                </form>
+              ) : null}
             </div>
           </>
         ) : null}
