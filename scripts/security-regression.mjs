@@ -31,7 +31,11 @@ check('No direct innerHTML writes in active runtime', !/\.innerHTML\s*=/.test(ru
 check('No eval/new Function in active runtime', !/\beval\s*\(|new\s+Function\s*\(/.test(runtimeText));
 check('No browser localStorage/sessionStorage auth state', !/\b(localStorage|sessionStorage)\b/.test(runtimeText));
 check('No service-role secret referenced by active runtime', !/SUPABASE_SERVICE_ROLE|service_role/i.test(runtimeText));
-check('Voice/transcription runtime remains disabled', !/MediaRecorder|getUserMedia|patient_voice_notes|\/transcribe/.test(runtimeText));
+const transcriptionRoute = read('app/api/transcription/route.ts');
+check('Transcription endpoint requires tenant auth', transcriptionRoute.includes('requireTenant'));
+check('Transcription API key remains server-side', transcriptionRoute.includes('process.env.OPENAI_API_KEY') && !runtimeText.includes('NEXT_PUBLIC_OPENAI_API_KEY'));
+check('Transcription validates audio size', transcriptionRoute.includes('MAX_AUDIO_BYTES') && transcriptionRoute.includes('audio.size'));
+check('Transcription does not cache responses', transcriptionRoute.includes("cache: 'no-store'") || transcriptionRoute.includes("Cache-Control"));
 
 const protectedActions = [
   'app/(protected)/patients/actions.ts',
