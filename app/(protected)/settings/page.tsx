@@ -6,6 +6,7 @@ import { isWhatsAppConfigured } from '@/lib/whatsapp/provider';
 import { isEmailConfigured } from '@/lib/email/provider';
 import { isArcaWsaaConfigured, getArcaConnectionSummary } from '@/lib/arca/wsaa';
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
+import { ArcaWsfeParameters } from '@/components/settings/ArcaWsfeParameters';
 
 type PageProps = {
   searchParams?: Promise<{ ok?: string; error?: string }>;
@@ -208,6 +209,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                       {transcriptionEnabled ? 'Desactivar transcripción' : 'Activar transcripción'}
                     </button>
                   </form>
+
+                  {arcaConnected ? <ArcaWsfeParameters /> : null}
                 </>
               ) : (
                 <p className="alert error" style={{ marginBottom: 0 }}>
