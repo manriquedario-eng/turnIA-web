@@ -6,6 +6,10 @@ import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
 import { disconnectGoogleOAuthConnection } from '@/lib/google/oauth';
 import { disconnectMercadoPagoOAuthConnection } from '@/lib/mercadopago/oauth';
+import {
+  saveArcaConnection as saveArcaConnectionCore,
+  testArcaConnection as testArcaConnectionCore,
+} from '@/lib/arca/wsaa';
 
 // Campos profesionales opcionales. NO se agregó ninguna columna nueva a la
 // base: `settings.profile` ya era una columna jsonb existente en el schema
@@ -184,4 +188,86 @@ export async function updateAiTranscriptionSetting(formData: FormData) {
       ? '/settings?ok=Transcripción%20IA%20activada'
       : '/settings?ok=Transcripción%20IA%20desactivada'
   );
+}
+
+// ---------------------------------------------------------------------------
+// Facturación ARCA — Fase 1 (sólo WSAA en homologación, ver informe de
+// arquitectura). El ambiente queda FIJO a 'homologacion' acá — ningún campo
+// del formulario ni parámetro de esta acción permite elegir otro; eso es
+// deliberado hasta que se habilite una fase de producción explícita.
+//
+// Certificado y clave privada llegan como `File` (inputs type="file" del
+// formulario, ver page.tsx) — su contenido se lee acá, server-side, directo
+// del FormData. Nunca pasan por JS del browser, nunca se guardan en
+// localStorage, nunca se exponen como NEXT_PUBLIC_.
+// ---------------------------------------------------------------------------
+
+const arcaConnectionSchema = z.object({
+  cuit: z
+    .string()
+    .trim()
+    .transform((value) => value.replace(/\D/g, ''))
+    .pipe(z.string().regex(/^\d{11}$/, 'El CUIT debe tener 11 dígitos')),
+  // Nullable/opcional a propósito: WSAA (Fase 1) sólo autentica, no necesita
+  // punto de venta — se exigirá recién en Fase 2 con WSFEv1.
+  punto_venta: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.coerce.number().int().positive().optional(),
+  ),
+});
+
+async function readPemFile(formData: FormData, fieldName: string): Promise<string | null> {
+  const file = formData.get(fieldName);
+  if (!(file instanceof File) || file.size === 0) return null;
+  const text = await file.text();
+  return text.trim() || null;
+}
+
+export async function saveArcaConnection(formData: FormData) {
+  const { user, tenantId } = await requireTenant();
+
+  const parsed = arcaConnectionSchema.safeParse({
+    cuit: formData.get('cuit'),
+    punto_venta: formData.get('punto_venta'),
+  });
+
+  if (!parsed.success) {
+    redirect(`/settings?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? 'Datos inválidos')}#facturacion`);
+  }
+
+  const certificatePem = await readPemFile(formData, 'certificate_file');
+  const privateKeyPem = await readPemFile(formData, 'private_key_file');
+
+  if (!certificatePem || !privateKeyPem) {
+    redirect('/settings?error=Cargá%20el%20certificado%20y%20la%20clave%20privada#facturacion');
+  }
+
+  const result = await saveArcaConnectionCore({
+    tenantId,
+    userId: user.id,
+    cuit: parsed.data.cuit,
+    puntoVenta: parsed.data.punto_venta ?? null,
+    certificatePem,
+    privateKeyPem,
+  });
+
+  if (!result.ok) {
+    redirect(`/settings?error=${encodeURIComponent(result.errorMessage)}#facturacion`);
+  }
+
+  revalidatePath('/settings');
+  redirect('/settings?ok=Credenciales%20ARCA%20guardadas.%20Prob%C3%A1%20la%20conexi%C3%B3n%20para%20confirmar.#facturacion');
+}
+
+export async function testArcaConnection() {
+  const { user, tenantId } = await requireTenant();
+
+  const result = await testArcaConnectionCore({ tenantId, userId: user.id });
+
+  if (!result.ok) {
+    redirect(`/settings?error=${encodeURIComponent(result.errorMessage)}#facturacion`);
+  }
+
+  revalidatePath('/settings');
+  redirect('/settings?ok=Conexi%C3%B3n%20con%20ARCA%20exitosa#facturacion');
 }
