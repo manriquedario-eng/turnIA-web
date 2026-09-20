@@ -8,6 +8,7 @@ import { sendAppointmentCreatedMessage } from '@/lib/whatsapp/send-appointment-c
 import { createGoogleMeetForAppointment } from '@/lib/google/calendar';
 import { sendAppointmentConfirmationEmail } from '@/lib/email/send-appointment-created';
 import { assertNoOverlap, assertNotInPast } from '@/lib/appointments/scheduling';
+import { createMercadoPagoCheckoutForAppointment } from '@/lib/mercadopago/orders';
 
 const MESSAGING_TZ = 'America/Argentina/Buenos_Aires';
 
@@ -344,4 +345,29 @@ export async function cancelAppointment(formData: FormData) {
   if (error) redirect(`${returnTo}&error=${encodeURIComponent(error.message)}`);
   revalidatePath('/agenda');
   redirect(`${returnTo}&ok=Turno%20cancelado`);
+}
+
+// FASE 3 de Mercado Pago: genera (o reutiliza) una orden de cobro Checkout
+// Pro para un turno, usando la conexión OAuth del profesional dueño de ese
+// turno. Toda la lógica de seguridad (service-role, amount server-side,
+// idempotencia, validación de checkout_url, etc.) vive en
+// lib/mercadopago/orders.ts — esta acción sólo valida el input del form,
+// llama a esa función y redirige con un mensaje humano. Nunca expone el
+// access_token ni construye la request a Mercado Pago acá.
+export async function generateMercadoPagoCheckout(formData: FormData) {
+  const { user, tenantId } = await requireTenant();
+  const returnTo = safeReturn(formData);
+  const id = z.string().uuid().safeParse(formData.get('appointment_id'));
+  if (!id.success) redirect(`${returnTo}&error=Turno%20inválido`);
+
+  const result = await createMercadoPagoCheckoutForAppointment({
+    tenantId,
+    userId: user.id,
+    appointmentId: id.data,
+  });
+
+  if (!result.ok) redirect(`${returnTo}&error=${encodeURIComponent(result.message)}`);
+
+  revalidatePath('/agenda');
+  redirect(`${returnTo}&ok=Cobro%20de%20Mercado%20Pago%20generado`);
 }
