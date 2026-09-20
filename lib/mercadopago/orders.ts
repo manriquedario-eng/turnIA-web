@@ -15,6 +15,48 @@
 // Endpoint oficial (Checkout Pro, Orders API — no inventado):
 //   POST https://api.mercadopago.com/v1/orders
 //
+// SCHEMA CONFIRMADO (cierre del ciclo de prueba-y-error anterior): la
+// documentación en prosa de Mercado Pago para esta API está incompleta y a
+// veces se contradice entre páginas (ver hallazgo de la auditoría previa).
+// La fuente que sí es completa y verificable es el código fuente del SDK
+// oficial de Mercado Pago (github.com/mercadopago/sdk-go, pkg/order,
+// request.go, tag v1.14.0), que expone los structs Go con sus tags JSON
+// exactos — eso es lo que efectivamente serializa contra la API real.
+// Confirmado desde ahí:
+//   - Root: type, total_amount, external_reference, processing_mode,
+//     description, items[], payer, config, transactions (entre otros no
+//     usados acá). external_reference es exigido por la propia API (según
+//     la referencia de /v1/orders) — de ahí el error `required_properties`
+//     que se vio al sacarlo en una prueba anterior.
+//   - items[]: SÓLO title, quantity, unit_price, description,
+//     category_id, picture_url, external_code, event_date, warranty, id,
+//     type. NO EXISTE `unit_measure` NI `total_amount` dentro de un item —
+//     esos dos campos (presentes en la versión original de este archivo)
+//     son casi con certeza la causa real del error `unsupported_properties`
+//     que motivó las pruebas de aislamiento anteriores, no `payer`.
+//   - payer: email, first_name, last_name, customer_id, entity_type,
+//     identification, phone, address — todos opcionales. `payer.email` SÍ
+//     es un campo soportado; se saca por error en una prueba anterior y
+//     nunca se repuso, dejando la validación de `patientEmail` sin usar.
+//   - config.online: callback_url, success_url, pending_url, failure_url,
+//     auto_return_url, auto_return, available_from, allowed_user_type,
+//     tracks, differential_pricing, transaction_security. Las back URLs de
+//     redirección van ACÁ (config.online.*), no en un `back_urls` de nivel
+//     raíz (ese nombre es de la API de Preferences clásica, una API
+//     distinta). `auto_return` es un string ("approved", según el
+//     equivalente de Preferences) — se usa ese valor con `success_url` como
+//     destino del auto-retorno; Mercado Pago no documenta en prosa la
+//     interacción exacta entre `auto_return` y `auto_return_url`, así que
+//     conviene confirmar el comportamiento en una prueba real antes de
+//     asumir cuál de los dos manda.
+//
+// Back URLs de producción de TurnIA usadas en config.online (ver constantes
+// MP_BACK_URL_* después de los imports, más abajo — dominio real, no
+// inventadas):
+//   success: https://www.turniahealth.com.ar/pagos/mercadopago/success
+//   failure: https://www.turniahealth.com.ar/pagos/mercadopago/failure
+//   pending: https://www.turniahealth.com.ar/pagos/mercadopago/pending
+//
 // Reglas de seguridad de esta fase (ver pedido original):
 //  - el access_token nunca llega al browser ni se loguea;
 //  - mercadopago_connections sólo se lee con el cliente service-role;
@@ -42,6 +84,13 @@ import { createSupabaseServiceClient, isServiceRoleConfigured } from '@/lib/supa
 import { decryptMercadoPagoToken, isMercadoPagoTokenEncryptionConfigured } from './token-crypto';
 
 const MP_ORDERS_ENDPOINT = 'https://api.mercadopago.com/v1/orders';
+
+// Back URLs de producción de TurnIA para config.online (ver comentario de
+// cabecera). No son secretas — dominio público real de la app — por eso
+// van como constante acá y no como variable de entorno nueva.
+const MP_BACK_URL_SUCCESS = 'https://www.turniahealth.com.ar/pagos/mercadopago/success';
+const MP_BACK_URL_FAILURE = 'https://www.turniahealth.com.ar/pagos/mercadopago/failure';
+const MP_BACK_URL_PENDING = 'https://www.turniahealth.com.ar/pagos/mercadopago/pending';
 
 // Estados de mercadopago_orders que cuentan como "todavía utilizable" para
 // reutilizar un checkout existente en vez de generar otro (PARTE del pedido:
@@ -140,17 +189,31 @@ function isTrustedMercadoPagoCheckoutUrl(value: unknown): value is string {
 }
 
 /**
- * PRUEBA CONTROLADA (ver pedido): validación mínima y razonable de un
- * email, sólo para decidir si se puede armar `payer.email` con el email
- * real del paciente (nunca uno recibido del browser). No pretende ser una
- * validación RFC completa — sólo descarta vacíos/valores claramente
- * inválidos antes de mandarlos a Mercado Pago.
+ * Validación mínima y razonable de un email, sólo para decidir si se puede
+ * armar `payer.email` con el email real del paciente (nunca uno recibido
+ * del browser). No pretende ser una validación RFC completa — sólo
+ * descarta vacíos/valores claramente inválidos antes de mandarlos a
+ * Mercado Pago.
  */
 function isReasonablyValidEmail(value: unknown): value is string {
   if (typeof value !== 'string') return false;
   const trimmed = value.trim();
   if (!trimmed || trimmed.length > 200) return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+}
+
+/**
+ * `true` si el rechazo de Mercado Pago es por una POLÍTICA de cuenta/app
+ * (ej. `PA_UNAUTHORIZED_RESULT_FROM_POLICIES`) y no por el body/schema de la
+ * request. Esta familia de errores ya se observó también contra endpoints
+ * sin body (ej. `/users/me`), así que un 403 con este código NUNCA debe
+ * interpretarse como "hay que sacar un campo del payload" — es un problema
+ * de configuración de la app/cuenta en el Developer Dashboard de Mercado
+ * Pago (producto no habilitado, cuenta no aprobada/verificada, token de un
+ * entorno que no coincide con el de la app, etc.), no de esta función.
+ */
+function isAccountPolicyRejection(httpStatus: number, code: string | null): boolean {
+  return httpStatus === 403 && typeof code === 'string' && /polic/i.test(code);
 }
 
 /** Sanitiza un valor para guardarlo en status_detail: string corta, nunca el body completo ni nada que pueda contener un secreto. */
@@ -430,14 +493,14 @@ export async function createMercadoPagoCheckoutForAppointment(params: {
   const amountStr = amount.toFixed(2);
   const itemTitle = serviceRow?.name?.trim() || 'Turno profesional';
 
-  // PRUEBA CONTROLADA (ver pedido): email del paciente SIEMPRE server-side
-  // (nunca uno recibido del browser), leído con el cliente service-role y
-  // filtrado también por tenant_id — el paciente debe pertenecer al mismo
-  // tenant que el turno. Para esta prueba el email es obligatorio: si no
-  // hay patient_id, no se encuentra el paciente, o no tiene un email
-  // razonablemente válido, se falla con un mensaje de negocio claro ANTES
-  // de tocar mercadopago_orders o llamar a Mercado Pago. Nunca se loguea
-  // el email.
+  // Email del paciente SIEMPRE server-side (nunca uno recibido del
+  // browser), leído con el cliente service-role y filtrado también por
+  // tenant_id — el paciente debe pertenecer al mismo tenant que el turno.
+  // Es obligatorio para generar el cobro: si no hay patient_id, no se
+  // encuentra el paciente, o no tiene un email razonablemente válido, se
+  // falla con un mensaje de negocio claro ANTES de tocar mercadopago_orders
+  // o llamar a Mercado Pago. Se usa como `payer.email` en el body (ver más
+  // abajo) — nunca se loguea el email.
   let patientEmail: string | null = null;
   if (appointment.patient_id) {
     try {
@@ -532,33 +595,41 @@ export async function createMercadoPagoCheckoutForAppointment(params: {
         'Content-Type': 'application/json',
         'X-Idempotency-Key': idempotencyKey,
       },
-      // PRUEBA CONTROLADA (ver pedido): body acercado al ejemplo oficial de
-      // Checkout Pro Orders — se agrega `payer.email` (email real del
-      // paciente, ya validado arriba) y se quita `description` para probar
-      // contra un body más cercano al mínimo documentado. Nunca se loguea
-      // este body ni el email.
-      //
-      // PRUEBA DE AISLAMIENTO (ver pedido): la prueba anterior (sin
-      // `external_reference`, con `payer.email`) cambió el error de
-      // `unsupported_properties` a `required_properties` — es decir,
-      // `external_reference` SÍ es exigido por Mercado Pago y vuelve al
-      // payload. Ahora se quita TEMPORALMENTE únicamente el bloque `payer`
-      // para aislar si es esa la propiedad detrás de `unsupported_properties`.
-      // La lectura/validación server-side de `patientEmail` (más arriba) NO
-      // se toca — sigue calculándose, sólo deja de enviarse en este `fetch`.
+      // Body cerrado contra el schema real de la Orders API (ver comentario
+      // de cabecera del archivo, con la fuente exacta). Cada campo presente
+      // acá está confirmado como soportado a nivel raíz, dentro de `items`,
+      // `payer` o `config.online` — ninguno inventado ni dejado "por si
+      // acaso". `unit_measure` y `items[].total_amount` (de la versión
+      // original) NO existen en el schema real: eran, con altísima
+      // probabilidad, la causa del `unsupported_properties` original — no
+      // `payer`, que sí es un campo válido y ya no se saca. `payer.email`
+      // vuelve a enviarse: ya se lee y valida más arriba (`patientEmail`);
+      // dejarlo sin usar era lógica muerta. Nunca se loguea este body ni el
+      // email.
       body: JSON.stringify({
         type: 'online',
         processing_mode: 'manual',
         total_amount: amountStr,
         external_reference: externalReference,
+        description: itemTitle,
         items: [
           {
             title: itemTitle,
             quantity: 1,
             unit_price: amountStr,
-            total_amount: amountStr,
           },
         ],
+        payer: {
+          email: patientEmail,
+        },
+        config: {
+          online: {
+            success_url: MP_BACK_URL_SUCCESS,
+            failure_url: MP_BACK_URL_FAILURE,
+            pending_url: MP_BACK_URL_PENDING,
+            auto_return: 'approved',
+          },
+        },
       }),
     });
 
@@ -572,11 +643,21 @@ export async function createMercadoPagoCheckoutForAppointment(params: {
       // (Authorization/access_token/payer/datos del paciente no pasan por
       // acá: esto sólo mira el body de la RESPUESTA de Mercado Pago).
       const sanitizedError = extractSanitizedMercadoPagoError(json);
+
+      // Distinción explícita (ver pedido original, punto 13): un 403 con un
+      // código de POLÍTICA de cuenta/app (ej. PA_UNAUTHORIZED_RESULT_FROM_
+      // POLICIES) no es un problema del body/schema de esta request — ya se
+      // observó el mismo código contra endpoints sin body (ej. /users/me).
+      // Se loguea y se persiste distinguido para no volver a diagnosticarlo
+      // como "hay que sacar un campo del payload".
+      const policyRejection = isAccountPolicyRejection(response.status, sanitizedError.primary.code);
+
       console.error('Mercado Pago orders API rejected request', {
         httpStatus: response.status,
         providerCode: sanitizedError.primary.code,
         providerMessage: sanitizedError.primary.message,
         providerDetails: sanitizedError.details,
+        policyRejection,
       });
 
       // El primer elemento útil de json.details[] suele nombrar la
@@ -595,7 +676,13 @@ export async function createMercadoPagoCheckoutForAppointment(params: {
       // sanitizeStatusDetail vuelve a acotar el CONJUNTO final a 200). Si
       // no vino ni code ni message ni detail reconocibles, cae al
       // `http_<status>` de siempre.
-      const providerDetail = [String(response.status), sanitizedError.primary.code, sanitizedError.primary.message, firstDetailStr]
+      const providerDetail = [
+        String(response.status),
+        policyRejection ? 'account_policy_rejection' : null,
+        sanitizedError.primary.code,
+        sanitizedError.primary.message,
+        firstDetailStr,
+      ]
         .filter((part): part is string => Boolean(part))
         .join('|');
 
@@ -616,6 +703,17 @@ export async function createMercadoPagoCheckoutForAppointment(params: {
           code: markFailedError.code,
           message: markFailedError.message,
         });
+      }
+
+      // Mensaje distinto para un rechazo de POLÍTICA de cuenta/app: no
+      // sugiere "probá de nuevo" (reintentar no cambia nada si la cuenta/app
+      // no está habilitada) y orienta a revisar el Developer Dashboard, no
+      // el body de la request.
+      if (policyRejection) {
+        return fail(
+          'account_policy_error',
+          'Mercado Pago rechazó la operación por una política de la cuenta o de la aplicación conectada (no es un problema con los datos del cobro). Revisá el estado de la app y de la cuenta de Mercado Pago del profesional en el Developer Dashboard.'
+        );
       }
       return fail('provider_error', 'No se pudo generar el cobro con Mercado Pago. Probá de nuevo en unos minutos.');
     }
