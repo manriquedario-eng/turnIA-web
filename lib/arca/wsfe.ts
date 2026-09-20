@@ -260,29 +260,72 @@ async function getGeneric(params: {
 }
 
 async function getReceiverVatConditions(params: { tenantId: string; userId: string; environment: ArcaEnvironment }): Promise<ArcaResult<WsfeParameterItem[]>> {
-  // El manual v4.8 documenta el endpoint/op público como
-  // FEParamGetCondicionIvaReceptor, pero el elemento XML de request como
-  // FEParamGetCondicionFrenteIvaReceptor. Se respeta exactamente esa forma.
-  const result = await callAuthOnly({
-    ...params,
-    operationElement: 'FEParamGetCondicionFrenteIvaReceptor',
-    soapActionOperation: 'FEParamGetCondicionIvaReceptor',
-    responseName: 'FEParamGetCondicionIvaReceptorResponse',
-    resultName: 'FEParamGetCondicionIvaReceptorResult',
-  });
-  if (!result.ok) return result;
+  const callForClass = async (voucherClass?: string): Promise<ArcaResult<WsfeParameterItem[]>> => {
+    const result = await callAuthOnly({
+      ...params,
+      operationElement: 'FEParamGetCondicionFrenteIvaReceptor',
+      soapActionOperation: 'FEParamGetCondicionIvaReceptor',
+      responseName: 'FEParamGetCondicionIvaReceptorResponse',
+      resultName: 'FEParamGetCondicionIvaReceptorResult',
+      extraXml: voucherClass ? '<ar:ClaseCmp>' + escapeXml(voucherClass) + '</ar:ClaseCmp>' : '',
+    });
+    if (!result.ok) return result;
 
-  const resultGet = asRecord(result.data.ResultGet);
-  const rows = arrayify(resultGet.CondicionIvaReceptor as unknown).map((raw) => {
-    const item = asRecord(raw);
-    return {
-      id: asNumber(item.Id) ?? asString(item.Id) ?? '',
-      description: asString(item.Desc) ?? '',
-      extra: { voucherClass: asString(item.Cmp_Clase) },
-    } satisfies WsfeParameterItem;
+    const resultGet = asRecord(result.data.ResultGet);
+    const rows = arrayify(resultGet.CondicionIvaReceptor as unknown).map((raw) => {
+      const item = asRecord(raw);
+      return {
+        id: asNumber(item.Id) ?? asString(item.Id) ?? '',
+        description: asString(item.Desc) ?? '',
+        extra: { voucherClass: asString(item.Cmp_Clase) ?? voucherClass ?? null },
+      } satisfies WsfeParameterItem;
+    });
+
+    return { ok: true, data: rows };
+  };
+
+  // La documentación indica que ClaseCmp es opcional. Sin embargo, en
+  // homologación ARCA puede responder código 500 "Campo Auth no fue
+  // ingresado o esta mal formado" cuando se omite. Primero respetamos el
+  // contrato documentado; si aparece exactamente ese error, hacemos
+  // fallback consultando por clase de comprobante.
+  const all = await callForClass();
+  if (all.ok) return all;
+
+  const authShapeError =
+    all.errorMessage.includes('500') &&
+    all.errorMessage.toLowerCase().includes('campo auth');
+
+  if (!authShapeError) return all;
+
+  const classes = ['A', 'ALEY', 'B', 'C', '49'];
+  const combined: WsfeParameterItem[] = [];
+
+  for (const voucherClass of classes) {
+    const one = await callForClass(voucherClass);
+    if (!one.ok) {
+      // Algunas instalaciones de homologación no aceptan todas las clases
+      // nuevas/optativas. Sólo ignoramos "sin resultados"; cualquier otro
+      // error real se propaga para no esconder fallos.
+      if (/^602:\s/i.test(one.errorMessage)) continue;
+      return {
+        ok: false,
+        reason: one.reason,
+        errorMessage: ('Condición IVA receptor (' + voucherClass + '): ' + one.errorMessage).slice(0, 300),
+      };
+    }
+    combined.push(...one.data);
+  }
+
+  const seen = new Set<string>();
+  const deduped = combined.filter((item) => {
+    const key = String(item.id) + '|' + String(item.extra?.voucherClass ?? '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
 
-  return { ok: true, data: rows };
+  return { ok: true, data: deduped };
 }
 
 export async function getWsfeParametersSnapshot(params: {
