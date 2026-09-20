@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 
-const TAB_IDS = ['preferencias', 'integraciones'] as const;
+const TAB_IDS = ['preferencias', 'integraciones', 'facturacion'] as const;
 type TabId = (typeof TAB_IDS)[number];
 
 function tabFromHash(): TabId {
@@ -25,9 +25,11 @@ function tabFromHash(): TabId {
 export function SettingsTabs({
   preferencias,
   integraciones,
+  facturacion,
 }: {
   preferencias: ReactNode;
   integraciones: ReactNode;
+  facturacion: ReactNode;
 }) {
   const [active, setActive] = useState<TabId>('preferencias');
 
@@ -52,11 +54,15 @@ export function SettingsTabs({
         <button type="button" role="tab" aria-selected={active === 'integraciones'} className={active === 'integraciones' ? 'active' : ''} onClick={() => go('integraciones')}>
           Integraciones
         </button>
+        <button type="button" role="tab" aria-selected={active === 'facturacion'} className={active === 'facturacion' ? 'active' : ''} onClick={() => go('facturacion')}>
+          Facturación
+        </button>
         <a href="/services">Servicios</a>
       </div>
 
       <div role="tabpanel" hidden={active !== 'preferencias'}>{preferencias}</div>
       <div role="tabpanel" hidden={active !== 'integraciones'}>{integraciones}</div>
+      <div role="tabpanel" hidden={active !== 'facturacion'}>{facturacion}</div>
     </>
   );
 }
