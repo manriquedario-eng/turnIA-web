@@ -209,8 +209,6 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                       {transcriptionEnabled ? 'Desactivar transcripción' : 'Activar transcripción'}
                     </button>
                   </form>
-
-                  {arcaConnected ? <ArcaWsfeParameters /> : null}
                 </>
               ) : (
                 <p className="alert error" style={{ marginBottom: 0 }}>
@@ -381,6 +379,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                       <button className="btn" type="submit">Guardar y conectar</button>
                     </div>
                   </form>
+
+                  {arcaConnected ? <ArcaWsfeParameters /> : null}
                 </>
               )}
             </div>
