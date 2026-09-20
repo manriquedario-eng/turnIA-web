@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
-import { cancelAppointment, createAppointment, updateAppointment } from './actions';
+import { cancelAppointment, createAppointment, generateMercadoPagoCheckout, updateAppointment } from './actions';
+import { getReusableMercadoPagoCheckoutsForAppointments } from '@/lib/mercadopago/orders';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconChevronLeft, IconChevronRight, IconClose, IconPlus } from '@/components/ui/icons';
@@ -18,6 +19,7 @@ type AppointmentRow = {
   id: string;
   patient_id: string | null;
   service_id: string | null;
+  professional_id: string | null;
   starts_at: string;
   ends_at: string;
   modality: string | null;
@@ -207,10 +209,16 @@ export default async function AgendaPage({
   const prevDate = view === 'day' ? addDays(date, -1) : view === 'week' ? addDays(weekStart, -7) : shiftMonth(date, -1);
   const nextDate = view === 'day' ? addDays(date, 1) : view === 'week' ? addDays(weekStart, 7) : shiftMonth(date, 1);
 
-  const [{ data: appointmentsData, error: appointmentError }, { data: patients }, { data: services }, { data: googleIntegration }] = await Promise.all([
+  const [
+    { data: appointmentsData, error: appointmentError },
+    { data: patients },
+    { data: services },
+    { data: googleIntegration },
+    { data: mercadoPagoIntegration },
+  ] = await Promise.all([
     supabase
       .from('appointments')
-      .select('id, patient_id, service_id, starts_at, ends_at, modality, status, quoted_amount, currency, meeting_provider, meeting_url')
+      .select('id, patient_id, service_id, professional_id, starts_at, ends_at, modality, status, quoted_amount, currency, meeting_provider, meeting_url')
       .eq('tenant_id', tenantId)
       .gte('starts_at', startOfDayIso(rangeStart))
       .lte('starts_at', endOfDayIso(rangeEnd))
@@ -238,12 +246,33 @@ export default async function AgendaPage({
       .eq('user_id', user.id)
       .eq('provider', 'google_calendar')
       .maybeSingle(),
+    // Mismo criterio que Google, para Mercado Pago: es sólo indicativo para
+    // la UI (mostrar u ocultar el botón) — la verificación real (conexión
+    // vigente, revoked_at, token no vencido) vive en
+    // lib/mercadopago/orders.ts y se re-chequea siempre server-side al
+    // generar el cobro.
+    supabase
+      .from('integration_status')
+      .select('status')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', user.id)
+      .eq('provider', 'mercadopago')
+      .maybeSingle(),
   ]);
 
   if (appointmentError) throw new Error(appointmentError.message);
   const appointments = (appointmentsData ?? []) as AppointmentRow[];
 
   const googleConnected = googleIntegration?.status === 'connected';
+  const mercadoPagoConnected = mercadoPagoIntegration?.status === 'connected';
+
+  // Checkouts de Mercado Pago ya generados y todavía reutilizables para los
+  // turnos visibles en este rango — se lee siempre vía lib/mercadopago/orders
+  // (service-role), nunca con el cliente RLS normal (ver ese archivo).
+  const mercadoPagoCheckoutsByAppointment = await getReusableMercadoPagoCheckoutsForAppointments({
+    tenantId,
+    appointmentIds: appointments.map((a) => a.id),
+  });
 
   const patientMap = new Map((patients ?? []).map((p) => [p.id, p]));
   const serviceMap = new Map((services ?? []).map((s) => [s.id, s]));
@@ -483,6 +512,16 @@ export default async function AgendaPage({
                   const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : '', statusAccentClass(a.status)].filter(Boolean).join(' ');
                   const isOnline = a.modality === 'online';
 
+                  // Botón de Mercado Pago: sólo si el turno no está
+                  // cancelado, tiene un monto > 0, MP está conectado para
+                  // este profesional y el turno le pertenece (mismo chequeo
+                  // que hace lib/mercadopago/orders.ts server-side — esto es
+                  // sólo para no mostrar un botón que va a fallar).
+                  const appointmentAmount = a.quoted_amount != null && Number(a.quoted_amount) > 0 ? Number(a.quoted_amount) : Number(service?.price ?? 0);
+                  const existingMpCheckoutUrl = mercadoPagoCheckoutsByAppointment.get(a.id) ?? null;
+                  const canGenerateMercadoPagoCheckout =
+                    !cancelled && mercadoPagoConnected && appointmentAmount > 0 && a.professional_id === user.id;
+
                   return (
                     <div key={a.id} className={cardClass}>
                       <div className="appointment-main">
@@ -534,6 +573,25 @@ export default async function AgendaPage({
                                 Cancelar
                               </button>
                             </form>
+                            {existingMpCheckoutUrl ? (
+                              <a
+                                className="btn secondary"
+                                style={{ fontSize: 13 }}
+                                href={existingMpCheckoutUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                Abrir Mercado Pago
+                              </a>
+                            ) : canGenerateMercadoPagoCheckout ? (
+                              <form action={generateMercadoPagoCheckout}>
+                                <input type="hidden" name="appointment_id" value={a.id} />
+                                <input type="hidden" name="return_to" value={returnTo} />
+                                <button className="btn-ghost" type="submit" style={{ fontSize: 13 }}>
+                                  Generar cobro Mercado Pago
+                                </button>
+                              </form>
+                            ) : null}
                           </div>
                         ) : null}
                       </div>
