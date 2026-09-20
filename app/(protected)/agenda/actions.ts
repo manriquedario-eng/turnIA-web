@@ -180,6 +180,7 @@ export async function createAppointment(formData: FormData) {
           startsAtIso: startsAt,
           endsAtIso: endsAt,
           timeZone: MESSAGING_TZ,
+          patientEmail: patient.email,
         });
 
         if (meetResult.ok) {
