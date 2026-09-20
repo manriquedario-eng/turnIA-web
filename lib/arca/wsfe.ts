@@ -260,18 +260,38 @@ async function getGeneric(params: {
 }
 
 async function getReceiverVatConditions(params: { tenantId: string; userId: string; environment: ArcaEnvironment }): Promise<ArcaResult<WsfeParameterItem[]>> {
+  const auth = await getWsaaAuthContext({
+    tenantId: params.tenantId,
+    userId: params.userId,
+    environment: params.environment,
+  });
+  if (!auth.ok) return auth;
+
   const callForClass = async (voucherClass?: string): Promise<ArcaResult<WsfeParameterItem[]>> => {
-    const result = await callAuthOnly({
-      ...params,
+    const claseCmpXml = voucherClass ? '<ar:ClaseCmp>' + escapeXml(voucherClass) + '</ar:ClaseCmp>' : '';
+
+    const called = await callWsfe({
+      environment: params.environment,
       operationElement: 'FEParamGetCondicionFrenteIvaReceptor',
       soapActionOperation: 'FEParamGetCondicionIvaReceptor',
-      responseName: 'FEParamGetCondicionIvaReceptorResponse',
-      resultName: 'FEParamGetCondicionIvaReceptorResult',
-      extraXml: voucherClass ? '<ar:ClaseCmp>' + escapeXml(voucherClass) + '</ar:ClaseCmp>' : '',
+      innerXml:
+        '<ar:Auth>' +
+        '<ar:Token>' + escapeXml(auth.data.token) + '</ar:Token>' +
+        '<ar:Sign>' + escapeXml(auth.data.sign) + '</ar:Sign>' +
+        '<ar:Cuit>' + escapeXml(auth.data.cuit) + '</ar:Cuit>' +
+        '</ar:Auth>' +
+        claseCmpXml,
     });
-    if (!result.ok) return result;
+    if (!called.ok) return called;
 
-    const resultGet = asRecord(result.data.ResultGet);
+    const extracted = extractResult(
+      called.data,
+      'FEParamGetCondicionIvaReceptorResponse',
+      'FEParamGetCondicionIvaReceptorResult',
+    );
+    if (!extracted.ok) return extracted;
+
+    const resultGet = asRecord(extracted.data.ResultGet);
     const rows = arrayify(resultGet.CondicionIvaReceptor as unknown).map((raw) => {
       const item = asRecord(raw);
       return {
@@ -284,14 +304,14 @@ async function getReceiverVatConditions(params: { tenantId: string; userId: stri
     return { ok: true, data: rows };
   };
 
-  // La documentación indica que ClaseCmp es opcional. Sin embargo, en
-  // homologación ARCA puede responder código 500 "Campo Auth no fue
-  // ingresado o esta mal formado" cuando se omite. Primero respetamos el
-  // contrato documentado; si aparece exactamente ese error, hacemos
-  // fallback consultando por clase de comprobante.
+  // ARCA documenta ClaseCmp como opcional. Primero consultamos sin filtro.
   const all = await callForClass();
   if (all.ok) return all;
 
+  // Homologación puede exigir el filtro de clase. Sólo hacemos fallback
+  // ante el error 500 específico que devuelve el servicio para esta
+  // operación; la autenticación se arma manualmente para conservar
+  // exactamente la forma XML documentada por ARCA.
   const authShapeError =
     all.errorMessage.includes('500') &&
     all.errorMessage.toLowerCase().includes('campo auth');
@@ -304,9 +324,7 @@ async function getReceiverVatConditions(params: { tenantId: string; userId: stri
   for (const voucherClass of classes) {
     const one = await callForClass(voucherClass);
     if (!one.ok) {
-      // Algunas instalaciones de homologación no aceptan todas las clases
-      // nuevas/optativas. Sólo ignoramos "sin resultados"; cualquier otro
-      // error real se propaga para no esconder fallos.
+      // "Sin resultados" para una clase concreta equivale a lista vacía.
       if (/^602:\s/i.test(one.errorMessage)) continue;
       return {
         ok: false,
