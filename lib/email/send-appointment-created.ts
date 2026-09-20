@@ -72,16 +72,15 @@ function modalityLabel(modality: SendAppointmentConfirmationEmailInput['modality
   return 'Presencial';
 }
 
-// Base pública para armar los links de Confirmar/Cancelar/Reprogramar
-// (/t/[token]). Nueva variable de entorno de esta pasada — server-side,
-// nunca hardcodeada:
-//   APP_URL   ej. "https://turnia.app" (sin barra final)
-// Si no está configurada, se cae a VERCEL_URL (la provee Vercel solo, sin
-// que Dario tenga que cargar nada — pero apunta al deploy, no a un dominio
-// propio) y, en desarrollo local, a localhost:3000.
+// Base pública para armar los links de Confirmar/Cancelar/Reprogramar.
+// En producción usamos SIEMPRE el dominio canónico propio de TurnIA para
+// evitar que emails o callbacks expongan URLs técnicas de vercel.app.
+// APP_URL queda disponible para desarrollo/staging explícito.
+const TURNIA_CANONICAL_URL = 'https://www.turniahealth.com.ar';
+
 function publicAppUrl(): string {
+  if (process.env.VERCEL_ENV === 'production') return TURNIA_CANONICAL_URL;
   if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return 'http://localhost:3000';
 }
 
