@@ -10,9 +10,9 @@
 // NEXT_PUBLIC_):
 //   GOOGLE_CLIENT_ID       Client ID de la app en Google Cloud Console
 //   GOOGLE_CLIENT_SECRET   Client Secret — nunca se loguea ni se expone
-//   GOOGLE_REDIRECT_URI    debe coincidir EXACTO con el configurado en
-//                          Google Cloud Console, ej.
-//                          https://turn-ia-web.vercel.app/api/google/oauth/callback
+//   GOOGLE_REDIRECT_URI    redirect alternativo para desarrollo/staging.
+//                          En producción TurnIA usa siempre:
+//                          https://www.turniahealth.com.ar/api/google/oauth/callback
 //
 // Además requiere SUPABASE_SERVICE_ROLE_KEY (ver lib/supabase/service.ts)
 // para poder guardar los tokens. Sin cualquiera de estas variables, toda
@@ -27,6 +27,7 @@ const GOOGLE_AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_ENDPOINT = 'https://www.googleapis.com/oauth2/v3/userinfo';
 const GOOGLE_REVOKE_ENDPOINT = 'https://oauth2.googleapis.com/revoke';
+const TURNIA_GOOGLE_REDIRECT_URI = 'https://www.turniahealth.com.ar/api/google/oauth/callback';
 
 // Scope mínimo: sólo eventos de Calendar (crear/editar/borrar EL evento que
 // TurnIA crea) + identificar la cuenta conectada (email) para mostrarla en
@@ -45,7 +46,10 @@ export type GoogleOAuthResult<T> =
 function getOAuthConfig() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+  const redirectUri =
+    process.env.VERCEL_ENV === 'production'
+      ? TURNIA_GOOGLE_REDIRECT_URI
+      : process.env.GOOGLE_REDIRECT_URI;
   if (!clientId || !clientSecret || !redirectUri) return null;
   return { clientId, clientSecret, redirectUri };
 }
