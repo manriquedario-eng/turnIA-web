@@ -108,6 +108,7 @@ export async function createGoogleMeetForAppointment(params: {
   startsAtIso: string;
   endsAtIso: string;
   timeZone: string;
+  patientEmail?: string | null;
 }): Promise<CreateGoogleMeetResult> {
   if (!isServiceRoleConfigured()) {
     return { ok: false, reason: 'not_configured', errorMessage: 'Integración de Google no configurada (falta SUPABASE_SERVICE_ROLE_KEY).' };
@@ -127,7 +128,8 @@ export async function createGoogleMeetForAppointment(params: {
   }
 
   try {
-    const response = await fetch(`${CALENDAR_EVENTS_ENDPOINT}?conferenceDataVersion=1`, {
+    const sendUpdates = params.patientEmail?.trim() ? '&sendUpdates=all' : '';
+    const response = await fetch(`${CALENDAR_EVENTS_ENDPOINT}?conferenceDataVersion=1${sendUpdates}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -137,6 +139,9 @@ export async function createGoogleMeetForAppointment(params: {
         summary: params.summary,
         start: { dateTime: params.startsAtIso, timeZone: params.timeZone },
         end: { dateTime: params.endsAtIso, timeZone: params.timeZone },
+        ...(params.patientEmail?.trim()
+          ? { attendees: [{ email: params.patientEmail.trim() }] }
+          : {}),
         // requestId único por turno: garantiza un Meet único por evento,
         // incluso ante un reintento accidental de esta misma llamada.
         conferenceData: {
