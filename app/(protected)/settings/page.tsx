@@ -1,9 +1,10 @@
 import { requireTenant } from '@/lib/auth/require-user';
-import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago, updateAiTranscriptionSetting } from './actions';
+import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago, updateAiTranscriptionSetting, saveArcaConnection, testArcaConnection } from './actions';
 import { isGoogleOAuthConfigured } from '@/lib/google/oauth';
 import { isMercadoPagoOAuthConfigured } from '@/lib/mercadopago/oauth';
 import { isWhatsAppConfigured } from '@/lib/whatsapp/provider';
 import { isEmailConfigured } from '@/lib/email/provider';
+import { isArcaWsaaConfigured, getArcaConnectionSummary } from '@/lib/arca/wsaa';
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
 
 type PageProps = {
@@ -79,6 +80,11 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const mercadoPagoConfigured = isMercadoPagoOAuthConfigured();
   const whatsappConfigured = isWhatsAppConfigured();
   const emailConfigured = isEmailConfigured();
+
+  // ARCA: lectura server-only; nunca expone certificado, clave, token ni sign.
+  const arcaConfigured = isArcaWsaaConfigured();
+  const arcaConnection = arcaConfigured ? await getArcaConnectionSummary({ tenantId, userId: user.id }) : null;
+  const arcaConnected = Boolean(arcaConnection?.connectedAt);
   const transcriptionAvailable = !transcriptionAccountError && Boolean(transcriptionAccount);
   const transcriptionEnabled = Boolean(transcriptionAccount?.enabled);
   const transcriptionBalanceSeconds = Number(transcriptionAccount?.balance_seconds ?? 0);
@@ -308,6 +314,72 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                     : 'El envío de emails todavía no está disponible en este consultorio.'}
                 </div>
               </div>
+            </div>
+          </div>
+        }
+        facturacion={
+          <div className="stack">
+            <div className="card">
+              <h2 style={{ marginTop: 0 }}>Facturación ARCA</h2>
+              <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+                Fase 1: sólo autenticación contra ARCA en <strong>ambiente de homologación</strong>. Todavía no emite
+                comprobantes — sólo confirma que TurnIA puede autenticarse con tu certificado. Tus credenciales son
+                tuyas: nunca se comparten con otros consultorios ni con una cuenta fiscal central de TurnIA.
+              </p>
+
+              {!arcaConfigured ? (
+                <p className="alert" style={{ marginTop: 8 }}>Todavía no está disponible en este consultorio.</p>
+              ) : (
+                <>
+                  <div className="integration-row" style={{ marginTop: 8 }}>
+                    <div className="integration-row-name">
+                      Conexión ARCA
+                      <span className={`badge ${arcaConnected ? 'badge-confirmado' : 'badge-pendiente'}`}>
+                        {arcaConnected ? 'Conectado (homologación)' : arcaConnection ? 'Credenciales guardadas, sin probar' : 'No conectado'}
+                      </span>
+                    </div>
+                    <div className="integration-row-desc">
+                      {arcaConnection
+                        ? `CUIT ${arcaConnection.cuit}${arcaConnection.puntoVenta ? ` · Punto de venta ${arcaConnection.puntoVenta}` : ''}${arcaConnection.connectedAt ? ` · Conectado el ${new Date(arcaConnection.connectedAt).toLocaleString('es-AR')}` : ' · Todavía no se probó la conexión con WSAA.'}`
+                        : 'Cargá tu certificado y clave privada de homologación para empezar.'}
+                    </div>
+                    {arcaConnection ? (
+                      <div className="integration-row-action">
+                        <form action={testArcaConnection}>
+                          <button className="btn secondary" type="submit" style={{ padding: '7px 12px', fontSize: 13 }}>
+                            Probar conexión con ARCA
+                          </button>
+                        </form>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <form action={saveArcaConnection} className="form-grid" style={{ marginTop: 16 }}>
+                    <label>
+                      CUIT
+                      <input name="cuit" defaultValue={arcaConnection?.cuit ?? ''} placeholder="Ej. 20123456789" maxLength={13} required />
+                    </label>
+                    <label>
+                      Punto de venta <span className="muted" style={{ fontWeight: 400 }}>(opcional en esta fase)</span>
+                      <input name="punto_venta" type="number" min="1" defaultValue={arcaConnection?.puntoVenta ?? ''} />
+                    </label>
+                    <label>
+                      Certificado (.crt / .pem)
+                      <input name="certificate_file" type="file" accept=".crt,.pem" required />
+                    </label>
+                    <label>
+                      Clave privada (.key / .pem)
+                      <input name="private_key_file" type="file" accept=".key,.pem" required />
+                    </label>
+                    <p className="field-hint" style={{ gridColumn: '1 / -1', margin: 0 }}>
+                      Certificado y clave de <strong>homologación</strong> emitidos por ARCA. Se guardan cifrados — nunca en texto plano, nunca visibles desde el navegador.
+                    </p>
+                    <div className="form-actions">
+                      <button className="btn" type="submit">Guardar y conectar</button>
+                    </div>
+                  </form>
+                </>
+              )}
             </div>
           </div>
         }
