@@ -1,0 +1,4250 @@
+/* =========================================================================
+   TurnIA — Sistema visual (Fase UI v6 — CONCEPTO C: EDITORIAL MINIMAL)
+   Tercera generación de identidad. Se descarta la dirección v5 (tinta
+   oscura + bronce) por la dirección aprobada por el cliente como director
+   visual del producto: fondo cálido muy claro, superficies blancas limpias,
+   verde salvia como color principal, lila/malva/arena como acentos suaves
+   en círculos, mucho aire, composición editorial en vez de administrativa.
+   Mismos NOMBRES de variable que las versiones anteriores (para no
+   reescribir cientos de referencias en todo el CSS) — cambian los valores,
+   y en sidebar/login/dashboard también cambia la estructura visual.
+   ========================================================================= */
+
+:root {
+  /* ---- Paleta base Concepto C (nombres tal como los definió el cliente) ---- */
+  --turnia-green: #5f826f;
+  --turnia-green-soft: #dce8df;
+  --turnia-lilac: #d8c9e4;
+  --turnia-lilac-soft: #ede6f2;
+  --turnia-mauve: #be8e9a;
+  --turnia-mauve-soft: #f3e3e7;
+  --turnia-sand: #e9d9c7;
+  --turnia-sand-soft: #f6eee4;
+
+  /* ---- Marca / semántica — se apoyan en la paleta base de arriba. Los
+     tonos "-strong" son versiones oscurecidas SOLO para texto/ícono sobre
+     fondo claro (accesibilidad) — el círculo de fondo sigue siendo el tono
+     suave de la paleta base, nunca el saturado como relleno grande. ---- */
+  --color-primary: #5f826f;
+  --color-primary-hover: #4a6b58;
+  --color-primary-soft: #dce8df;
+  --color-secondary: #8a6ba3;
+  --color-accent: #be8e9a;
+  --color-bg: #f8f6f1;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f1ece3;
+  --color-text: #1f2b33;
+  --color-text-muted: #6d777c;
+  --color-border: #e6e1d9;
+  --color-success: #4a6b58;
+  --color-warning: #a97c34;
+  --color-danger: #9c5164;
+
+  /* ---- Alias internos (mismos nombres históricos usados en el resto de
+     este archivo) — todos derivan de los tokens de arriba. */
+  --color-primary-strong: var(--color-primary-hover);
+  --color-primary-soft-strong: #cbe0d3;
+  --color-surface-sunken: var(--color-surface-soft);
+  --color-surface-raised: var(--color-surface);
+  --color-border-soft: #ede8df;
+  --color-text-strong: #16212a;
+  --color-text-faint: #9aa3a6;
+  --color-secondary-soft: var(--turnia-lilac-soft);
+  --color-success-bg: var(--turnia-green-soft);
+  --color-warning-bg: var(--turnia-sand-soft);
+  --color-danger-bg: var(--turnia-mauve-soft);
+  --color-info: var(--color-secondary);
+  --color-info-bg: var(--color-secondary-soft);
+  --color-accent-soft: var(--turnia-mauve-soft);
+
+  /* Layout */
+  --sidebar-width: 260px;
+  --sidebar-width-collapsed: 76px;
+  --topbar-height: 68px;
+  --radius-sm: 11px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --shadow-sm: 0 1px 2px rgba(31, 43, 51, 0.04);
+  --shadow-md: 0 6px 20px rgba(31, 43, 51, 0.07);
+  --shadow-lg: 0 18px 44px rgba(31, 43, 51, 0.12);
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Fuente editorial — títulos grandes, hero numbers y wordmark. Reservada
+     a momentos puntuales (h1, login, métricas hero); el resto de la UI
+     sigue en Inter para no perder legibilidad/densidad operativa. */
+  --font-display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+/* Escala tipográfica explícita (segunda pasada): antes casi todos los
+   textos tenían pesos/tamaños muy parecidos (h1 24 / h2 15 con el mismo
+   peso 700 que h1). Ahora hay una jerarquía real: Page title (h1) más
+   grande, Section/Card title (h2) claramente un escalón abajo con menos
+   peso, Label (h3) sin cambios (ya funcionaba bien como caption/label). */
+h1 {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  color: var(--color-text-strong);
+  margin: 0 0 4px;
+}
+
+h2 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--color-text-strong);
+  margin: 0 0 12px;
+}
+
+h3 {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 8px;
+}
+
+p {
+  line-height: 1.5;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+/* ---------- Utilidades tipográficas compartidas ----------
+   Antes cada pantalla definía su propio tamaño para "número grande"
+   (.stat-value, .metrics-hero-value, .patient-meta-value...) con valores
+   parecidos pero no idénticos entre sí. Estas utilidades no reemplazan esas
+   clases existentes (para no reescribir cada componente ya afinado) — son
+   para texto nuevo, y para ir migrando gradualmente sin inventar otro
+   tamaño más cada vez. */
+.text-metric {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-strong);
+}
+
+.text-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.text-caption {
+  font-size: 12px;
+  color: var(--color-text-faint);
+}
+
+.text-helper {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* ---------- Círculos de color (Concepto C — Editorial Minimal) ----------
+   Parte central de la identidad: íconos, iniciales y pequeños acentos viven
+   dentro de círculos de color suave en vez de badges rectangulares o cards
+   propias. Cuatro variantes de la paleta base + una versión "strong" para
+   los pocos casos con ícono/inicial en blanco sobre color sólido (avatar de
+   "próximo turno", símbolo de marca). Se usa con moderación — no todo
+   ícono necesita un círculo. */
+.icon-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  background: var(--turnia-green-soft);
+  color: var(--color-primary-hover);
+}
+
+.icon-circle.is-sm { width: 30px; height: 30px; }
+.icon-circle.is-lg { width: 52px; height: 52px; }
+
+.icon-circle.is-lilac { background: var(--turnia-lilac-soft); color: var(--color-secondary); }
+.icon-circle.is-mauve { background: var(--turnia-mauve-soft); color: var(--color-danger); }
+.icon-circle.is-sand { background: var(--turnia-sand-soft); color: var(--color-warning); }
+
+/* Versión sólida — texto/ícono blanco encima, reservada a avatares y al
+   símbolo de marca (uso puntual, nunca el default). */
+.icon-circle.is-strong {
+  background: var(--color-primary);
+  color: #fff;
+}
+.icon-circle.is-strong.is-lilac { background: #a98fc0; color: #fff; }
+.icon-circle.is-strong.is-mauve { background: var(--turnia-mauve); color: #fff; }
+.icon-circle.is-strong.is-sand { background: #c9a876; color: #fff; }
+
+/* ---------- Layout primitives ---------- */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+/* Split 2/3 + 1/3 usado por el dashboard (agenda del día + panel lateral).
+   Colapsa a una sola columna en pantallas angostas. */
+.split-main-side {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .split-main-side {
+    grid-template-columns: 1fr;
+  }
+}
+
+.container {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 32px 48px;
+  width: 100%;
+}
+
+.page-header,
+.page-heading,
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+/* ---------- Cards ---------- */
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Superficie compacta y sin borde propio, para agrupar franjas de
+   indicadores (stat-strip) sin repetir el peso visual de .card. */
+.surface-flat {
+  background: transparent;
+}
+
+/* ---------- Buttons ---------- */
+
+.btn,
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 11px 18px;
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+}
+
+.btn:hover,
+button:hover {
+  background: var(--color-primary-strong);
+}
+
+.btn:active,
+button:active {
+  transform: translateY(1px);
+}
+
+.btn.secondary,
+button.secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.btn.secondary:hover,
+button.secondary:hover {
+  background: var(--color-surface-sunken);
+}
+
+.btn.danger,
+button.danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.btn.danger:hover,
+button.danger:hover {
+  background: #fecaca;
+}
+
+/* Acción secundaria de bajo peso visual (texto simple, sin fondo) — para
+   acciones que deben estar disponibles pero no competir con la acción
+   principal de la fila (ej. "Cancelar" en un turno, al lado de la hora y el
+   paciente, que son la información principal). */
+.btn-ghost,
+button.btn-ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+  padding: 7px 10px;
+  font-weight: 600;
+}
+
+.btn-ghost:hover,
+button.btn-ghost:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.btn-ghost.danger,
+button.btn-ghost.danger {
+  color: var(--color-danger);
+}
+
+.btn-ghost.danger:hover,
+button.btn-ghost.danger:hover {
+  background: var(--color-danger-bg);
+}
+
+/* ---------- Botones: foco, disabled, loading ----------
+   Antes ningún botón tenía :focus-visible propio (dependía del outline por
+   defecto del navegador) ni estado :disabled/loading definido en ningún
+   lado. Mismo lenguaje de foco que los inputs (anillo suave del primario),
+   sólo el color cambia para danger. */
+
+.btn:focus-visible,
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.btn.secondary:focus-visible,
+button.secondary:focus-visible {
+  border-color: var(--color-primary);
+}
+
+.btn.danger:focus-visible,
+button.danger:focus-visible,
+.btn-ghost.danger:focus-visible,
+button.btn-ghost.danger:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-danger-bg);
+}
+
+.btn:disabled,
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Loading: el botón conserva su ancho (nada de "salto" de layout) — el
+   contenido se oculta con visibility (no display:none) y un spinner se
+   centra encima con :after. */
+.btn.is-loading,
+button.is-loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.btn.is-loading > *,
+button.is-loading > * {
+  visibility: hidden;
+}
+
+.btn.is-loading::after,
+button.is-loading::after {
+  content: '';
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  border-top-color: transparent;
+  animation: btn-spin 0.6s linear infinite;
+}
+
+.btn.secondary.is-loading::after,
+.btn-ghost.is-loading::after,
+button.secondary.is-loading::after,
+button.btn-ghost.is-loading::after {
+  border-color: var(--color-text-muted);
+  border-top-color: transparent;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Botón de sólo ícono — mismo lenguaje visual que los botones normales
+   pero cuadrado, para acciones pequeñas repetidas (fila de tabla, cabecera
+   de card, controles de navegación). Reemplaza estilos ad hoc como
+   .date-nav-btn/.drawer-close en componentes nuevos; los existentes quedan
+   intactos para no tocar más de lo necesario en esta pasada. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid transparent;
+  flex-shrink: 0;
+}
+
+.icon-btn:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.icon-btn.is-sm {
+  width: 30px;
+  height: 30px;
+}
+
+.icon-btn.bordered {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.icon-btn.danger:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ---------- Forms ---------- */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  /* Los <label> son casi siempre el hijo directo de un grid de formulario
+     (.form-grid, .drawer-form .field-row, etc.). Sin esto, un grid item
+     tiene min-width:auto por defecto — si su contenido (ej. el selector de
+     prefijo + input de PhoneInput) es más ancho que la columna, el navegador
+     lo deja desbordar VISUALMENTE sobre la columna vecina en vez de
+     achicarlo, aunque la columna ya tenga un ancho fijo. min-width:0 le dice
+     "podés ser más angosto que tu contenido", que es lo que permite que todo
+     lo de adentro (inputs, selects, el selector de prefijo de teléfono)
+     respete el ancho real de la columna. */
+  min-width: 0;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--color-text);
+  font-weight: 400;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+/* Divisor de subsección dentro de un formulario largo (Configuración) — un
+   borde superior discreto + más aire, para que el formulario se lea como
+   grupos con nombre en vez de una sola lista interminable de campos. */
+.form-section-divider {
+  padding-top: 18px;
+  margin-top: 4px;
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ---------- Tables ---------- */
+
+table,
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th,
+.table td,
+table th,
+table td {
+  text-align: left;
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.table th,
+table th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.table tbody tr:hover,
+table tbody tr:hover {
+  background: var(--color-surface-sunken);
+}
+
+/* ---------- Alerts ---------- */
+
+.alert {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  margin: 0 0 14px;
+  font-size: 14px;
+}
+
+.alert.error,
+.alert.danger,
+.error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.alert.success {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+/* ---------- Login — Concepto C: Editorial Minimal (blueprint) ----------
+   Tercera generación, ahora traducida 1:1 desde la referencia aprobada:
+   ya no es un split duro en dos columnas de igual peso — es UNA sola
+   atmósfera cálida (gradiente + círculos suaves haciendo de "foto" de
+   ambiente, ya que no hay una fotografía real disponible acá) que ocupa
+   todo el fondo, con el contenido editorial flotando a la izquierda y la
+   tarjeta de acceso flotando a la derecha, con sombra real, no una
+   columna blanca separada por un borde. */
+.login-shell {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 56px;
+  padding: 48px 64px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 640px 480px at 12% 18%, rgba(255, 255, 255, 0.75), transparent 60%),
+    radial-gradient(circle 320px at 82% 8%, var(--turnia-lilac-soft) 0%, transparent 72%),
+    radial-gradient(circle 300px at 92% 62%, var(--turnia-sand-soft) 0%, transparent 70%),
+    radial-gradient(circle 380px at 6% 88%, var(--turnia-green-soft) 0%, transparent 68%),
+    linear-gradient(150deg, #f6f2e8 0%, #efe9db 45%, #e9e2d1 100%);
+}
+
+/* Trazos botánicos muy suaves de fondo — evocan las plantas/luz cálida de
+   la referencia sin depender de una fotografía. Puramente decorativos. */
+.login-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(circle, rgba(95, 130, 111, 0.12) 1px, transparent 1.5px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 70% 60% at 30% 70%, black, transparent 75%);
+}
+
+.login-hero {
+  position: relative;
+  z-index: 1;
+  max-width: 460px;
+  flex: 1 1 420px;
+}
+
+.login-hero-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 44px;
+}
+
+.login-hero-tagline {
+  position: absolute;
+  top: -18px;
+  right: 12px;
+  max-width: 190px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--color-primary-hover);
+  transform: rotate(-3deg);
+}
+
+.login-hero-heading {
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 600;
+  line-height: 1.14;
+  letter-spacing: -0.015em;
+  color: var(--color-text-strong);
+  margin: 0 0 18px;
+}
+
+.login-hero-heading em {
+  font-style: italic;
+  color: var(--color-primary-hover);
+}
+
+.login-hero-copy {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--color-text-muted);
+  max-width: 380px;
+  margin-bottom: 34px;
+}
+
+.login-benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 380px;
+}
+
+.login-benefit {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.login-benefit-copy {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.login-benefit-title {
+  font-weight: 600;
+  color: var(--color-text-strong);
+  display: block;
+}
+
+.login-benefit-desc {
+  color: var(--color-text-muted);
+}
+
+.login-hero-footer {
+  margin-top: 40px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-text-faint);
+}
+
+.login-panel-wrap {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+}
+
+.login-card {
+  width: min(400px, 100%);
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: var(--shadow-lg);
+}
+
+.login-card-eyebrow {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+.login-card-brand {
+  font-family: var(--font-display);
+  font-size: 25px;
+  margin-bottom: 6px;
+}
+
+.login-field-icon {
+  position: relative;
+}
+
+.login-field-icon svg {
+  position: absolute;
+  left: 12px;
+  top: 41px;
+  color: var(--color-text-faint);
+  pointer-events: none;
+}
+
+.login-field-icon input {
+  padding-left: 36px;
+}
+
+.login-field-icon .login-field-toggle {
+  position: absolute;
+  right: 12px;
+  top: 41px;
+  color: var(--color-text-faint);
+  cursor: default;
+}
+
+.login-form-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 0 4px;
+  font-size: 13px;
+}
+
+.login-remember {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.login-remember input[type='checkbox'] {
+  width: auto;
+}
+
+.login-forgot {
+  color: var(--color-primary-hover);
+  font-weight: 600;
+}
+
+.login-forgot:hover {
+  text-decoration: underline;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 14px;
+  font-size: 12px;
+  color: var(--color-text-faint);
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-soft);
+}
+
+.login-oauth-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.btn-oauth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn-oauth:hover {
+  background: var(--color-surface-soft);
+}
+
+.login-signup {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.login-signup a {
+  color: var(--color-primary-hover);
+  font-weight: 600;
+}
+
+.login-signup a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+  .login-shell {
+    flex-direction: column;
+    padding: 32px 24px;
+    gap: 32px;
+  }
+
+  .login-hero-heading {
+    font-size: 30px;
+  }
+
+  .login-hero-copy,
+  .login-benefits,
+  .login-hero-footer,
+  .login-hero-tagline {
+    display: none;
+  }
+}
+
+/* ---------- Status badges ---------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-confirmado,
+.badge-confirmed {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.badge-pendiente,
+.badge-pending {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+/* Agendado/Programado (turno recién creado, sin confirmar todavía) —
+   azul clínico suave (--color-secondary), distinto tanto de Pendiente
+   (ámbar) como del primario teal — así el primario queda libre para su
+   único rol de identidad/acción, no como color de estado (paleta
+   definitiva aprobada, regla de badges: "Agendado: azul suave"). */
+.badge-programado,
+.badge-scheduled {
+  background: var(--color-secondary-soft);
+  color: var(--color-secondary);
+}
+
+.badge-cancelado,
+.badge-cancelled {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.badge-ausente,
+.badge-no_show {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
+.badge-completado,
+.badge-completed {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.badge-neutral {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+
+/* ---------- Stat cards ---------- */
+
+.stat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-card .stat-label {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.stat-card .stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.stat-card .stat-hint {
+  font-size: 12px;
+  color: var(--color-text-faint);
+}
+
+/* ---------- Franja compacta de indicadores ----------
+   Reemplaza filas de varios .stat-card grandes (Dashboard, Pagos,
+   Métricas) por una sola franja liviana: un número por indicador, sin
+   tarjeta propia, separados por un divisor sutil. Mucho menos peso visual
+   para datos que son, en esencia, un número y una etiqueta. */
+
+.stat-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.stat-strip-item {
+  flex: 1 1 160px;
+  padding: 16px 20px;
+  border-right: 1px solid var(--color-border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-strip-item:last-child {
+  border-right: none;
+}
+
+.stat-strip-item .stat-strip-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.stat-strip-item .stat-strip-value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text-strong);
+}
+
+.stat-strip-item .stat-strip-hint {
+  font-size: 11px;
+  color: var(--color-text-faint);
+}
+
+@media (max-width: 720px) {
+  .stat-strip-item {
+    flex: 1 1 45%;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border-soft);
+  }
+}
+
+/* =========================================================================
+   Deudas y métricas — jerarquía real entre la cifra que importa (deuda
+   pendiente) y las métricas secundarias. Antes las 4 convivían en un mismo
+   .stat-strip parejo; ahora "Pendiente actual" es una card propia con
+   acento de color cuando hay deuda (warning, discreto — borde + tinte, no
+   relleno sólido), y el resto queda en una franja secundaria más chica.
+   ========================================================================= */
+
+.metrics-hero-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.metrics-hero-card {
+  flex: 0 1 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.metrics-hero-card.has-debt {
+  border-left: 3px solid var(--color-warning);
+}
+
+/* "Zona de riesgo" — acciones irreversibles/destructivas (Archivar
+   paciente, y cualquier otra en el futuro) no deben verse como una card de
+   guardado normal. Mismo lenguaje que .has-debt pero en danger. */
+.danger-zone {
+  border-left: 3px solid var(--color-danger);
+}
+
+/* Módulo premium opcional activo (Transcripción IA) — mismo acento de
+   borde, en el accent teal en vez de warning/danger. */
+.module-active {
+  border-left: 3px solid var(--color-accent);
+}
+
+/* Botón chico dentro de una fila densa (filas de Integraciones) — antes era
+   un style inline repetido (padding+fontSize) en cada Conectar/Desconectar. */
+.btn-compact {
+  padding: 7px 12px;
+  font-size: 13px;
+}
+
+.metrics-hero-value {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.metrics-hero-card.has-debt .metrics-hero-value {
+  color: var(--color-warning);
+}
+
+.metrics-secondary-strip {
+  flex: 1 1 320px;
+}
+
+.metrics-activity-row {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.metrics-activity-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metrics-activity-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+/* ---------- Integraciones — filas ---------- */
+
+.integration-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.integration-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 2px;
+  border-bottom: 1px solid var(--color-border-soft);
+  flex-wrap: wrap;
+}
+
+.integration-row:last-child {
+  border-bottom: none;
+}
+
+.integration-row-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  min-width: 200px;
+}
+
+.integration-row-desc {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.integration-row-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ---------- Tabla de pacientes (fila clickeable) ---------- */
+
+.row-link {
+  cursor: pointer;
+}
+
+.row-link:hover {
+  background: var(--color-surface-sunken);
+}
+
+.table-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.table-cell-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.badge-archived {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-faint);
+  font-style: italic;
+}
+
+/* Columna final de chevron en tablas clickeables (Pacientes) — refuerza
+   visualmente que la fila entera navega, mismo lenguaje que las filas
+   accionables del Dashboard. */
+.table-patients th:last-child,
+.table-cell-chevron {
+  width: 28px;
+  padding-left: 0;
+  padding-right: 14px;
+  text-align: right;
+}
+
+.table-cell-chevron .timeline-item-chevron {
+  opacity: 0.5;
+}
+
+/* Buscador en vivo de la tabla de Pacientes (Fase 9) — mismo lenguaje
+   visual que .topbar-search (píldora, foco discreto en marca), integrado
+   como cabecera de la card de la tabla en vez de flotar aislado. */
+.patients-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 20px;
+  padding: 0 12px;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-soft);
+  color: var(--color-text-faint);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.patients-search:focus-within {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.patients-search svg {
+  flex-shrink: 0;
+}
+
+.patients-search input {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  width: 100%;
+  font-size: 13px;
+}
+
+.patients-search input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Checkbox + texto en línea, usado en varios formularios (Nuevo paciente,
+   Configuración) — antes era un style inline repetido por cada checkbox. */
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+
+.checkbox-field input[type='checkbox'] {
+  width: auto;
+}
+
+.row-link:hover .timeline-item-chevron {
+  opacity: 1;
+  color: var(--color-primary);
+}
+
+/* ---------- Teléfono (selector de prefijo + número) ---------- */
+
+/* Contenedor real de PhoneInput dentro de .form-grid (ver el comentario en
+   PhoneInput.tsx sobre por qué esto no puede depender únicamente de la
+   regla global `label { min-width: 0 }`). */
+.phone-field {
+  min-width: 0;
+  width: 100%;
+}
+
+.phone-input {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.phone-input select {
+  /* Puede achicarse (a diferencia de flex:0 0 116px de antes) para que el
+     conjunto completo nunca fuerce el ancho de la columna "Teléfono" — se
+     apoya en min-width para no volverse ilegible. */
+  flex: 0 1 108px;
+  min-width: 84px;
+  width: auto;
+  padding: 11px 8px;
+}
+
+.phone-input input {
+  flex: 1 1 120px;
+  min-width: 0;
+  width: auto;
+}
+
+@media (max-width: 360px) {
+  /* En pantallas muy angostas, el prefijo + número se apilan en vez de
+     seguir achicándose hasta ser ilegibles. */
+  .phone-input {
+    flex-wrap: wrap;
+  }
+
+  .phone-input select,
+  .phone-input-prefix-static {
+    flex: 1 1 100%;
+  }
+
+  .phone-input input {
+    flex: 1 1 100%;
+  }
+}
+
+/* Fila "Teléfono ............ Editar prefijo" — mismo alto que la fila de
+   texto de cualquier otro <label> del form-grid (Nombre/Email/DNI), para que
+   el bloque completo de Teléfono termine con la misma altura total que sus
+   vecinos y no empuje nada hacia abajo. */
+.phone-field-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.phone-field-label-row label {
+  display: block;
+}
+
+.phone-input-prefix-toggle {
+  display: inline-block;
+  width: fit-content;
+  flex-shrink: 0;
+  margin: 0;
+  font-size: 11px;
+  font-family: var(--font-sans);
+  color: var(--color-text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+.phone-input-prefix-toggle:hover {
+  opacity: 1;
+}
+
+/* Prefijo mostrado como texto fijo (no editable) hasta que se toca "Editar
+   prefijo" — mismo espacio aproximado que el <select> que reemplaza, para
+   que el toggle no salte de ancho ni empuje el número. */
+.phone-input-prefix-static {
+  flex: 0 1 108px;
+  min-width: 84px;
+  display: flex;
+  align-items: center;
+  padding: 11px 8px;
+  border: 1px solid var(--color-border, #d9d9e3);
+  border-radius: 8px;
+  background: var(--color-surface-muted, #f4f4f7);
+  color: var(--color-text-muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* Jerarquía visual para importes (Pagos y caja — "las cifras deben tener
+   jerarquía visual", pedido explícito). Tabular-nums para que columnas de
+   montos alineen entre filas, sin necesidad de una fuente monoespaciada. */
+.stat-strip-value-money,
+.cash-movement-amount,
+.table-cell-amount strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-strip-value-money.is-pending {
+  color: var(--color-warning);
+}
+
+.cash-movement-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.cash-movement-row:last-child {
+  border-bottom: none;
+}
+
+.cash-movement-amount {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.cash-movement-amount.is-in {
+  color: var(--color-success);
+}
+
+.cash-movement-amount.is-out {
+  color: var(--color-danger);
+}
+
+.table-cell-amount {
+  text-align: right;
+}
+
+/* ---------- Pagos: lista responsive (reemplaza tabla en mobile) ---------- */
+
+.payments-table-wrap {
+  display: block;
+  overflow-x: auto;
+}
+
+.payments-list-mobile {
+  display: none;
+}
+
+.payment-row-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.payment-row-mobile:last-child {
+  border-bottom: none;
+}
+
+.payment-row-mobile .payment-row-mobile-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .payments-table-wrap {
+    display: none;
+  }
+
+  .payments-list-mobile {
+    display: block;
+  }
+}
+
+/* ---------- Empty state ---------- */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  padding: 20px 16px;
+  color: var(--color-text-muted);
+}
+
+/* =========================================================================
+   App Shell (sidebar + topbar) — Checkpoint 5A
+   ========================================================================= */
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 20px;
+  background: var(--color-bg);
+}
+
+/* --- Sidebar (desktop) — Concepto C / Editorial Minimal: columna clara y
+   cálida (blanco suave), NO una barra oscura. Se separa del contenido por
+   borde sutil + sombra mínima, no por contraste de color. El estado activo
+   usa un fondo salvia muy suave en vez de un bloque de color fuerte. --- */
+
+.app-sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--color-surface);
+  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 14px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 20px;
+  height: calc(100vh - 40px);
+}
+
+.app-sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 18px;
+  margin-bottom: 6px;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--color-text-strong);
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+/* Wordmark de marca ("Turn" oscuro + "IA" en salvia) en vez del monograma
+   "T en un cuadrado" anterior — más presencia sin necesitar un isotipo. */
+.brand-mark {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+
+.brand-mark::before {
+  content: 'Turn';
+  color: var(--color-text-strong);
+}
+
+.brand-mark::after {
+  content: 'IA';
+  color: var(--color-primary);
+}
+
+.app-sidebar .brand-name {
+  display: none;
+}
+
+/* --- Profile card (arriba del sidebar) --- */
+
+.sidebar-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 8px 16px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.sidebar-profile .sidebar-profile-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--turnia-green-soft);
+  color: var(--color-primary-hover);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.sidebar-profile .sidebar-profile-copy {
+  overflow: hidden;
+}
+
+.sidebar-profile .sidebar-profile-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--color-text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-profile .sidebar-profile-role {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-faint);
+  padding: 18px 12px 8px;
+}
+
+.sidebar-section-label:first-child {
+  padding-top: 4px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sidebar-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-size: 14px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-link svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.sidebar-link:hover {
+  background: var(--color-surface-soft);
+  color: var(--color-text-strong);
+}
+
+/* Active state — sólo relleno salvia muy suave (igual que la referencia
+   aprobada: pastilla llena, sin barra lateral ni bloques oscuros). */
+.sidebar-link.active {
+  background: var(--turnia-green-soft);
+  color: var(--color-primary-hover);
+  font-weight: 600;
+}
+
+.sidebar-link.active svg {
+  opacity: 1;
+}
+
+.sidebar-footer {
+  border-top: 1px solid var(--color-border-soft);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+
+/* "Salir" es una acción terciaria y discreta — texto simple sin borde, no
+   un botón secundario de ancho completo compitiendo con la navegación. */
+.sidebar-footer form button {
+  width: 100%;
+  justify-content: flex-start;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-size: 13px;
+  padding: 8px 12px;
+}
+
+.sidebar-footer form button:hover {
+  background: var(--color-surface-soft);
+  color: var(--color-text-strong);
+}
+
+/* --- Topbar --- */
+
+/* Cualquier elemento usado como destino de un link ancla (#nuevo-paciente,
+   #turno-drawer, etc.) no debe terminar tapado por el topbar sticky al
+   saltar directo a él — el salto de anchor posiciona el elemento pegado al
+   borde superior del viewport, que es exactamente donde está el topbar. */
+[id] {
+  scroll-margin-top: calc(var(--topbar-height) + 16px);
+}
+
+/* Mismo resguardo que [id] de arriba, pero para elementos que el navegador
+   puede llevar a la vista sin que sean el destino de un anchor con "#"
+   (por ejemplo, el salto automático a un campo inválido al enviar un
+   formulario, o la restauración de scroll del navegador): ningún
+   título/métrica/card/formulario debe terminar tapado por el topbar
+   sticky. No agrega espacio visual — scroll-margin sólo afecta el punto de
+   scroll, no el layout. */
+.card,
+.stat-strip,
+.page-header {
+  scroll-margin-top: calc(var(--topbar-height) + 16px);
+}
+
+.app-topbar {
+  height: var(--topbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 4px 0 8px;
+  /* v5: ya no es una barra administrativa con su propio fondo/borde — queda
+     transparente, integrada al fondo marfil de la página, con sólo un
+     hairline apenas visible abajo. El peso visual pasa a estar en el título
+     (tipografía editorial) en vez de en el contenedor. */
+  background: transparent;
+  border-bottom: 1px solid var(--color-border-soft);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.app-topbar .topbar-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  color: var(--color-text-strong);
+}
+
+.app-topbar .topbar-date {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 1px;
+  text-transform: capitalize;
+}
+
+.topbar-search {
+  position: relative;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 360px;
+  padding: 0 12px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  color: var(--color-text-faint);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Buscador "premium": foco discreto en teal, sin volverse un elemento
+   llamativo — sólo un borde + halo suave, mismo lenguaje que inputs. */
+.topbar-search:focus-within {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.topbar-search svg {
+  flex-shrink: 0;
+}
+
+.topbar-search input {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  width: 100%;
+  font-size: 13px;
+}
+
+.topbar-search input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+@media (min-width: 760px) {
+  .topbar-search {
+    display: flex;
+  }
+}
+
+.topbar-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.topbar-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.menu-toggle {
+  display: none;
+  background: transparent;
+  color: var(--color-text);
+  padding: 8px;
+  border-radius: var(--radius-sm);
+}
+
+.menu-toggle:hover {
+  background: var(--color-surface-sunken);
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-content {
+  flex: 1;
+}
+
+/* --- Mobile bottom nav --- */
+
+.mobile-tabbar {
+  display: none;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    padding: 0;
+    gap: 0;
+  }
+
+  .app-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: var(--shadow-lg);
+    height: 100vh;
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    border-left: none;
+  }
+
+  .app-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    z-index: 40;
+  }
+
+  .menu-toggle {
+    display: inline-flex;
+  }
+
+  .container {
+    padding: 18px 16px 90px;
+  }
+
+  .mobile-tabbar {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    z-index: 30;
+  }
+
+  .mobile-tabbar a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
+    color: var(--color-text-muted);
+    font-weight: 600;
+    padding: 6px 8px;
+  }
+
+  .mobile-tabbar a.active {
+    color: var(--color-primary);
+  }
+}
+
+/* =========================================================================
+   Agenda — Checkpoint 5C
+   ========================================================================= */
+
+/* Tabs de vista (Día/Semana/Mes) como control segmentado */
+.segmented {
+  display: inline-flex;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 2px;
+}
+
+.segmented a {
+  padding: 7px 14px;
+  border-radius: calc(var(--radius-sm) - 2px);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.segmented a:hover {
+  color: var(--color-text);
+}
+
+.segmented a.active {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Anterior / Hoy / Siguiente */
+.date-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.date-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0;
+}
+
+.date-nav-btn:hover {
+  background: var(--color-surface-sunken);
+}
+
+.date-nav .btn.secondary {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+/* Tarjeta de turno en la lista de agenda */
+.appointment-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.appointment-card.is-next {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+/* Acento de estado por color a la izquierda de cada turno — permite escanear
+   la agenda del día de un vistazo sin tener que leer cada badge. Mismo
+   truco que .sidebar-link.active (box-shadow inset, respeta el
+   border-radius de la card en vez de un border-left que lo rompería). No
+   aplica si is-cancelled/is-next ya están dando su propia señal. */
+.appointment-card.status-accent-confirmado:not(.is-cancelled):not(.is-next),
+.appointment-card.status-accent-confirmed:not(.is-cancelled):not(.is-next) {
+  box-shadow: inset 3px 0 0 var(--color-success);
+}
+
+.appointment-card.status-accent-pendiente:not(.is-cancelled):not(.is-next),
+.appointment-card.status-accent-pending:not(.is-cancelled):not(.is-next) {
+  box-shadow: inset 3px 0 0 var(--color-warning);
+}
+
+.appointment-card.status-accent-programado:not(.is-cancelled):not(.is-next),
+.appointment-card.status-accent-scheduled:not(.is-cancelled):not(.is-next) {
+  box-shadow: inset 3px 0 0 var(--color-secondary);
+}
+
+/* Cancelado debe verse claramente cancelado sin depender sólo de opacidad
+   (que se confunde con "cargando"/"deshabilitado") — fondo rosa/rojo muy
+   suave + borde acorde, mismo lenguaje que .badge-cancelado. El texto en sí
+   no pierde opacidad (la información sigue siendo legible), lo que cambia
+   es la superficie de la card. */
+.appointment-card.is-cancelled {
+  background: var(--color-danger-bg);
+  border-color: rgba(220, 38, 38, 0.18);
+}
+
+.appointment-card.is-cancelled .appointment-time {
+  text-decoration: line-through;
+  text-decoration-color: var(--color-danger);
+  opacity: 0.7;
+}
+
+.appointment-time {
+  min-width: 92px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.appointment-time .appointment-date {
+  display: block;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--color-text-faint);
+  text-transform: capitalize;
+}
+
+.appointment-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.appointment-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.appointment-amount {
+  min-width: 90px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.appointment-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.appointment-row-actions .btn-ghost {
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .appointment-card {
+    align-items: flex-start;
+  }
+
+  .appointment-main {
+    min-width: 100%;
+  }
+
+  .appointment-meta {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* =========================================================================
+   Pacientes — Checkpoint 5D
+   ========================================================================= */
+
+.patient-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.patient-row-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.patient-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.patient-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.patient-row-main .muted span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 640px) {
+  .patient-row {
+    align-items: flex-start;
+  }
+
+  .patient-row-main {
+    min-width: 100%;
+  }
+
+  .patient-row-meta {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* =========================================================================
+   Ficha de paciente — cabecera "profesional" (segunda pasada de rediseño).
+   Antes era .patient-header + un .stat-strip genérico reutilizado del
+   Dashboard/Pagos, lo que la hacía sentir administrativa. Ahora: eyebrow +
+   avatar con anillo, jerarquía de acciones primaria/secundaria/terciaria, y
+   una franja de datos propia (.patient-meta-bar) con tipografía dedicada —
+   mismos datos, sin ninguna query/cálculo nuevo.
+   ========================================================================= */
+
+.patient-header-card {
+  /* El padding vive en .patient-header/.patient-meta-bar por separado —
+     acá sólo se define el fondo/borde de la card contenedora. */
+}
+
+.patient-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 22px 22px 18px;
+}
+
+.patient-header-identity {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.patient-header-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-faint);
+}
+
+.patient-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.patient-avatar-lg {
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 21px;
+  flex-shrink: 0;
+  /* Anillo sutil — refuerza que es la identidad principal de la pantalla
+     sin usar el primario como relleno de una superficie grande. */
+  box-shadow: 0 0 0 4px var(--color-surface), 0 0 0 5px var(--color-border);
+}
+
+.patient-contact-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.patient-contact-list span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Franja de datos clave — reemplaza el .stat-strip genérico en esta
+   pantalla puntual. Fondo levemente distinto (surface-soft) para separarse
+   de la identidad de arriba sin otra línea de borde pesada. */
+.patient-meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  background: var(--color-surface-soft);
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.patient-meta-item {
+  flex: 1 1 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 22px;
+  border-right: 1px solid var(--color-border-soft);
+}
+
+.patient-meta-item:last-child {
+  border-right: none;
+}
+
+.patient-meta-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.patient-meta-value-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.patient-meta-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+.patient-meta-value-lg {
+  font-size: 20px;
+}
+
+.patient-meta-value-lg.is-pending {
+  color: var(--color-warning);
+}
+
+.patient-meta-hint {
+  font-size: 13px;
+  color: var(--color-text-faint);
+}
+
+@media (max-width: 640px) {
+  .patient-meta-item {
+    flex: 1 1 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border-soft);
+  }
+
+  .patient-meta-item:last-child {
+    border-bottom: none;
+  }
+}
+
+/* Timeline */
+.timeline-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.timeline-item:last-child {
+  border-bottom: none;
+}
+
+.timeline-marker {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.timeline-marker.type-pago {
+  background: var(--color-success);
+}
+
+.timeline-marker.type-seguimiento {
+  background: var(--color-info);
+}
+
+.timeline-marker.type-ficha {
+  background: var(--color-text-faint);
+}
+
+.timeline-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Fila de Actividad clickeable (sección 5 de la pasada de corrección): toda
+   la fila navega, no sólo el título. Mismo look que .timeline-item, más
+   affordances de que es una acción. */
+.timeline-item-link {
+  align-items: flex-start;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  margin: 0 -10px;
+  padding: 12px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.timeline-item-link:hover {
+  background: var(--color-surface-sunken);
+}
+
+.timeline-item-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.timeline-item-chevron {
+  flex-shrink: 0;
+  align-self: center;
+  color: var(--color-text-faint);
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* =========================================================================
+   Dashboard — elementos accionables (PARTE 5 del pedido de corrección)
+   Filas/bloques que representan un recurso real (turno, paciente, pago
+   pendiente, lista de espera, aviso) usan este mismo lenguaje visual:
+   color heredado, sin subrayado, cursor pointer, hover sutil, foco visible
+   por teclado. Nada depende sólo de :hover — en mobile son <Link>/<a>
+   normales, tocables sin más.
+   ========================================================================= */
+
+.appointment-card-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.appointment-card-link:hover {
+  border-color: var(--color-text-faint);
+  background: var(--color-surface-sunken);
+}
+
+.appointment-card-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Franja "Próximo" dentro de Agenda de hoy (rediseño profundo del
+   Dashboard — reemplaza la antigua tarjeta separada "Próximo paciente",
+   ver dashboard/page.tsx). Es uno de los pocos usos permitidos de
+   --color-primary-soft como fondo: una franja angosta, no una card grande,
+   y sirve para destacar el dato más accionable de la pantalla. */
+.dashboard-next-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--color-primary-soft);
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin: 12px 0 4px;
+}
+
+.dashboard-next-strip:hover {
+  background: var(--color-primary-soft-strong);
+}
+
+.dashboard-next-strip:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.dashboard-next-strip-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-primary);
+  background: var(--color-surface);
+  padding: 2px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.dashboard-next-strip-time {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.dashboard-next-strip-name {
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 100px;
+}
+
+.dashboard-waitlist-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  margin: 0 -8px;
+  padding: 6px 8px 8px;
+  border-radius: var(--radius-sm);
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.dashboard-waitlist-row:last-child {
+  border-bottom: none;
+}
+
+.dashboard-waitlist-row:hover {
+  background: var(--color-surface-sunken);
+}
+
+.dashboard-waitlist-row:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.dashboard-opportunities li {
+  margin-bottom: 6px;
+}
+
+/* "Requiere atención" — panel compacto arriba del fold (Dashboard), no otra
+   card grande compitiendo con Agenda de hoy. Acento de borde izquierdo
+   (mismo lenguaje que .metrics-hero-card.has-debt), superficie neutra —
+   nada de fondo sólido warning para no volverse pesado. */
+.dashboard-attention {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-left: 3px solid var(--color-warning);
+  border-radius: var(--radius-lg);
+  padding: 12px 18px 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-attention-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-warning);
+  margin-bottom: 2px;
+}
+
+/* Título de grupo dentro de una card fusionada (Dashboard: Lista de espera
+   / Recordatorios comparten una sola card ahora) — un h3 normal ya viene en
+   mayúsculas/chico por el estilo global de h3, pero acá necesita quedar en
+   la misma línea que el link "Ver todo" sin heredar su margin-bottom por
+   defecto (ya lo maneja el .nav contenedor). */
+.reminder-group h3 {
+  margin: 0;
+}
+
+.dashboard-opportunity-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  margin: 0 -10px;
+  border-radius: var(--radius-sm);
+}
+
+.dashboard-opportunity-link:hover {
+  background: var(--color-surface-sunken);
+}
+
+.dashboard-opportunity-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* =========================================================================
+   Dashboard — Concepto C / Editorial Minimal. Saludo grande editorial,
+   franja de métricas con círculos-icono y fondo tintado suave, "Próximo
+   turno" como panel destacado propio, puntos de color por estado en la
+   lista de turnos, checklist compacto de recordatorios y un panel chico
+   editorial/motivacional al final del riel lateral. Mismos datos/queries
+   de siempre — sólo cambia la composición visual.
+   ========================================================================= */
+
+.dashboard-header-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.dashboard-greeting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-hero {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--color-text-strong);
+  margin: 0;
+}
+
+.dashboard-header-side {
+  text-align: right;
+}
+
+.dashboard-header-date {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+  margin-bottom: 6px;
+}
+
+.dashboard-quote {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 260px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--color-text-muted);
+}
+
+.dashboard-quote-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--turnia-lilac);
+  flex-shrink: 0;
+}
+
+/* Fila de métricas — tarjetas verticales con el ícono-círculo arriba,
+   número grande, label y una flecha de acceso, tal como en la referencia
+   aprobada (en vez del patrón horizontal anterior). Mismos 3 datos de
+   siempre (turnos/cobrado/pendiente) — ningún dato nuevo. */
+.dashboard-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+
+.dashboard-metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-metric-card-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-metric-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.dashboard-metric-value {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-text-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.dashboard-metric-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-metric-arrow {
+  color: var(--color-text-faint);
+  flex-shrink: 0;
+}
+
+/* Puntos de color por estado — usados en la lista "Agenda de hoy" en vez de
+   depender únicamente del badge de texto para distinguir el estado a
+   simple vista (confirmado = salvia, pendiente = arena, cancelado = malva). */
+.dashboard-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--turnia-sand);
+}
+
+.dashboard-dot.is-confirmed {
+  background: var(--turnia-green);
+}
+
+.dashboard-dot.is-cancelled {
+  background: var(--turnia-mauve);
+}
+
+/* Composición en 3 columnas del cuerpo del Dashboard (Agenda / Próximo
+   turno + Recordatorios / panel editorial), tal como en la referencia. */
+.dashboard-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.15fr) minmax(0, 0.9fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .dashboard-columns > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .dashboard-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-columns > :last-child {
+    grid-column: auto;
+  }
+}
+
+.dashboard-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* Pill chico reutilizable — "En 25 min", contador de recordatorios, etc. */
+.dashboard-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--turnia-green-soft);
+  color: var(--color-primary-hover);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* "Próximo turno" — panel destacado propio (antes era una franja angosta
+   incrustada arriba de la lista de Agenda), ahora una card blanca limpia
+   con avatar, badge de tiempo y CTA — igual que en la referencia. */
+.dashboard-next-panel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  color: inherit;
+  text-decoration: none;
+}
+
+.dashboard-next-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-next-panel-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--turnia-green-soft);
+  color: var(--color-primary-hover);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.dashboard-next-panel-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-next-panel-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-primary-hover);
+}
+
+.dashboard-next-panel-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-next-panel-meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.dashboard-next-panel-time {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+  flex-shrink: 0;
+}
+
+.dashboard-next-panel-action {
+  flex-shrink: 0;
+}
+
+/* Checklist compacto de recordatorios — checkbox a la izquierda, título +
+   hora al centro, igual lenguaje visual que la referencia (antes el botón
+   de "hecho" vivía a la derecha como ícono suelto). */
+.dashboard-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.dashboard-checklist-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.dashboard-checklist-row .icon-btn.is-sm {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.dashboard-checklist-row .icon-btn.is-sm:hover {
+  background: var(--turnia-green-soft);
+  border-color: var(--color-primary);
+}
+
+/* Paneles editoriales/motivacionales del riel derecho — superficies
+   tintadas (salvia / arena) con ícono-círculo + frase corta, tal como en
+   la referencia. Texto decorativo, no agrega ningún dato nuevo. */
+.dashboard-panel-tinted {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--color-text-strong);
+  flex: 1;
+}
+
+.dashboard-panel-tinted.is-sage {
+  background: var(--turnia-green-soft);
+}
+
+.dashboard-panel-tinted.is-sand {
+  background: var(--turnia-sand-soft);
+}
+
+@media (max-width: 720px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Tablas que NO se marcaron como .responsive-table siguen scrolleando
+     horizontal (comportamiento actual, sin cambios). */
+  .table:not(.responsive-table) {
+    min-width: 640px;
+  }
+
+  /* Preparado para 5C/5D: al agregar la clase "responsive-table" a una
+     tabla y un atributo data-label="Columna" a cada <td>, cada fila pasa
+     a presentarse como una tarjeta apilada en vez de scroll horizontal.
+     No tiene efecto todavía porque ninguna página usa esta clase aún. */
+  .responsive-table thead {
+    display: none;
+  }
+
+  .responsive-table,
+  .responsive-table tbody,
+  .responsive-table tr,
+  .responsive-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .responsive-table tr {
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--color-border-soft);
+  }
+
+  .responsive-table td {
+    padding: 4px 0 !important;
+    border: 0;
+  }
+
+  .responsive-table td[data-label]::before {
+    content: attr(data-label);
+    display: inline-block;
+    min-width: 104px;
+    color: var(--color-text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-right: 6px;
+  }
+}
+
+/* =========================================================================
+   Agenda — vista Mes (grilla real) — Fase UI v2
+   ========================================================================= */
+
+.month-grid {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.month-grid-head {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--color-surface-sunken);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.month-grid-head span {
+  padding: 10px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* Fix del bug visual reportado varias veces: "las celdas se ven demasiado
+   altas / parece que entran dos días en el mismo rectángulo". La causa
+   real eran DOS cosas combinadas, no sólo el color del borde (ya corregido
+   en una pasada anterior):
+   1) Las filas (semanas) no tenían una altura mínima consistente —
+      `grid-auto-rows` quedaba en "auto", así que una semana con un día
+      cargado de turnos estiraba toda la fila mientras los días vacíos de
+      esa misma fila quedaban con un colchón enorme de espacio en blanco
+      antes del borde inferior, leyéndose como si ese espacio "perteneciera"
+      a la franja de abajo en vez de ser parte del día de arriba.
+   2) El número del día no tenía ningún límite visual respecto de los
+      turnos debajo — sin una línea o separación entre "cabecera del día" y
+      "contenido del día", el ojo no tiene dónde cortar la lectura vertical
+      de una celda a la siguiente.
+   Se corrigen ambas: una altura de fila mínima pareja + un divisor visible
+   bajo la cabecera de cada celda (mismo lenguaje que .clinical-group /
+   .patient-meta-bar de esta misma pasada). */
+.month-grid-body {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: 112px;
+  gap: 1px;
+  background: var(--color-border);
+}
+
+.month-cell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 112px;
+  padding: 7px 7px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.month-cell.is-other-month {
+  background: var(--color-surface-sunken);
+}
+
+.month-cell.is-other-month .month-cell-daynum {
+  color: var(--color-text-faint);
+}
+
+/* Fila superior de cada celda del mes: número del día (texto plano, ya no
+   clickeable — así no se confunde con la acción de crear turno) + botón +
+   discreto a la derecha. Mismo patrón que .week-col-head/.week-col-add en
+   la vista Semana, para que el gesto sea consistente entre ambas vistas
+   (PARTE 1 del pedido). */
+.month-cell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  /* Divisor real entre la cabecera (número del día) y sus turnos — esto es
+     lo que "cierra" visualmente cada día como su propio rectángulo. */
+  padding-bottom: 5px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.month-cell.is-other-month .month-cell-head {
+  border-bottom-color: var(--color-border-soft);
+  opacity: 0.85;
+}
+
+.month-cell-daynum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text);
+  flex-shrink: 0;
+}
+
+.month-cell.is-today .month-cell-daynum {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.month-cell-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-faint);
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.month-cell-add:hover,
+.month-cell-add:focus-visible {
+  opacity: 1;
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.month-cell.is-today .month-cell-add {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.month-cell.is-today .month-cell-add:hover,
+.month-cell.is-today .month-cell-add:focus-visible {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+/* En mobile/tablet no hay hover, así que el + tiene que ser visible y
+   tocable siempre (PARTE 12/13 del pedido: nada de acciones que dependan
+   sólo de hover). El valor por defecto ya es visible (opacity 0.7, no 0),
+   este bloque sólo sube el tamaño táctil mínimo. */
+@media (max-width: 900px) {
+  .month-cell-add {
+    width: 20px;
+    height: 20px;
+    opacity: 0.85;
+  }
+}
+
+.month-cell-appts {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: relative;
+  z-index: 1;
+}
+
+.month-chip {
+  display: block;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.month-chip:hover {
+  filter: brightness(0.97);
+}
+
+/* Antes era gris neutro + tachado — se confundía con "otro mes"/"sin
+   turnos" a simple vista, dependiendo sólo del tachado (pedido explícito:
+   "no depender solamente de text-decoration"). Ahora usa el mismo rosa/rojo
+   suave que .badge-cancelado, consistente entre Mes y Semana (ambas vistas
+   comparten .month-chip). */
+.month-chip.is-cancelled {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  text-decoration: line-through;
+  opacity: 0.85;
+}
+
+/* Fila que agrupa el chip de turno (Link, abre el drawer) + el link "Meet"
+   (elemento hermano, no anidado — un <a> dentro de otro <a>/<Link> sería
+   HTML inválido). Sólo se agrega el segundo elemento cuando hay
+   meeting_url; si no, la fila sólo tiene el chip de siempre. */
+.month-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.month-chip-row .month-chip {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.month-chip-meet {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-decoration: underline;
+  white-space: nowrap;
+  padding: 2px 2px;
+}
+
+.month-chip-meet:hover {
+  opacity: 0.8;
+}
+
+.month-chip-more {
+  display: block;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.month-chip-more:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+  .month-grid-body {
+    grid-auto-rows: 88px;
+  }
+
+  .month-cell {
+    height: 88px;
+    padding: 5px 4px 6px;
+  }
+
+  .month-cell-head {
+    padding-bottom: 3px;
+  }
+
+  .month-grid-head span {
+    padding: 8px 2px;
+    font-size: 10px;
+  }
+
+  .month-chip,
+  .month-chip-more {
+    font-size: 10px;
+    padding: 1px 4px;
+  }
+}
+
+@media (max-width: 640px) {
+  .month-grid-body {
+    grid-auto-rows: 68px;
+  }
+
+  .month-cell {
+    height: 68px;
+  }
+
+  .month-chip-row:nth-child(n+3) {
+    display: none;
+  }
+}
+
+/* =========================================================================
+   Agenda — vista Semana (columnas por día) — Fase UI v2
+   ========================================================================= */
+
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+
+.week-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  /* Contorno propio por columna — mismo criterio que el fix de Mes: cada
+     día debe leerse como su propio contenedor, no como una franja suelta
+     de contenido flotando entre sus vecinos. */
+  padding: 8px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.week-col.is-today {
+  border-color: var(--color-primary-soft-strong);
+}
+
+.week-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+}
+
+/* "Hoy" ya no es un fondo sólido del primario (regla explícita de la
+   paleta aprobada: el primario nunca es fondo dominante de una superficie
+   grande) — pasa a ser un tratamiento suave, mismo lenguaje que
+   .badge/.month-chip: fondo --color-primary-soft, texto --color-primary. */
+.week-col.is-today .week-col-head {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.week-col-head-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.week-col.is-today .week-col-head-label {
+  color: var(--color-primary);
+}
+
+.week-col-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.week-col.is-today .week-col-add {
+  background: var(--color-surface);
+  color: var(--color-primary);
+}
+
+.week-col-appts {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 32px;
+}
+
+/* Semana usa el mismo lenguaje visual de "chip" de una sola línea que Mes
+   (.month-chip: "09:00 Nombre", mismo color, mismo truncado, mismo estilo
+   de cancelado) en vez de las tarjetas de dos líneas de antes — Semana y
+   Mes deben sentirse como dos niveles de zoom del mismo calendario, no como
+   dos calendarios distintos. Ver .month-chip / .month-chip-more más abajo;
+   las reglas de acá sólo cubren lo que es específico de la columna semanal. */
+.week-col-empty {
+  font-size: 11px;
+  color: var(--color-text-faint);
+  padding: 2px 6px;
+}
+
+@media (max-width: 900px) {
+  .week-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .week-col-appts {
+    min-height: 0;
+  }
+}
+
+/* =========================================================================
+   Turno — panel lateral (drawer) — Fase UI v2
+   ========================================================================= */
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  z-index: 60;
+}
+
+.drawer-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(440px, 100vw);
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--color-border-soft);
+  position: sticky;
+  top: 0;
+  background: var(--color-surface);
+  z-index: 1;
+}
+
+.drawer-header h2 {
+  margin: 0;
+}
+
+.drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.drawer-close:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.drawer-form {
+  padding: 20px 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.drawer-form .field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field-hint {
+  margin: -8px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.drawer-footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.drawer-footer .btn,
+.drawer-footer button {
+  flex: 1;
+}
+
+@media (max-width: 520px) {
+  .drawer-panel {
+    width: 100vw;
+  }
+
+  .drawer-form .field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field-hint.is-warning {
+  color: var(--color-danger);
+}
+
+/* =========================================================================
+   Combobox de paciente (Agenda: drawer de turno) y buscador global (Topbar)
+   — Tercera pasada
+   ========================================================================= */
+
+.combobox {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.combobox input[type='text'] {
+  width: 100%;
+}
+
+.combobox-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.12));
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.combobox-empty {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.combobox-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.combobox-option:hover,
+.combobox-option.is-highlighted {
+  background: var(--color-surface-sunken);
+}
+
+.combobox-option-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.combobox-option-meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.combobox-option-create {
+  border-top: 1px solid var(--color-border-soft);
+  margin-top: 2px;
+  padding-top: 10px;
+  font-weight: 500;
+  color: var(--color-primary);
+}
+
+.combobox-option-create:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* =========================================================================
+   Sub-nav de sección (Configuración: Preferencias / Servicios / Integraciones)
+   — Fase UI v2 (segunda pasada)
+   ========================================================================= */
+
+.section-tabs {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.section-tabs a,
+.section-tabs button {
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  /* Las tabs "Preferencias"/"Integraciones" son <button> (para poder
+     controlar cuál panel se muestra sin navegar), pero visualmente deben
+     verse idénticas al link "Servicios" — así que se resetea todo lo que
+     el estilo global de <button> les impondría (fondo primario, texto
+     blanco, etc.). */
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.section-tabs a:hover,
+.section-tabs button:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.section-tabs a.active,
+.section-tabs button.active {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+}
+
+/* =========================================================================
+   Tabs interactivos (ficha de paciente y similares) — Fase UI v2
+   ========================================================================= */
+
+.tabs-strip {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin-bottom: 16px;
+  /* overflow-x:auto sólo debería importar en mobile, cuando las pestañas no
+     entran en el ancho disponible. En desktop no hay nada que scrollear,
+     pero algunos navegadores igual reservan/pintan la barra de scroll del
+     contenedor (se veía como un control extraño a la derecha de las tabs).
+     Se oculta la barra nativa sin perder el scroll funcional en mobile. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tabs-strip::-webkit-scrollbar {
+  display: none;
+  height: 0;
+  width: 0;
+}
+
+.tabs-strip-btn {
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 0;
+  border-radius: 0;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tabs-strip-btn:hover {
+  color: var(--color-text);
+  background: transparent;
+}
+
+.tabs-strip-btn.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* =========================================================================
+   Integraciones — cards — Fase UI v2
+   ========================================================================= */
+
+.integration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.integration-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--color-surface);
+}
+
+.integration-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.integration-card-name {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.integration-card-desc {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0;
+  flex: 1;
+}
+
+.integration-card-account {
+  font-size: 12px;
+  color: var(--color-text-faint);
+}
+
+.integration-card-action {
+  margin-top: 4px;
+}
+
+/* =========================================================================
+   Recordatorios personales del profesional (PARTE 6-9 del pedido) —
+   /reminders y la tarjeta correspondiente en el Dashboard.
+   ========================================================================= */
+
+.reminder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reminder-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.reminder-row:last-child {
+  border-bottom: none;
+}
+
+.reminder-row-main {
+  min-width: 180px;
+  flex: 1;
+}
+
+.reminder-row-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.reminder-row-desc {
+  font-size: 13px;
+  white-space: pre-wrap;
+  margin-top: 2px;
+}
+
+.reminder-row-time {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.reminder-row.tone-overdue .reminder-row-time {
+  color: var(--color-danger, #c0392b);
+  font-weight: 600;
+}
+
+.reminder-row.tone-today .reminder-row-time {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.reminder-row.tone-done {
+  opacity: 0.65;
+}
+
+.reminder-row.tone-done .reminder-row-title {
+  text-decoration: line-through;
+}
+
+.reminder-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.reminder-row-actions form {
+  display: inline-flex;
+}
+
+.reminder-row-actions .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.reminder-postpone {
+  position: relative;
+}
+
+.reminder-postpone summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.reminder-postpone summary::-webkit-details-marker {
+  display: none;
+}
+
+.reminder-postpone-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  /* En desktop, el popover de "Posponer" se posiciona flotando sobre la
+     fila para no empujar el resto de la lista; en mobile (ver media query
+     más abajo) pasa a ser parte normal del flujo, tocable sin problema. */
+  position: absolute;
+  right: 0;
+  z-index: 5;
+  min-width: 220px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.reminder-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.reminder-row-editing {
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin: 4px 0;
+}
+
+@media (max-width: 640px) {
+  .reminder-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reminder-row-actions {
+    justify-content: flex-start;
+  }
+
+  .reminder-postpone-form {
+    position: static;
+    box-shadow: none;
+    width: 100%;
+  }
+}
+
+/* Grupos internos de /reminders (Vencidos / Hoy / Próximos) — reemplazan
+   3 cards separadas por una sola card con jerarquía interna, evitando
+   "card dentro de card" y huecos vacíos cuando un grupo no tiene nada. */
+.reminder-group {
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.reminder-group:last-child {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.reminder-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.reminder-group-title .is-overdue {
+  color: var(--color-danger);
+}
+
+.reminder-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.reminder-group-count.is-overdue {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.reminder-group-count.is-today {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+/* Tarjeta de Recordatorios en el Dashboard */
+.dashboard-reminder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard-reminder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.dashboard-reminder-row:last-child {
+  border-bottom: none;
+}
+
+.dashboard-reminder-link {
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  margin: -4px -6px;
+  padding: 4px 6px;
+}
+
+.dashboard-reminder-link:hover {
+  background: var(--color-surface-sunken);
+}
+
+.dashboard-reminder-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.dashboard-reminder-row.is-overdue .muted {
+  color: var(--color-danger, #c0392b);
+}
+
+.dashboard-reminder-row.is-today .muted {
+  color: var(--color-primary);
+}
+
+/* =========================================================================
+   Ficha clínica — jerarquía visual real entre secciones (segunda pasada de
+   rediseño). Reemplaza la secuencia plana de textareas idénticas por 3
+   bloques (Consulta / Diagnóstico / Seguimiento) con separación y un
+   acento visible para Diagnóstico — sin convertir cada campo en una card
+   nueva ni tocar los names de los campos/el server action.
+   ========================================================================= */
+
+.clinical-record-view,
+.clinical-record-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.clinical-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.clinical-group:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.clinical-group-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-primary);
+}
+
+.clinical-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 4px;
+}
+
+.clinical-field-value {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+/* Diagnóstico se destaca con un acento lateral teal (mismo lenguaje que
+   .appointment-card.is-next / .dashboard-next-strip) — sigue siendo texto
+   plano, no una card nueva, pero se lee como el campo clínico más
+   relevante de la ficha (pedido explícito del cliente). */
+.clinical-field-diagnosis {
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+
+.clinical-field-diagnosis .clinical-field-label {
+  color: var(--color-primary);
+}
+
+.clinical-field-diagnosis-input {
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+
+.clinical-field-diagnosis-input textarea {
+  background: var(--color-surface);
+}
+
+/* =========================================================================
+   Exportación (PDF / Word / Excel) — menú "Exportar" en ficha de paciente,
+   listado de pacientes, pagos y agenda.
+   ========================================================================= */
+
+.export-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.export-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.export-menu-caret {
+  font-size: 10px;
+  color: var(--color-text-faint);
+}
+
+/* El panel ya NO es descendiente del botón en el DOM: se renderiza vía
+   portal a document.body (components/export/ExportMenu.tsx) para no
+   quedar nunca recortado por un ancestro con overflow/stacking context
+   propio (p. ej. el card con overflow:hidden de patients/[id]). Por eso
+   acá sólo van estilos visuales — la posición (position:fixed +
+   top/left/right/bottom) la calcula JS por instancia y se aplica inline.
+   max-height + overflow-y son el "min(70vh, ...) con scroll interno"
+   pedido explícitamente, para cuando hay muchas opciones o poca altura de
+   pantalla; JS además recorta ese máximo al espacio real disponible. */
+.export-menu-panel {
+  z-index: 1000;
+  min-width: 260px;
+  max-height: min(70vh, 420px);
+  overflow-y: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+}
+
+.export-menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.export-menu-row:hover {
+  background: var(--color-surface-sunken);
+}
+
+.export-menu-row-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.export-menu-row-formats {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.export-menu-format-link {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-decoration: none;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.export-menu-format-link:hover,
+.export-menu-format-link:focus-visible {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+.export-menu-simple-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.export-menu-simple-link:hover,
+.export-menu-simple-link:focus-visible {
+  background: var(--color-surface-sunken);
+}
+
+/* Mobile: el ancho/posición del panel ya lo calcula JS (inline style, ver
+   ExportMenu.tsx) — acá sólo queda el ajuste puramente visual de las filas
+   con sección (ExportMenu), que en una columna angosta se leen mejor
+   apiladas que en una fila con las tres siglas de formato apretadas. */
+@media (max-width: 640px) {
+  .export-menu-panel {
+    min-width: 0;
+  }
+
+  .export-menu-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
+
+/* =========================================================================
+   Dictado por voz — notas de sesión y seguimiento
+   ========================================================================= */
+
+.voice-note-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.voice-note-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.voice-note-label-row > label {
+  margin: 0;
+}
+
+.voice-note-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.voice-note-button svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.voice-note-button:hover:not(:disabled),
+.voice-note-button:focus-visible:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.voice-note-button.is-listening {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.voice-note-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.voice-note-help {
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.voice-note-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.voice-note-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: voice-note-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes voice-note-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 640px) {
+  .voice-note-label-row {
+    align-items: flex-start;
+  }
+
+  .voice-note-button {
+    min-height: 36px;
+  }
+}
+
+
+/* =========================================================================
+   Alerta global de recordatorios personales
+   ========================================================================= */
+
+.reminder-alert {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 1200;
+  width: min(440px, calc(100vw - 32px));
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  animation: reminder-alert-enter 180ms ease-out;
+}
+
+.reminder-alert-pulse {
+  width: 13px;
+  height: 13px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--color-danger);
+  box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.3);
+  animation: reminder-alert-pulse 1.25s ease-out infinite;
+}
+
+.reminder-alert-content {
+  min-width: 0;
+}
+
+.reminder-alert-eyebrow {
+  color: var(--color-danger);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.reminder-alert-title {
+  margin-top: 2px;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.reminder-alert-description {
+  margin-top: 4px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.reminder-alert-time {
+  margin-top: 5px;
+  color: var(--color-danger);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.reminder-alert-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+.reminder-alert-notifications {
+  margin-right: auto;
+  font-size: 12px;
+}
+
+@keyframes reminder-alert-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.35); opacity: 1; }
+  70% { box-shadow: 0 0 0 9px rgba(192, 57, 43, 0); opacity: 0.75; }
+  100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0); opacity: 1; }
+}
+
+@keyframes reminder-alert-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 640px) {
+  .reminder-alert {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    width: auto;
+  }
+
+  .reminder-alert-actions {
+    align-items: stretch;
+  }
+
+  .reminder-alert-actions .btn,
+  .reminder-alert-actions .btn-ghost {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .reminder-alert-notifications {
+    flex-basis: 100%;
+    margin-right: 0;
+  }
+}

@@ -1,0 +1,43 @@
+-- PROPUESTA — NO APLICADA TODAVÍA.
+--
+-- Este archivo NO fue ejecutado contra la base de datos. Se entrega como
+-- propuesta para que Dario la revise y decida cuándo (y si) aplicarla,
+-- después de correr las dos consultas de detección de duplicados que se le
+-- compartieron en el diagnóstico de esta pasada:
+--
+--   -- Duplicados por teléfono e164 (mismo tenant, activos)
+--   select tenant_id, phone_e164, array_agg(id) ids, array_agg(name) names
+--   from patients where deleted_at is null and phone_e164 is not null
+--   group by tenant_id, phone_e164 having count(*) > 1;
+--
+--   -- Duplicados por email normalizado (mismo tenant, activos)
+--   select tenant_id, lower(trim(email)) email_norm, array_agg(id) ids, array_agg(name) names
+--   from patients where deleted_at is null and email is not null
+--   group by tenant_id, lower(trim(email)) having count(*) > 1;
+--
+-- Si alguna de esas consultas devuelve filas, aplicar este índice fallaría
+-- (Postgres no puede crear un unique index sobre datos que ya lo violan).
+-- En ese caso hay que decidir manualmente qué hacer con cada conflicto
+-- (fusionar, corregir el dato, o archivar uno de los dos) ANTES de aplicar
+-- esta migración — nunca de forma automática.
+--
+-- Qué hace esta migración (cuando se aplique):
+-- - Agrega dos índices únicos PARCIALES sobre `patients`, siempre
+--   restringidos a `tenant_id` (nunca se compara entre consultorios
+--   distintos) y sólo sobre pacientes activos (`deleted_at is null`).
+-- - Al ser parciales con `... is not null` en la condición, múltiples
+--   pacientes con teléfono NULL (o email NULL) siguen permitidos sin
+--   conflicto — la restricción nunca bloquea por ausencia de dato.
+-- - Los pacientes archivados (`deleted_at` no nulo) quedan fuera del
+--   índice: no cuentan como conflicto contra un paciente activo con el
+--   mismo teléfono o email.
+--
+-- No modifica ninguna otra tabla, política de RLS, función ni trigger.
+
+-- create unique index concurrently if not exists patients_tenant_phone_e164_unique
+--   on patients (tenant_id, phone_e164)
+--   where deleted_at is null and phone_e164 is not null;
+
+-- create unique index concurrently if not exists patients_tenant_email_norm_unique
+--   on patients (tenant_id, lower(trim(email)))
+--   where deleted_at is null and email is not null;
