@@ -38,6 +38,7 @@ export type WsfeParametersSnapshot = {
   conceptTypes: WsfeParameterItem[];
   vatRates: WsfeParameterItem[];
   receiverVatConditions: WsfeParameterItem[];
+  warnings: string[];
   fetchedAt: string;
 };
 
@@ -369,8 +370,28 @@ export async function getWsfeParametersSnapshot(params: {
   const vatRates = await getGeneric({ ...common, operationElement: 'FEParamGetTiposIva', nodeName: 'IvaTipo' });
   if (!vatRates.ok) return vatRates;
 
+  const warnings: string[] = [];
+
   const receiverVatConditions = await getReceiverVatConditions(common);
-  if (!receiverVatConditions.ok) return receiverVatConditions;
+  let receiverVatConditionRows: WsfeParameterItem[] = [];
+
+  if (receiverVatConditions.ok) {
+    receiverVatConditionRows = receiverVatConditions.data;
+  } else {
+    const knownHomologationAuthQuirk =
+      receiverVatConditions.errorMessage.includes('500') &&
+      receiverVatConditions.errorMessage.toLowerCase().includes('campo auth');
+
+    if (!knownHomologationAuthQuirk) return receiverVatConditions;
+
+    // No frenamos toda la validación de WSFE por este método puntual.
+    // ARCA homologación está aceptando el mismo TA para los otros métodos
+    // pero rechaza FEParamGetCondicionIvaReceptor con código 500. Dejamos
+    // constancia y seguimos con los catálogos que sí respondió el servicio.
+    warnings.push(
+      'ARCA homologación no devolvió Condición de IVA del receptor (error 500 en FEParamGetCondicionIvaReceptor). El resto de los parámetros se consultó normalmente.',
+    );
+  }
 
   return {
     ok: true,
@@ -381,7 +402,8 @@ export async function getWsfeParametersSnapshot(params: {
       documentTypes: documentTypes.data,
       conceptTypes: conceptTypes.data,
       vatRates: vatRates.data,
-      receiverVatConditions: receiverVatConditions.data,
+      receiverVatConditions: receiverVatConditionRows,
+      warnings,
       fetchedAt: new Date().toISOString(),
     },
   };
