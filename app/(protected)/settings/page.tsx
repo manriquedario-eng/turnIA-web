@@ -7,6 +7,7 @@ import { isEmailConfigured } from '@/lib/email/provider';
 import { isArcaWsaaConfigured, getArcaConnectionSummary } from '@/lib/arca/wsaa';
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
 import { ArcaWsfeParameters } from '@/components/settings/ArcaWsfeParameters';
+import { ArcaLastAuthorizedTest } from '@/components/settings/ArcaLastAuthorizedTest';
 
 type PageProps = {
   searchParams?: Promise<{ ok?: string; error?: string }>;
@@ -380,7 +381,12 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                     </div>
                   </form>
 
-                  {arcaConnected ? <ArcaWsfeParameters /> : null}
+                  {arcaConnected ? (
+                    <>
+                      <ArcaWsfeParameters />
+                      <ArcaLastAuthorizedTest />
+                    </>
+                  ) : null}
                 </>
               )}
             </div>
