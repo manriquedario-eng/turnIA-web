@@ -62,6 +62,8 @@ export async function updateSettings(formData: FormData) {
     cuit: formData.get('cuit'),
     business_name: formData.get('business_name'),
     tax_condition: formData.get('tax_condition'),
+    activity_code: formData.get('activity_code'),
+    activity_description: formData.get('activity_description'),
     professional_phone: formData.get('professional_phone'),
     professional_email: formData.get('professional_email'),
     office_address: formData.get('office_address'),
