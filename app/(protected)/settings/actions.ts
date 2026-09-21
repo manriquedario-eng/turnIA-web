@@ -96,15 +96,25 @@ export async function updateSettings(formData: FormData) {
     ? current.profile as Record<string, unknown>
     : {};
   const currentPreferences = current?.preferences && typeof current.preferences === 'object' ? current.preferences : {};
+  const fiscalEnabled = formData.get('fiscal_enabled') === 'true';
 
+  let fiscalCuit = typeof currentProfile.cuit === 'string' ? currentProfile.cuit : null;
+  let businessName = typeof currentProfile.business_name === 'string' ? currentProfile.business_name : null;
+  let taxCondition = typeof currentProfile.tax_condition === 'string' ? currentProfile.tax_condition : null;
   let activityCode = typeof currentProfile.activity_code === 'string' ? currentProfile.activity_code : null;
   let activityDescription = typeof currentProfile.activity_description === 'string' ? currentProfile.activity_description : null;
+
+  if (fiscalEnabled) {
+    fiscalCuit = parsed.data.cuit ?? null;
+    businessName = parsed.data.business_name ?? null;
+    taxCondition = parsed.data.tax_condition ?? null;
+  }
 
   // Sólo modificamos la actividad cuando el formulario mostró el selector
   // alimentado por ARCA. El código recibido nunca se acepta por sí solo:
   // se vuelve a consultar FEParamGetActividades server-side y la descripción
   // se toma de esa respuesta, no del navegador.
-  if (formData.get('activity_management') === 'arca_select') {
+  if (fiscalEnabled && formData.get('activity_management') === 'arca_select') {
     const selectedCode = parsed.data.activity_code ?? null;
     if (!selectedCode) {
       redirect('/settings?error=Seleccioná%20una%20actividad%20habilitada%20por%20ARCA');
@@ -136,9 +146,10 @@ export async function updateSettings(formData: FormData) {
       profession: parsed.data.profession ?? null,
       license_number: parsed.data.license_number ?? null,
       professional_college: parsed.data.professional_college ?? null,
-      cuit: parsed.data.cuit ?? null,
-      business_name: parsed.data.business_name ?? null,
-      tax_condition: parsed.data.tax_condition ?? null,
+      fiscal_enabled: fiscalEnabled,
+      cuit: fiscalCuit,
+      business_name: businessName,
+      tax_condition: taxCondition,
       activity_code: activityCode,
       activity_description: activityDescription,
       professional_phone: parsed.data.professional_phone ?? null,
@@ -159,6 +170,7 @@ export async function updateSettings(formData: FormData) {
 
   revalidatePath('/settings');
   revalidatePath('/agenda');
+  revalidatePath('/billing');
   redirect('/settings?ok=Configuración%20guardada');
 }
 
