@@ -133,10 +133,6 @@ export async function createBillingInvoiceDraft(formData: FormData) {
     if (!entity) invoiceRedirectError('La obra social o empresa seleccionada no está disponible.', draft.patient_id);
   }
 
-  if (draft.recipient_mode === 'patient_reimbursement' && draft.recipient_legal_name !== patient.name) {
-    invoiceRedirectError('En una factura para reintegro, el receptor debe ser el paciente.', draft.patient_id);
-  }
-
   if (draft.recipient_mode === 'direct_payer' && !draft.recipient_cuit) {
     invoiceRedirectError('Para facturación directa a una obra social o empresa, ingresá su CUIT.', draft.patient_id);
   }
@@ -191,6 +187,10 @@ export async function createBillingInvoiceDraft(formData: FormData) {
     }
   }
 
+  const recipientLegalName =
+    draft.recipient_mode === 'patient_reimbursement'
+      ? patient.name
+      : draft.recipient_legal_name;
   const recipientCuit = draft.recipient_cuit;
   const patientDni = String(patient.dni ?? '').replace(/\D/g, '');
   const recipientDocType = recipientCuit
@@ -225,7 +225,7 @@ export async function createBillingInvoiceDraft(formData: FormData) {
       sale_condition: draft.sale_condition,
       recipient_doc_type: recipientDocType,
       recipient_doc_number: recipientDocNumber,
-      recipient_legal_name: draft.recipient_legal_name,
+      recipient_legal_name: recipientLegalName,
       recipient_cuit: recipientCuit,
       recipient_vat_condition_id: draft.recipient_vat_condition_id,
       recipient_vat_condition_label: vatLabel,
