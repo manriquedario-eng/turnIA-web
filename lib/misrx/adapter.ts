@@ -82,7 +82,8 @@ export class MisRxAdapter {
     planId?: number;
     noIncluyeBajas?: boolean;
   }): Promise<MisRxApiResult<MisRxListResponse<MisRxProduct>>> {
-    if (!this.provider.softId) {
+    const softId = this.provider.softId;
+    if (!softId) {
       return {
         ok: false,
         reason: 'not_configured',
@@ -95,7 +96,7 @@ export class MisRxAdapter {
         path: '/api/productos_seleccion',
         accessToken,
         query: {
-          soft_id: this.provider.softId,
+          soft_id: softId,
           convenio_id: params.convenioId,
           query: params.query,
           afiliado_credencial: params.credential ?? '',
@@ -122,7 +123,8 @@ export class MisRxAdapter {
   async issuePrescription(
     payload: Omit<MisRxPrescriptionPayload, 'soft_id'>,
   ): Promise<MisRxApiResult<MisRxPrescriptionResponse>> {
-    if (!this.provider.softId) {
+    const softId = this.provider.softId;
+    if (!softId) {
       return {
         ok: false,
         reason: 'not_configured',
@@ -138,7 +140,7 @@ export class MisRxAdapter {
         appId: this.provider.appId,
         body: {
           ...payload,
-          soft_id: this.provider.softId,
+          soft_id: softId,
         } satisfies MisRxPrescriptionPayload,
         query: { verify_exp: false },
       }),
@@ -175,7 +177,8 @@ export class MisRxAdapter {
   async cancelPrescription(
     payload: Omit<MisRxCancelPrescriptionPayload, 'soft_id'>,
   ): Promise<MisRxApiResult<Record<string, unknown>>> {
-    if (!this.provider.softId) {
+    const softId = this.provider.softId;
+    if (!softId) {
       return {
         ok: false,
         reason: 'not_configured',
@@ -191,7 +194,7 @@ export class MisRxAdapter {
         appId: this.provider.appId,
         body: {
           ...payload,
-          soft_id: this.provider.softId,
+          soft_id: softId,
         } satisfies MisRxCancelPrescriptionPayload,
         query: { verify_exp: false },
       }),
