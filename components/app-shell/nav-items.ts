@@ -5,6 +5,7 @@ import {
   IconClock,
   IconHome,
   IconSearch,
+  IconReceipt,
   IconSettings,
   IconTag,
   IconUsers,
@@ -61,6 +62,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Finanzas',
     items: [
       { href: '/payments', label: 'Pagos y caja', icon: IconWallet, mobile: true },
+      { href: '/billing', label: 'Facturación', icon: IconReceipt },
       { href: '/metrics', label: 'Deudas y métricas', icon: IconWallet },
     ],
   },
