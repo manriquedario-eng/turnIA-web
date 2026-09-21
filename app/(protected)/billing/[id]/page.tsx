@@ -124,6 +124,9 @@ export default async function BillingInvoiceDetailPage({
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Receptor</h2>
+        <p className="text-helper" style={{ marginTop: 0 }}>
+          Circuito: <strong>{invoice.recipient_mode === 'direct_payer' ? 'Factura directa a obra social / empresa' : 'Factura al paciente para reintegro'}</strong>
+        </p>
         <div className="form-grid">
           <div><span className="muted">Razón social</span><br /><strong>{invoice.recipient_legal_name}</strong></div>
           <div><span className="muted">CUIT / documento</span><br /><strong>{invoice.recipient_cuit ?? invoice.recipient_doc_number ?? '—'}</strong></div>
