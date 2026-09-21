@@ -197,7 +197,7 @@ export default async function PatientDetailPage({
   // Cálculos de presentación sobre datos ya obtenidos — sin queries nuevas.
   const now = Date.now();
   const activeAppointments = appointments.filter((a: any) => !isCancelled(a.status));
-  const nextAppointment = activeAppointments
+  const nextAppointment: any = activeAppointments
     .filter((a: any) => new Date(a.starts_at).getTime() >= now)
     .sort((a: any, b: any) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())[0];
   const nextAppointmentAmount = nextAppointment
