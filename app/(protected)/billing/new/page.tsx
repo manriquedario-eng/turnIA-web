@@ -84,7 +84,7 @@ export default async function NewBillingInvoicePage({
 
   if (patientError || !patient) notFound();
 
-  const [{ data: billingEntities }, { data: rawAppointments }, arcaConnection] = await Promise.all([
+  const [{ data: billingEntities }, { data: rawAppointments }, { data: professionalSettings }, arcaConnection] = await Promise.all([
     supabase
       .from('billing_entities')
       .select('id,display_name,legal_name,cuit,vat_condition_id,commercial_address,billing_email,default_sale_condition')
@@ -99,6 +99,11 @@ export default async function NewBillingInvoicePage({
       .lte('starts_at', new Date().toISOString())
       .order('starts_at', { ascending: false })
       .limit(48),
+    supabase
+      .from('settings')
+      .select('profile')
+      .eq('tenant_id', tenantId)
+      .maybeSingle(),
     getArcaConnectionSummary({ tenantId, userId: user.id }),
   ]);
 
@@ -156,6 +161,15 @@ export default async function NewBillingInvoicePage({
     })
     .map((appointment) => appointment.id);
 
+  const professionalProfile =
+    professionalSettings?.profile && typeof professionalSettings.profile === 'object'
+      ? professionalSettings.profile as Record<string, unknown>
+      : {};
+  const professionalActivityCode =
+    typeof professionalProfile.activity_code === 'string' ? professionalProfile.activity_code : '';
+  const professionalActivityDescription =
+    typeof professionalProfile.activity_description === 'string' ? professionalProfile.activity_description : '';
+
   const payers = (billingEntities ?? []).map((entity: any) => ({
     id: entity.id as string,
     displayName: entity.display_name as string,
@@ -202,8 +216,8 @@ export default async function NewBillingInvoicePage({
         initialSelectedIds={initialSelectedIds}
         arca={{
           pointOfSale: arcaConnection?.puntoVenta ?? 3,
-          activityCode: arcaConnection?.activityCode ?? '',
-          activityDescription: arcaConnection?.activityDescription ?? '',
+          activityCode: professionalActivityCode,
+          activityDescription: professionalActivityDescription,
         }}
         today={today}
         monthStart={currentMonthStart}
