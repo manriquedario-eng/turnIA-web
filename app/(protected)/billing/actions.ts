@@ -357,6 +357,7 @@ export async function authorizeBillingInvoice(formData: FormData) {
     recipientDocType: Number(currentInvoice.recipient_doc_type),
     recipientDocNumber: String(currentInvoice.recipient_doc_number),
     recipientVatConditionId: Number(currentInvoice.recipient_vat_condition_id),
+    activityCode: currentInvoice.activity_code ?? null,
     environment: 'homologacion',
   });
 
