@@ -120,15 +120,26 @@ export class MisRxAdapter {
   }
 
   async issuePrescription(
-    payload: MisRxPrescriptionPayload,
+    payload: Omit<MisRxPrescriptionPayload, 'soft_id'>,
   ): Promise<MisRxApiResult<MisRxPrescriptionResponse>> {
+    if (!this.provider.softId) {
+      return {
+        ok: false,
+        reason: 'not_configured',
+        errorMessage: 'Falta configurar el soft_id oficial de MisRX para TurnIA.',
+      };
+    }
+
     return this.withToken((accessToken) =>
       misRxRequest<MisRxPrescriptionResponse>({
         path: '/api/informa_receta',
         method: 'PUT',
         accessToken,
         appId: this.provider.appId,
-        body: payload,
+        body: {
+          ...payload,
+          soft_id: this.provider.softId,
+        } satisfies MisRxPrescriptionPayload,
         query: { verify_exp: false },
       }),
     );
