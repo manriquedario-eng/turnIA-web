@@ -30,6 +30,13 @@ export type WsfePointOfSale = {
   to: string | null;
 };
 
+export type WsfeActivity = {
+  id: string;
+  order: number | null;
+  description: string;
+};
+
+
 export type WsfeParametersSnapshot = {
   environment: ArcaEnvironment;
   pointsOfSale: WsfePointOfSale[];
@@ -297,6 +304,35 @@ async function getGeneric(params: {
   const result = await callAuthOnly(params);
   if (!result.ok) return result;
   return { ok: true, data: parseGenericItems(result.data, params.nodeName) };
+}
+
+export async function getWsfeActivities(params: {
+  tenantId: string;
+  userId: string;
+  environment?: ArcaEnvironment;
+}): Promise<ArcaResult<WsfeActivity[]>> {
+  const environment = params.environment ?? 'homologacion';
+  const result = await callAuthOnly({
+    tenantId: params.tenantId,
+    userId: params.userId,
+    environment,
+    operationElement: 'FEParamGetActividades',
+  });
+  if (!result.ok) return result;
+
+  const resultGet = asRecord(result.data.ResultGet);
+  const activities = arrayify(resultGet.ActividadesTipo as unknown)
+    .map((raw) => {
+      const item = asRecord(raw);
+      return {
+        id: asString(item.Id) ?? '',
+        order: asNumber(item.Orden),
+        description: asString(item.Desc) ?? '',
+      } satisfies WsfeActivity;
+    })
+    .filter((activity) => activity.id.length > 0);
+
+  return { ok: true, data: activities };
 }
 
 async function getReceiverVatConditions(params: { tenantId: string; userId: string; environment: ArcaEnvironment }): Promise<ArcaResult<WsfeParameterItem[]>> {
