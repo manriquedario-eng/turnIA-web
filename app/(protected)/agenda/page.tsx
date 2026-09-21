@@ -547,7 +547,17 @@ export default async function AgendaPage({
                           {formatTime(a.starts_at)}–{formatTime(a.ends_at)}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 600 }}>{patientNameOf(a)}</div>
+                          {a.patient_id && patientMap.get(a.patient_id) && !patientMap.get(a.patient_id)?.deleted_at ? (
+                            <Link
+                              href={`/patients/${a.patient_id}`}
+                              style={{ fontWeight: 600, textDecoration: 'none' }}
+                              aria-label={`Abrir ficha de ${patientNameOf(a)}`}
+                            >
+                              {patientNameOf(a)}
+                            </Link>
+                          ) : (
+                            <div style={{ fontWeight: 600 }}>{patientNameOf(a)}</div>
+                          )}
                           <div className="muted" style={{ fontSize: 12 }}>
                             {service?.name ?? 'Servicio no disponible'} · {modalityLabel(a.modality)}
                           </div>
@@ -581,8 +591,13 @@ export default async function AgendaPage({
                         <StatusBadge status={a.status} label={statusLabel(a.status)} />
                         {!cancelled ? (
                           <div className="appointment-row-actions">
+                            {a.patient_id && patientMap.get(a.patient_id) && !patientMap.get(a.patient_id)?.deleted_at ? (
+                              <Link href={`/patients/${a.patient_id}`} className="btn-ghost">
+                                Ver paciente
+                              </Link>
+                            ) : null}
                             <Link href={`${returnTo}&edit=${a.id}#turno-drawer`} className="btn-ghost">
-                              Editar
+                              Editar turno
                             </Link>
                             <form action={cancelAppointment}>
                               <input type="hidden" name="id" value={a.id} />
