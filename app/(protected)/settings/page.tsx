@@ -351,7 +351,11 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 Por ahora la emisión continúa limitada al <strong>ambiente de homologación</strong>.
               </p>
 
-              {!arcaConfigured ? (
+              {!fiscalEnabled ? (
+                <p className="alert" style={{ marginTop: 8 }}>
+                  Para configurar ARCA y emitir comprobantes, activá <strong>Datos fiscales</strong> en la pestaña Preferencias.
+                </p>
+              ) : !arcaConfigured ? (
                 <p className="alert" style={{ marginTop: 8 }}>Todavía no está disponible en este consultorio.</p>
               ) : (
                 <>
