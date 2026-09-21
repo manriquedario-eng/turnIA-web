@@ -9,6 +9,7 @@ import { createGoogleMeetForAppointment } from '@/lib/google/calendar';
 import { sendAppointmentConfirmationEmail } from '@/lib/email/send-appointment-created';
 import { assertNoOverlap, assertNotInPast } from '@/lib/appointments/scheduling';
 import { createMercadoPagoCheckoutForAppointment } from '@/lib/mercadopago/orders';
+import { resolvePatientCommunicationName } from '@/lib/patients/communication-name';
 
 const MESSAGING_TZ = 'America/Argentina/Buenos_Aires';
 
@@ -176,6 +177,8 @@ export async function createAppointment(formData: FormData) {
   if (created?.id) {
     let patient: {
       name: string;
+      alias: string | null;
+      use_alias_for_communications: boolean | null;
       email: string | null;
       phone_e164: string | null;
       whatsapp_consent: boolean | null;
@@ -187,7 +190,7 @@ export async function createAppointment(formData: FormData) {
       const [{ data: patientRow }, { data: profile }] = await Promise.all([
         supabase
           .from('patients')
-          .select('name, email, phone_e164, whatsapp_consent, appointment_reminders_opt_in')
+          .select('name, alias, use_alias_for_communications, email, phone_e164, whatsapp_consent, appointment_reminders_opt_in')
           .eq('id', parsed.data.patient_id)
           .eq('tenant_id', tenantId)
           .maybeSingle(),
@@ -203,6 +206,7 @@ export async function createAppointment(formData: FormData) {
 
     const dateLabel = formatAppointmentDateLabel(startsAt);
     const timeLabel = formatAppointmentTimeLabel(startsAt);
+    const communicationName = patient ? resolvePatientCommunicationName(patient) : null;
     let meetingUrl: string | null = null;
 
     // 4) Google Meet — sólo para turnos online, y sólo si el profesional
@@ -298,7 +302,7 @@ export async function createAppointment(formData: FormData) {
           patientId: parsed.data.patient_id,
           appointmentId: created.id,
           patientEmail: patient.email ?? null,
-          patientName: patient.name,
+          patientName: communicationName ?? patient.name,
           professionalName,
           dateLabel,
           timeLabel,
@@ -322,7 +326,7 @@ export async function createAppointment(formData: FormData) {
           tenantId,
           patientId: parsed.data.patient_id,
           appointmentId: created.id,
-          patientName: patient.name,
+          patientName: communicationName ?? patient.name,
           phoneE164: patient.phone_e164 ?? null,
           whatsappConsent: Boolean(patient.whatsapp_consent),
           appointmentRemindersOptIn: Boolean(patient.appointment_reminders_opt_in),
