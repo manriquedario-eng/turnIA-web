@@ -164,6 +164,7 @@ function formDataToPatient(formData: FormData) {
 async function resolveBillingEntity(params: {
   supabase: any;
   tenantId: string;
+  updateSelected?: boolean;
   data: {
     insurance_name?: string | null;
     billing_entity_id?: string | null;
@@ -176,7 +177,7 @@ async function resolveBillingEntity(params: {
     billing_sale_condition?: string | null;
   };
 }): Promise<string | null> {
-  const { supabase, tenantId, data } = params;
+  const { supabase, tenantId, data, updateSelected = false } = params;
 
   if (data.billing_entity_id) {
     const { data: existing, error } = await supabase
@@ -201,7 +202,7 @@ async function resolveBillingEntity(params: {
       data.billing_sale_condition
     );
 
-    if (hasFiscalEdits) {
+    if (updateSelected && hasFiscalEdits) {
       const updatePayload: Record<string, unknown> = {
         updated_at: new Date().toISOString(),
       };
@@ -403,7 +404,7 @@ export async function updatePatient(formData: FormData) {
   // Si ya estaba en true y sigue en true, se conserva la fecha original.
   const { data: existing } = await supabase
     .from('patients')
-    .select('whatsapp_consent, whatsapp_consent_at')
+    .select('whatsapp_consent, whatsapp_consent_at, billing_entity_id')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .is('deleted_at', null)
@@ -421,6 +422,11 @@ export async function updatePatient(formData: FormData) {
     resolvedBillingEntityId = await resolveBillingEntity({
       supabase,
       tenantId,
+      updateSelected: Boolean(
+        billing_entity_id &&
+        existing?.billing_entity_id &&
+        billing_entity_id === existing.billing_entity_id
+      ),
       data: {
         insurance_name: payload.insurance_name ?? null,
         billing_entity_id: billing_entity_id ?? null,
