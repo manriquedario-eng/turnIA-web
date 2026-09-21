@@ -115,6 +115,8 @@ const patientSchema = z.object({
     z.string().trim().email('Email inválido').max(200).nullable().optional()
   ),
   dni: optionalText,
+  institution_name: optionalFiscalText,
+  home_address: optionalFiscalText,
   insurance_name: optionalText,
   insurance_member_number: optionalText,
   insurance_plan: optionalText,
@@ -154,6 +156,8 @@ function formDataToPatient(formData: FormData) {
     phone: formData.get('phone'),
     email: formData.get('email'),
     dni: formData.get('dni'),
+    institution_name: formData.get('institution_name'),
+    home_address: formData.get('home_address'),
     insurance_name: formData.get('insurance_name'),
     insurance_member_number: formData.get('insurance_member_number'),
     insurance_plan: formData.get('insurance_plan'),
