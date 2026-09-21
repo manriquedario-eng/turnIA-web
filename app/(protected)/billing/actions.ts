@@ -139,7 +139,7 @@ export async function createBillingInvoiceDraft(formData: FormData) {
     if (!parsedIds.success) {
       invoiceRedirectError('Hay una sesión seleccionada que no es válida.', draft.patient_id);
     }
-    const validIds = validIds;
+    const validIds: string[] = parsedIds.data;
 
     const { data: appointments, error: appointmentsError } = await supabase
       .from('appointments')
@@ -224,7 +224,7 @@ export async function createBillingInvoiceDraft(formData: FormData) {
   if (invoiceError || !invoice) {
     invoiceRedirectError('No se pudo guardar el borrador de factura.', draft.patient_id);
   }
-  const invoiceId = invoiceId;
+  const invoiceId: string = invoice.id;
 
   const quantity = Math.max(validAppointmentIds.length, 1);
   const unitPrice = Math.round((draft.total / quantity) * 100) / 100;
