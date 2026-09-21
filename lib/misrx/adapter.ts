@@ -12,12 +12,14 @@ import type {
   MisRxPrescriptionResponse,
   MisRxProduct,
   MisRxProfessionalProfile,
+  MisRxCancelPrescriptionPayload,
+  MisRxPlan,
 } from './types';
 
 export class MisRxAdapter {
   constructor(
     private readonly credentials: { username: string; password: string },
-    private readonly appId?: string,
+    private readonly provider: { appId?: string; softId?: string } = {},
   ) {}
 
   private async withToken<T>(
@@ -71,12 +73,38 @@ export class MisRxAdapter {
     );
   }
 
-  async searchProducts(query: string): Promise<MisRxApiResult<MisRxListResponse<MisRxProduct>>> {
+  async searchProducts(params: {
+    query: string;
+    convenioId: number;
+    credential?: string;
+    dni?: string;
+    authorization?: string;
+    planId?: number;
+    noIncluyeBajas?: boolean;
+  }): Promise<MisRxApiResult<MisRxListResponse<MisRxProduct>>> {
+    if (!this.provider.softId) {
+      return {
+        ok: false,
+        reason: 'not_configured',
+        errorMessage: 'Falta configurar el soft_id oficial de MisRX para TurnIA.',
+      };
+    }
+
     return this.withToken((accessToken) =>
       misRxRequest<MisRxListResponse<MisRxProduct>>({
         path: '/api/productos_seleccion',
         accessToken,
-        query: { query },
+        query: {
+          soft_id: this.provider.softId,
+          convenio_id: params.convenioId,
+          query: params.query,
+          afiliado_credencial: params.credential ?? '',
+          afiliado_dni: params.dni ?? '',
+          autorizacion: params.authorization ?? '',
+          plan_id: params.planId ?? 0,
+          no_incluye_bajas: params.noIncluyeBajas ?? true,
+          verify_exp: false,
+        },
       }),
     );
   }
@@ -99,7 +127,7 @@ export class MisRxAdapter {
         path: '/api/informa_receta',
         method: 'PUT',
         accessToken,
-        appId: this.appId,
+        appId: this.provider.appId,
         body: payload,
         query: { verify_exp: false },
       }),
@@ -116,14 +144,45 @@ export class MisRxAdapter {
     );
   }
 
-  async cancelPrescription(token: string): Promise<MisRxApiResult<MisRxPrescriptionResponse>> {
+  async getPlans(params: {
+    convenioId?: number;
+    affiliateId?: number;
+  }): Promise<MisRxApiResult<MisRxListResponse<MisRxPlan>>> {
     return this.withToken((accessToken) =>
-      misRxRequest<MisRxPrescriptionResponse>({
+      misRxRequest<MisRxListResponse<MisRxPlan>>({
+        path: '/api/planes',
+        accessToken,
+        query: {
+          convenio_id: params.convenioId ?? 0,
+          afiliado_id: params.affiliateId ?? 0,
+          verify_exp: false,
+        },
+      }),
+    );
+  }
+
+  async cancelPrescription(
+    payload: Omit<MisRxCancelPrescriptionPayload, 'soft_id'>,
+  ): Promise<MisRxApiResult<Record<string, unknown>>> {
+    if (!this.provider.softId) {
+      return {
+        ok: false,
+        reason: 'not_configured',
+        errorMessage: 'Falta configurar el soft_id oficial de MisRX para TurnIA.',
+      };
+    }
+
+    return this.withToken((accessToken) =>
+      misRxRequest<Record<string, unknown>>({
         path: '/api/anular_receta',
         method: 'DELETE',
         accessToken,
-        appId: this.appId,
-        query: { token, verify_exp: false },
+        appId: this.provider.appId,
+        body: {
+          ...payload,
+          soft_id: this.provider.softId,
+        } satisfies MisRxCancelPrescriptionPayload,
+        query: { verify_exp: false },
       }),
     );
   }
