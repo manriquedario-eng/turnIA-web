@@ -116,12 +116,11 @@ function periodLabel(view: string, date: string) {
     return capitalize(new Intl.DateTimeFormat('es-AR', { timeZone: TZ, dateStyle: 'full' }).format(anchor));
   }
   if (view === 'week') {
-    const start = weekStartOf(date);
-    const end = addDays(start, 6);
-    const startAnchor = new Date(`${start}T12:00:00-03:00`);
+    const end = addDays(date, 6);
+    const startAnchor = new Date(`${date}T12:00:00-03:00`);
     const endAnchor = new Date(`${end}T12:00:00-03:00`);
     const fmt = (d: Date) => new Intl.DateTimeFormat('es-AR', { timeZone: TZ, day: 'numeric', month: 'short' }).format(d);
-    return `Semana del ${fmt(startAnchor)} al ${fmt(endAnchor)}`;
+    return `${fmt(startAnchor)} – ${fmt(endAnchor)}`;
   }
   return capitalize(new Intl.DateTimeFormat('es-AR', { timeZone: TZ, month: 'long', year: 'numeric' }).format(anchor));
 }
@@ -192,12 +191,12 @@ export default async function AgendaPage({
   let rangeStart = date;
   let rangeEnd = date;
   let monthGrid: ReturnType<typeof buildMonthGrid> | undefined;
-  let weekStart = date;
 
   if (view === 'week') {
-    weekStart = weekStartOf(date);
-    rangeStart = weekStart;
-    rangeEnd = addDays(weekStart, 6);
+    // La vista Semana es operativa: arranca en la fecha seleccionada y
+    // muestra los 6 días siguientes, sin obligar a retroceder al lunes.
+    rangeStart = date;
+    rangeEnd = addDays(date, 6);
   }
   if (view === 'month') {
     monthGrid = buildMonthGrid(date);
@@ -205,8 +204,8 @@ export default async function AgendaPage({
     rangeEnd = monthGrid.gridEnd;
   }
 
-  const prevDate = view === 'day' ? addDays(date, -1) : view === 'week' ? addDays(weekStart, -7) : shiftMonth(date, -1);
-  const nextDate = view === 'day' ? addDays(date, 1) : view === 'week' ? addDays(weekStart, 7) : shiftMonth(date, 1);
+  const prevDate = view === 'day' ? addDays(date, -1) : view === 'week' ? addDays(date, -7) : shiftMonth(date, -1);
+  const nextDate = view === 'day' ? addDays(date, 1) : view === 'week' ? addDays(date, 7) : shiftMonth(date, 1);
 
   const [
     { data: appointmentsData, error: appointmentError },
@@ -442,7 +441,7 @@ export default async function AgendaPage({
 
         {view === 'week' ? (
           <div className="week-grid" style={{ borderTop: '1px solid var(--color-border-soft)', padding: '16px 20px 20px' }}>
-            {Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).map((cellDate) => {
+            {Array.from({ length: 7 }, (_, i) => addDays(date, i)).map((cellDate) => {
               const dayAppts = appointmentsByDate.get(cellDate) ?? [];
               const isToday = cellDate === todayDate;
               // Mismo tope y mismo patrón "+N más" que la vista Mes — una
