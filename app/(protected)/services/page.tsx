@@ -19,6 +19,7 @@ export default async function ServicesPage({ searchParams }: { searchParams: Sea
 
   return (
     <section className="stack">
+      <p style={{ margin: 0 }}><Link href="/settings">← Volver a Configuración</Link></p>
       <div className="page-header">
         <div>
           <h1>Servicios</h1>
