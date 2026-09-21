@@ -70,7 +70,7 @@ export default async function PatientDetailPage({
   const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult, mercadoPagoResult] = await Promise.all([
     supabase
       .from('patients')
-      .select('id,name,alias,use_alias_for_communications,phone,email,dni,institution_name,home_address,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at,phone_e164,whatsapp_consent,whatsapp_consent_at,appointment_reminders_opt_in,billing_entity_id,fiscal_cuit,fiscal_vat_condition_id,fiscal_address,fiscal_email')
+      .select('id,name,alias,use_alias_for_communications,phone,email,dni,birth_date,sex,institution_name,home_address,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at,phone_e164,whatsapp_consent,whatsapp_consent_at,appointment_reminders_opt_in,billing_entity_id,fiscal_cuit,fiscal_vat_condition_id,fiscal_address,fiscal_email')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
@@ -557,6 +557,17 @@ export default async function PatientDetailPage({
                 <PhoneInput defaultValue={patient.phone ?? ''} defaultE164={patient.phone_e164 ?? null} />
                 <label>Email<input name="email" type="email" defaultValue={patient.email ?? ''} maxLength={200} /></label>
                 <label>DNI<input name="dni" defaultValue={patient.dni ?? ''} maxLength={160} /></label>
+                <label>Fecha de nacimiento<input name="birth_date" type="date" defaultValue={(patient as any).birth_date ?? ''} /></label>
+                <label>
+                  Sexo
+                  <select name="sex" defaultValue={(patient as any).sex ?? ''}>
+                    <option value="">Sin informar</option>
+                    <option value="femenino">Femenino</option>
+                    <option value="masculino">Masculino</option>
+                    <option value="otro">Otro</option>
+                    <option value="no_informa">Prefiere no informar</option>
+                  </select>
+                </label>
                 <label>
                   Escuela, colegio o institución
                   <input name="institution_name" defaultValue={(patient as any).institution_name ?? ''} maxLength={240} placeholder="Opcional" />
