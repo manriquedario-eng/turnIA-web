@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
 import { saleConditionLabel } from '@/lib/billing/constants';
+import { isFiscalProfileEnabled } from '@/lib/billing/fiscal-profile';
 
 function statusLabel(status: string) {
   if (status === 'authorized') return 'Emitida';
@@ -29,17 +30,25 @@ export default async function BillingPage({
   const query = await searchParams;
   const { supabase, tenantId } = await requireTenant();
 
-  const { data: invoices, error } = await supabase
-    .from('billing_invoices')
-    .select('id,status,recipient_mode,issue_date,total,recipient_legal_name,patient_id,point_of_sale,arca_voucher_number,arca_cae,sale_condition,created_at,patients(name)')
-    .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: false })
-    .limit(200);
+  const [{ data: invoices, error }, { data: settings }] = await Promise.all([
+    supabase
+      .from('billing_invoices')
+      .select('id,status,recipient_mode,issue_date,total,recipient_legal_name,patient_id,point_of_sale,arca_voucher_number,arca_cae,sale_condition,created_at,patients(name)')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(200),
+    supabase
+      .from('settings')
+      .select('profile')
+      .eq('tenant_id', tenantId)
+      .maybeSingle(),
+  ]);
 
   if (error) {
     throw new Error(`No se pudieron cargar las facturas: ${error.message}`);
   }
 
+  const fiscalEnabled = isFiscalProfileEnabled(settings?.profile);
   const rows = invoices ?? [];
   const draftCount = rows.filter((invoice: any) => invoice.status === 'draft').length;
   const authorizedCount = rows.filter((invoice: any) => invoice.status === 'authorized').length;
@@ -54,11 +63,20 @@ export default async function BillingPage({
           <h1>Facturación</h1>
           <p className="muted">Borradores y comprobantes emitidos desde TurnIA.</p>
         </div>
-        <Link className="btn" href="/billing/new">Nueva factura</Link>
+        {fiscalEnabled ? (
+          <Link className="btn" href="/billing/new">Nueva factura</Link>
+        ) : (
+          <Link className="btn secondary" href="/settings">Activar datos fiscales</Link>
+        )}
       </div>
 
       {query.error ? <p className="alert error">{query.error}</p> : null}
       {query.success ? <p className="alert success">{query.success}</p> : null}
+      {!fiscalEnabled ? (
+        <p className="alert">
+          Facturación está disponible, pero la emisión está desactivada. Activá tus datos fiscales en Configuración cuando quieras empezar a facturar.
+        </p>
+      ) : null}
 
       <div className="stat-strip">
         <div className="stat-strip-item">
