@@ -58,7 +58,21 @@ async function validateRelations(tenantId: string, patientId: string, serviceId:
 
 function safeReturn(formData: FormData) {
   const returnTo = String(formData.get('return_to') || '/agenda');
-  return returnTo.startsWith('/agenda') ? returnTo : '/agenda';
+
+  if (returnTo.startsWith('/agenda')) return returnTo;
+
+  // También permitimos volver a una ficha de paciente concreta cuando una
+  // acción de turno se inició desde allí. Se valida la ruta completa para
+  // no convertir return_to en un redirect abierto.
+  if (/^\/patients\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(returnTo)) {
+    return returnTo;
+  }
+
+  return '/agenda';
+}
+
+function appendQueryParam(path: string, key: string, value: string) {
+  return `${path}${path.includes('?') ? '&' : '?'}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
 }
 
 function parseAppointment(formData: FormData) {
@@ -396,7 +410,7 @@ export async function generateMercadoPagoCheckout(formData: FormData) {
   const { user, tenantId } = await requireTenant();
   const returnTo = safeReturn(formData);
   const id = z.string().uuid().safeParse(formData.get('appointment_id'));
-  if (!id.success) redirect(`${returnTo}&error=Turno%20inválido`);
+  if (!id.success) redirect(appendQueryParam(returnTo, 'error', 'Turno inválido'));
 
   const result = await createMercadoPagoCheckoutForAppointment({
     tenantId,
@@ -404,8 +418,9 @@ export async function generateMercadoPagoCheckout(formData: FormData) {
     appointmentId: id.data,
   });
 
-  if (!result.ok) redirect(`${returnTo}&error=${encodeURIComponent(result.message)}`);
+  if (!result.ok) redirect(appendQueryParam(returnTo, 'error', result.message));
 
   revalidatePath('/agenda');
+  if (returnTo.startsWith('/patients/')) revalidatePath(returnTo);
   redirect(result.checkoutUrl);
 }
