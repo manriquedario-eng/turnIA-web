@@ -67,7 +67,7 @@ export default async function PatientDetailPage({
   const query = await searchParams;
   const { supabase, tenantId, user } = await requireTenant();
 
-  const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult, mercadoPagoResult] = await Promise.all([
+  const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult, mercadoPagoResult, misRxResult, prescriptionsResult] = await Promise.all([
     supabase
       .from('patients')
       .select('id,name,alias,use_alias_for_communications,phone,email,dni,birth_date,sex,institution_name,home_address,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at,phone_e164,whatsapp_consent,whatsapp_consent_at,appointment_reminders_opt_in,billing_entity_id,fiscal_cuit,fiscal_vat_condition_id,fiscal_address,fiscal_email')
@@ -107,6 +107,19 @@ export default async function PatientDetailPage({
       .eq('user_id', user.id)
       .eq('provider', 'mercadopago')
       .maybeSingle(),
+    supabase
+      .from('integration_status')
+      .select('status')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', user.id)
+      .eq('provider', 'misrx')
+      .maybeSingle(),
+    supabase
+      .from('prescriptions')
+      .select('id,provider,provider_prescription_number,status,provider_status,diagnosis,cie10,issued_at,cancelled_at,created_at')
+      .eq('tenant_id', tenantId)
+      .eq('patient_id', id)
+      .order('created_at', { ascending: false }),
   ]);
 
   const patient = patientResult.data;
@@ -115,6 +128,8 @@ export default async function PatientDetailPage({
   const payments = paymentResult.data ?? [];
   const record = recordResult.data;
   const mercadoPagoConnected = mercadoPagoResult.data?.status === 'connected';
+  const misRxConnected = misRxResult.data?.status === 'connected';
+  const prescriptions = prescriptionsResult.data ?? [];
 
   if (!patient) notFound();
 
@@ -375,6 +390,7 @@ export default async function PatientDetailPage({
           { id: 'sesiones', label: 'Sesiones' },
           { id: 'actividad', label: 'Actividad' },
           { id: 'seguimientos', label: 'Seguimientos' },
+          { id: 'recetas', label: 'Recetas' },
           { id: 'datos', label: 'Datos' },
         ]}
       >
@@ -518,6 +534,56 @@ export default async function PatientDetailPage({
                       <div className="timeline-body">
                         <small className="muted">{formatDateTime(item.created_at)}</small>
                         <p style={{ whiteSpace: 'pre-wrap', marginTop: 2, marginBottom: 0 }}>{item.content}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div data-tab="recetas">
+          <div className="stack">
+            <div className="card">
+              <div className="page-header" style={{ marginBottom: 12 }}>
+                <div>
+                  <h2 style={{ margin: 0 }}>Recetas electrónicas</h2>
+                  <p className="text-helper" style={{ margin: '6px 0 0' }}>
+                    Las recetas emitidas desde TurnIA quedarán vinculadas a este paciente y sincronizadas con MisRX.
+                  </p>
+                </div>
+                <span className={`badge ${misRxConnected ? 'badge-confirmado' : 'badge-neutral'}`}>
+                  {misRxConnected ? 'MisRX conectado' : 'MisRX no conectado'}
+                </span>
+              </div>
+
+              <button className="btn" type="button" disabled title="La emisión se habilitará cuando TurnIA tenga el AppID oficial de MisRX">
+                Nueva receta
+              </button>
+              <p className="field-hint" style={{ marginBottom: 0 }}>
+                La emisión real permanece deshabilitada hasta completar el alta de TurnIA como software integrador de MisRX.
+              </p>
+            </div>
+
+            <div className="card">
+              <h2>Historial de recetas</h2>
+              {prescriptions.length === 0 ? (
+                <EmptyState title="Todavía no hay recetas registradas" description="Cuando se habilite MisRX, las recetas emitidas aparecerán acá." />
+              ) : (
+                <div className="stack" style={{ gap: 10 }}>
+                  {prescriptions.map((rx: any) => (
+                    <div key={rx.id} className="integration-row">
+                      <div className="integration-row-name">
+                        {rx.provider_prescription_number ? `Receta ${rx.provider_prescription_number}` : 'Receta'}
+                        <span className={`badge ${rx.status === 'issued' ? 'badge-confirmado' : rx.status === 'cancelled' ? 'badge-cancelado' : 'badge-neutral'}`}>
+                          {rx.status === 'issued' ? 'Emitida' : rx.status === 'cancelled' ? 'Anulada' : rx.status}
+                        </span>
+                      </div>
+                      <div className="integration-row-desc">
+                        {rx.issued_at ? formatDateTime(rx.issued_at) : formatDateTime(rx.created_at)}
+                        {rx.cie10 ? ` · CIE-10 ${rx.cie10}` : ''}
+                        {rx.diagnosis ? ` · ${rx.diagnosis}` : ''}
                       </div>
                     </div>
                   ))}
