@@ -57,10 +57,6 @@ function mondayIndex(date: string) {
   return (value.getUTCDay() + 6) % 7;
 }
 
-function weekStartOf(date: string) {
-  return addDays(date, -mondayIndex(date));
-}
-
 function todayInMendoza() {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: TZ,
