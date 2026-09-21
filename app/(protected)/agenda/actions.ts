@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
 import { sendAppointmentCreatedMessage } from '@/lib/whatsapp/send-appointment-created';
-import { createGoogleMeetForAppointment } from '@/lib/google/calendar';
+import { createGoogleMeetForAppointment, updateGoogleMeetForAppointment, cancelGoogleMeetForAppointment } from '@/lib/google/calendar';
 import { sendAppointmentConfirmationEmail } from '@/lib/email/send-appointment-created';
 import { assertNoOverlap, assertNotInPast } from '@/lib/appointments/scheduling';
 import { createMercadoPagoCheckoutForAppointment } from '@/lib/mercadopago/orders';
@@ -347,7 +347,7 @@ export async function createAppointment(formData: FormData) {
 }
 
 export async function updateAppointment(formData: FormData) {
-  const { supabase, tenantId } = await requireTenant();
+  const { supabase, user, tenantId } = await requireTenant();
   const returnTo = safeReturn(formData);
   const parsed = parseAppointment(formData);
   if (!parsed.success || !parsed.data.id) redirect(`${returnTo}&error=Datos%20de%20turno%20inválidos`);
@@ -356,7 +356,6 @@ export async function updateAppointment(formData: FormData) {
   const endsAt = toMendozaIso(parsed.data.ends_at_local);
   if (new Date(endsAt) <= new Date(startsAt)) redirect(`${returnTo}&error=La%20hora%20de%20fin%20debe%20ser%20posterior`);
 
-  // PARTE 3: reprogramar a fecha/hora pasada tampoco está permitido.
   try {
     assertNotInPast(startsAt);
   } catch (err) {
@@ -364,14 +363,19 @@ export async function updateAppointment(formData: FormData) {
   }
 
   await validateRelations(tenantId, parsed.data.patient_id, parsed.data.service_id);
-  const { data: existing, error: existingError } = await supabase.from('appointments').select('id, status, professional_id').eq('id', parsed.data.id).eq('tenant_id', tenantId).maybeSingle();
-  if (existingError || !existing) redirect(`${returnTo}&error=Turno%20no%20encontrado`);
-  if (existing.status === 'cancelled' || existing.status === 'cancelado') redirect(`${returnTo}&error=No%20se%20puede%20editar%20un%20turno%20cancelado`);
 
-  // PARTE 2 (bug crítico): mismo chequeo de solapamiento que al crear,
-  // excluyendo el propio turno (para que editar sin cambiar horario no se
-  // detecte a sí mismo como conflicto) y usando el profesional dueño del
-  // turno (no se reasigna profesional desde este form).
+  const { data: existing, error: existingError } = await supabase
+    .from('appointments')
+    .select('id,status,professional_id,patient_id,starts_at,ends_at,modality,meeting_url,external_calendar_event_id,public_token')
+    .eq('id', parsed.data.id)
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (existingError || !existing) redirect(`${returnTo}&error=Turno%20no%20encontrado`);
+  if (existing.status === 'cancelled' || existing.status === 'cancelado') {
+    redirect(`${returnTo}&error=No%20se%20puede%20editar%20un%20turno%20cancelado`);
+  }
+
   try {
     await assertNoOverlap(supabase, {
       tenantId,
@@ -385,25 +389,175 @@ export async function updateAppointment(formData: FormData) {
     redirect(editConflictReturn(returnTo, parsed.data.id, message));
   }
 
-  // NOTA (PARTE 4 del pedido, fase futura): si el turno es online y ya tiene
-  // external_calendar_event_id, acá es donde correspondería llamar a
-  // updateGoogleMeetForAppointment (lib/google/calendar.ts) para mover el
-  // evento de Google junto con el turno. No se implementa en esta tarea
-  // para no ampliar el alcance; la función ya existe y está lista para
-  // conectarse acá.
-  const { error } = await supabase.from('appointments').update({
-    patient_id: parsed.data.patient_id,
-    service_id: parsed.data.service_id,
-    starts_at: startsAt,
-    ends_at: endsAt,
-    modality: parsed.data.modality,
-    quoted_amount: parsed.data.quoted_amount ?? null,
-    updated_at: new Date().toISOString(),
-  }).eq('id', parsed.data.id).eq('tenant_id', tenantId);
+  const { data: updated, error } = await supabase
+    .from('appointments')
+    .update({
+      patient_id: parsed.data.patient_id,
+      service_id: parsed.data.service_id,
+      starts_at: startsAt,
+      ends_at: endsAt,
+      modality: parsed.data.modality,
+      quoted_amount: parsed.data.quoted_amount ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', parsed.data.id)
+    .eq('tenant_id', tenantId)
+    .select('id,patient_id,starts_at,ends_at,modality,meeting_url,external_calendar_event_id,public_token')
+    .maybeSingle();
 
-  if (error) redirect(`${returnTo}&error=${encodeURIComponent(error.message)}`);
+  if (error || !updated) {
+    redirect(`${returnTo}&error=${encodeURIComponent(error?.message || 'No se pudo guardar el cambio del turno')}`);
+  }
+
+  // Integraciones posteriores al guardado: nunca revierten el turno.
+  let patient: {
+    name: string;
+    alias: string | null;
+    use_alias_for_communications: boolean | null;
+    email: string | null;
+    phone_e164: string | null;
+    whatsapp_consent: boolean | null;
+    appointment_reminders_opt_in: boolean | null;
+  } | null = null;
+  let professionalName = user.email || 'tu profesional';
+
+  try {
+    const [{ data: patientRow }, { data: profile }] = await Promise.all([
+      supabase
+        .from('patients')
+        .select('name,alias,use_alias_for_communications,email,phone_e164,whatsapp_consent,appointment_reminders_opt_in')
+        .eq('id', parsed.data.patient_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle(),
+      supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
+    ]);
+    patient = patientRow ?? null;
+    professionalName = profile?.display_name || user.email || 'tu profesional';
+  } catch {
+    patient = null;
+  }
+
+  let meetingUrl: string | null = updated.meeting_url ?? null;
+  let externalCalendarEventId: string | null = updated.external_calendar_event_id ?? null;
+
+  // Pasó a online y todavía no tiene Meet: crear evento/Meet ahora.
+  if (patient && parsed.data.modality === 'online' && !externalCalendarEventId) {
+    try {
+      const meetResult = await createGoogleMeetForAppointment({
+        tenantId,
+        professionalUserId: existing.professional_id ?? user.id,
+        appointmentId: updated.id,
+        summary: `Turno TurnIA: ${patient.name} con ${professionalName}`,
+        startsAtIso: startsAt,
+        endsAtIso: endsAt,
+        timeZone: MESSAGING_TZ,
+        patientEmail: patient.email,
+      });
+
+      if (meetResult.ok) {
+        meetingUrl = meetResult.meetUrl;
+        externalCalendarEventId = meetResult.eventId;
+        await supabase
+          .from('appointments')
+          .update({
+            meeting_provider: 'google_meet',
+            meeting_url: meetResult.meetUrl,
+            external_calendar_event_id: meetResult.eventId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', updated.id)
+          .eq('tenant_id', tenantId);
+      }
+    } catch {
+      // El turno ya quedó guardado; Google no puede deshacerlo.
+    }
+  } else if (parsed.data.modality === 'online' && externalCalendarEventId) {
+    // Ya era online: si cambió fecha/hora, mantener el evento sincronizado.
+    try {
+      await updateGoogleMeetForAppointment({
+        tenantId,
+        professionalUserId: existing.professional_id ?? user.id,
+        externalCalendarEventId,
+        startsAtIso: startsAt,
+        endsAtIso: endsAt,
+        timeZone: MESSAGING_TZ,
+      });
+    } catch {
+      // No bloquear el guardado del turno.
+    }
+  } else if (parsed.data.modality !== 'online' && externalCalendarEventId) {
+    // Dejó de ser online: eliminar el evento de Google y limpiar el Meet.
+    try {
+      await cancelGoogleMeetForAppointment({
+        tenantId,
+        professionalUserId: existing.professional_id ?? user.id,
+        externalCalendarEventId,
+      });
+    } catch {
+      // No bloquear el guardado del turno.
+    }
+
+    meetingUrl = null;
+    externalCalendarEventId = null;
+    await supabase
+      .from('appointments')
+      .update({
+        meeting_provider: null,
+        meeting_url: null,
+        external_calendar_event_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', updated.id)
+      .eq('tenant_id', tenantId);
+  }
+
+  // Reenviar la confirmación con los datos ACTUALIZADOS.
+  if (patient) {
+    const communicationName = resolvePatientCommunicationName(patient);
+    const dateLabel = formatAppointmentDateLabel(startsAt);
+    const timeLabel = formatAppointmentTimeLabel(startsAt);
+
+    try {
+      await sendAppointmentConfirmationEmail({
+        supabase,
+        tenantId,
+        patientId: parsed.data.patient_id,
+        appointmentId: updated.id,
+        patientEmail: patient.email ?? null,
+        patientName: communicationName,
+        professionalName,
+        dateLabel,
+        timeLabel,
+        modality: parsed.data.modality,
+        meetingUrl,
+        publicToken: updated.public_token ?? existing.public_token ?? null,
+      });
+    } catch {
+      // El cambio ya está guardado.
+    }
+
+    try {
+      await sendAppointmentCreatedMessage({
+        supabase,
+        tenantId,
+        patientId: parsed.data.patient_id,
+        appointmentId: updated.id,
+        patientName: communicationName,
+        phoneE164: patient.phone_e164 ?? null,
+        whatsappConsent: Boolean(patient.whatsapp_consent),
+        appointmentRemindersOptIn: Boolean(patient.appointment_reminders_opt_in),
+        professionalName,
+        dateLabel,
+        timeLabel,
+      });
+    } catch {
+      // El cambio ya está guardado.
+    }
+  }
+
   revalidatePath('/agenda');
-  redirect(`${returnTo}&ok=Turno%20actualizado`);
+  revalidatePath(`/patients/${parsed.data.patient_id}`);
+  redirect(`${returnTo}&ok=Turno%20actualizado%20y%20comunicaciones%20procesadas`);
 }
 
 export async function cancelAppointment(formData: FormData) {
