@@ -201,7 +201,7 @@ export default async function ReimbursementDetailPage({
               <div className="muted">{invoice?.id ? 'Factura vinculada' : 'Todavía no hay una factura vinculada'}</div>
               {!invoice?.id && patient?.id ? (
                 <div style={{ marginTop: 6 }}>
-                  <Link href={`/billing/new?patient=${patient.id}`}>Crear factura</Link>
+                  <Link href={`/billing/new?patient=${patient.id}&return_to=${encodeURIComponent(`/reimbursements/${reimbursement.id}`)}`}>Crear factura</Link>
                 </div>
               ) : invoice?.id ? (
                 <div style={{ marginTop: 6 }}>
