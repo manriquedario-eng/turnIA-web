@@ -15,11 +15,9 @@ export async function requireTenant() {
     .from('tenant_members')
     .select('tenant_id, role')
     .eq('user_id', user.id)
-    .limit(1)
-    .maybeSingle();
+    .single();
 
-  if (error) throw new Error(`Unable to resolve tenant: ${error.message}`);
-  if (!data) redirect('/login?error=no_tenant');
+  if (error || !data) redirect('/login?error=no_tenant');
 
   return {
     supabase,

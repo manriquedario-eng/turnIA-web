@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
+const MIN_RESERVATION_SECONDS = 30;
+const TRANSCRIPTION_WINDOW_SECONDS = 15 * 60;
+const TRANSCRIPTION_USER_MAX = 20;
+const TRANSCRIPTION_TENANT_MAX = 30;
+
 const ALLOWED_TYPES = new Set([
   'audio/webm',
   'audio/ogg',
@@ -17,6 +24,19 @@ const ALLOWED_TYPES = new Set([
   'audio/flac',
 ]);
 
+type OpenAiTranscriptionResponse = {
+  text?: string;
+  duration?: number;
+  usage?: {
+    seconds?: number;
+    [key: string]: unknown;
+  };
+};
+
+function clampSeconds(value: number): number {
+  return Math.max(1, Math.min(900, Math.ceil(value)));
+}
+
 export async function POST(request: Request) {
   const { supabase, user, tenantId } = await requireTenant();
 
@@ -25,6 +45,28 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: 'La transcripción por voz todavía no está configurada en el servidor.' },
       { status: 503 },
+    );
+  }
+
+  const [userLimit, tenantLimit] = await Promise.all([
+    checkRateLimit({
+      scope: 'transcription-professional',
+      key: user.id,
+      windowSeconds: TRANSCRIPTION_WINDOW_SECONDS,
+      maxCount: TRANSCRIPTION_USER_MAX,
+    }),
+    checkRateLimit({
+      scope: 'transcription-tenant',
+      key: tenantId,
+      windowSeconds: TRANSCRIPTION_WINDOW_SECONDS,
+      maxCount: TRANSCRIPTION_TENANT_MAX,
+    }),
+  ]);
+
+  if (!userLimit.allowed || !tenantLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiadas transcripciones en poco tiempo. Probá nuevamente en unos minutos.' },
+      { status: 429 },
     );
   }
 
@@ -43,8 +85,13 @@ export async function POST(request: Request) {
     usageContextRaw === 'session' || usageContextRaw === 'follow_up'
       ? usageContextRaw
       : 'other';
+
   const patientIdRaw = formData.get('patient_id');
-  const patientId = typeof patientIdRaw === 'string' && patientIdRaw ? patientIdRaw : null;
+  const patientIdValue =
+    typeof patientIdRaw === 'string' && patientIdRaw.trim() ? patientIdRaw.trim() : null;
+  const patientIdParsed = patientIdValue
+    ? z.string().uuid().safeParse(patientIdValue)
+    : null;
 
   if (!(audio instanceof File)) {
     return NextResponse.json({ error: 'Falta el archivo de audio.' }, { status: 400 });
@@ -52,6 +99,39 @@ export async function POST(request: Request) {
 
   if (!Number.isFinite(durationSeconds) || durationSeconds < 1 || durationSeconds > 900) {
     return NextResponse.json({ error: 'Duración de audio inválida.' }, { status: 400 });
+  }
+
+  if (patientIdParsed && !patientIdParsed.success) {
+    return NextResponse.json({ error: 'Paciente inválido.' }, { status: 400 });
+  }
+
+  const patientId = patientIdParsed?.success ? patientIdParsed.data : null;
+
+  if ((usageContext === 'session' || usageContext === 'follow_up') && !patientId) {
+    return NextResponse.json({ error: 'Falta identificar al paciente.' }, { status: 400 });
+  }
+
+  if (patientId) {
+    const { data: patient, error: patientError } = await supabase
+      .from('patients')
+      .select('id')
+      .eq('id', patientId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (patientError || !patient) {
+      return NextResponse.json({ error: 'Paciente no disponible.' }, { status: 404 });
+    }
+  }
+
+  if (audio.size <= 0 || audio.size > MAX_AUDIO_BYTES) {
+    return NextResponse.json({ error: 'El audio está vacío o supera el límite permitido.' }, { status: 400 });
+  }
+
+  const mime = audio.type.split(';')[0].toLowerCase();
+  if (mime && !ALLOWED_TYPES.has(mime)) {
+    return NextResponse.json({ error: 'Formato de audio no compatible.' }, { status: 415 });
   }
 
   const { data: account, error: accountError } = await supabase
@@ -74,20 +154,43 @@ export async function POST(request: Request) {
     );
   }
 
-  if (Number(account.balance_seconds ?? 0) < durationSeconds) {
+  const reservationSeconds = clampSeconds(Math.max(durationSeconds, MIN_RESERVATION_SECONDS));
+
+  if (Number(account.balance_seconds ?? 0) < reservationSeconds) {
     return NextResponse.json(
       { error: 'No tenés minutos de transcripción disponibles.' },
       { status: 402 },
     );
   }
 
-  if (audio.size <= 0 || audio.size > MAX_AUDIO_BYTES) {
-    return NextResponse.json({ error: 'El audio está vacío o supera el límite permitido.' }, { status: 400 });
+  const { data: reservationId, error: reserveError } = await supabase.rpc(
+    'reserve_ai_transcription_seconds',
+    {
+      p_tenant_id: tenantId,
+      p_professional_id: user.id,
+      p_seconds: reservationSeconds,
+      p_usage_context: usageContext,
+      p_patient_id: patientId,
+    },
+  );
+
+  if (reserveError || typeof reservationId !== 'string') {
+    return NextResponse.json(
+      { error: 'No pudimos reservar los minutos necesarios para esta transcripción.' },
+      { status: 409 },
+    );
   }
 
-  const mime = audio.type.split(';')[0].toLowerCase();
-  if (mime && !ALLOWED_TYPES.has(mime)) {
-    return NextResponse.json({ error: 'Formato de audio no compatible.' }, { status: 415 });
+  async function refundReservation() {
+    try {
+      await supabase.rpc('refund_ai_transcription_reservation', {
+        p_reservation_id: reservationId,
+        p_tenant_id: tenantId,
+        p_professional_id: user.id,
+      });
+    } catch {
+      // Best effort. The reservation remains auditable if the refund fails.
+    }
   }
 
   const upstream = new FormData();
@@ -106,16 +209,41 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-      // No devolver el cuerpo completo del proveedor ni registrar audio/texto
-      // clínico. La UI sólo necesita saber que falló la transcripción.
+      await refundReservation();
       return NextResponse.json(
         { error: 'No se pudo transcribir la nota en este momento.' },
         { status: 502 },
       );
     }
 
-    const result = await response.json() as { text?: string };
+    const result = (await response.json()) as OpenAiTranscriptionResponse;
     const text = typeof result.text === 'string' ? result.text.trim() : '';
+
+    const providerSecondsRaw =
+      typeof result.usage?.seconds === 'number'
+        ? result.usage.seconds
+        : typeof result.duration === 'number'
+          ? result.duration
+          : durationSeconds;
+
+    const actualSeconds = clampSeconds(providerSecondsRaw);
+
+    const { data: settled, error: settleError } = await supabase.rpc(
+      'settle_ai_transcription_reservation',
+      {
+        p_reservation_id: reservationId,
+        p_tenant_id: tenantId,
+        p_professional_id: user.id,
+        p_actual_seconds: actualSeconds,
+      },
+    );
+
+    if (settleError || settled !== true) {
+      return NextResponse.json(
+        { error: 'La nota fue procesada, pero no pudimos conciliar correctamente el consumo. Volvé a intentar.' },
+        { status: 409 },
+      );
+    }
 
     if (!text) {
       return NextResponse.json(
@@ -124,29 +252,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: consumed, error: consumeError } = await supabase.rpc(
-      'consume_ai_transcription_seconds',
-      {
-        p_tenant_id: tenantId,
-        p_professional_id: user.id,
-        p_seconds: durationSeconds,
-        p_usage_context: usageContext,
-        p_patient_id: patientId,
-      },
-    );
-
-    if (consumeError || consumed !== true) {
-      return NextResponse.json(
-        { error: 'La nota fue transcripta, pero no pudimos registrar el consumo. Volvé a intentar.' },
-        { status: 409 },
-      );
-    }
-
     return NextResponse.json(
-      { text, consumed_seconds: durationSeconds },
+      { text, consumed_seconds: actualSeconds },
       { headers: { 'Cache-Control': 'no-store, max-age=0' } },
     );
   } catch {
+    await refundReservation();
     return NextResponse.json(
       { error: 'No se pudo conectar con el servicio de transcripción.' },
       { status: 502 },
