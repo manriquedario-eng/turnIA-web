@@ -59,7 +59,7 @@ const draftSchema = z.object({
   ),
 });
 
-function invoiceRedirectError(message: string, patientId?: string) {
+function invoiceRedirectError(message: string, patientId?: string): never {
   const suffix = patientId ? `?patient=${encodeURIComponent(patientId)}&error=${encodeURIComponent(message)}` : `?error=${encodeURIComponent(message)}`;
   redirect(`/billing/new${suffix}`);
 }
@@ -95,12 +95,14 @@ export async function createBillingInvoiceDraft(formData: FormData) {
     invoiceRedirectError(parsed.error.issues[0]?.message ?? 'Datos de factura inválidos', patientId);
   }
 
-  if (parsed.data.service_to < parsed.data.service_from) {
-    invoiceRedirectError('La fecha hasta no puede ser anterior a la fecha desde.', parsed.data.patient_id);
+  const draft = parsed.data;
+
+  if (draft.service_to < draft.service_from) {
+    invoiceRedirectError('La fecha hasta no puede ser anterior a la fecha desde.', draft.patient_id);
   }
 
-  if (parsed.data.due_date < parsed.data.issue_date) {
-    invoiceRedirectError('El vencimiento no puede ser anterior a la fecha de emisión.', parsed.data.patient_id);
+  if (draft.due_date < draft.issue_date) {
+    invoiceRedirectError('El vencimiento no puede ser anterior a la fecha de emisión.', draft.patient_id);
   }
 
   const { supabase, user, tenantId } = await requireTenant();
@@ -108,25 +110,25 @@ export async function createBillingInvoiceDraft(formData: FormData) {
   const { data: patient, error: patientError } = await supabase
     .from('patients')
     .select('id,name,dni,billing_entity_id')
-    .eq('id', parsed.data.patient_id)
+    .eq('id', draft.patient_id)
     .eq('tenant_id', tenantId)
     .is('deleted_at', null)
     .maybeSingle();
 
   if (patientError || !patient) {
-    invoiceRedirectError('El paciente seleccionado no está disponible.', parsed.data.patient_id);
+    invoiceRedirectError('El paciente seleccionado no está disponible.', draft.patient_id);
   }
 
-  if (parsed.data.billing_entity_id) {
+  if (draft.billing_entity_id) {
     const { data: entity } = await supabase
       .from('billing_entities')
       .select('id')
-      .eq('id', parsed.data.billing_entity_id)
+      .eq('id', draft.billing_entity_id)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .maybeSingle();
 
-    if (!entity) invoiceRedirectError('El pagador seleccionado no está disponible.', parsed.data.patient_id);
+    if (!entity) invoiceRedirectError('El pagador seleccionado no está disponible.', draft.patient_id);
   }
 
   const uniqueAppointmentIds = Array.from(new Set(appointmentIds));
@@ -135,25 +137,26 @@ export async function createBillingInvoiceDraft(formData: FormData) {
   if (uniqueAppointmentIds.length > 0) {
     const parsedIds = z.array(z.string().uuid()).max(100).safeParse(uniqueAppointmentIds);
     if (!parsedIds.success) {
-      invoiceRedirectError('Hay una sesión seleccionada que no es válida.', parsed.data.patient_id);
+      invoiceRedirectError('Hay una sesión seleccionada que no es válida.', draft.patient_id);
     }
+    const validIds = validIds;
 
     const { data: appointments, error: appointmentsError } = await supabase
       .from('appointments')
       .select('id,patient_id,starts_at,status')
       .eq('tenant_id', tenantId)
-      .eq('patient_id', parsed.data.patient_id)
-      .in('id', parsedIds.data);
+      .eq('patient_id', draft.patient_id)
+      .in('id', validIds);
 
-    if (appointmentsError || (appointments?.length ?? 0) !== parsedIds.data.length) {
-      invoiceRedirectError('No se pudieron validar todas las sesiones seleccionadas.', parsed.data.patient_id);
+    if (appointmentsError || (appointments?.length ?? 0) !== validIds.length) {
+      invoiceRedirectError('No se pudieron validar todas las sesiones seleccionadas.', draft.patient_id);
     }
 
     const now = Date.now();
     for (const appointment of appointments ?? []) {
       const cancelled = appointment.status === 'cancelled' || appointment.status === 'cancelado';
       if (cancelled || new Date(appointment.starts_at).getTime() > now) {
-        invoiceRedirectError('Sólo se pueden incluir sesiones ya realizadas y no canceladas.', parsed.data.patient_id);
+        invoiceRedirectError('Sólo se pueden incluir sesiones ya realizadas y no canceladas.', draft.patient_id);
       }
       validAppointmentIds.push(appointment.id);
     }
@@ -174,71 +177,72 @@ export async function createBillingInvoiceDraft(formData: FormData) {
     });
 
     if (conflict) {
-      invoiceRedirectError('Una de las sesiones seleccionadas ya está incluida en otra factura o borrador.', parsed.data.patient_id);
+      invoiceRedirectError('Una de las sesiones seleccionadas ya está incluida en otra factura o borrador.', draft.patient_id);
     }
   }
 
-  const recipientCuit = parsed.data.recipient_cuit;
+  const recipientCuit = draft.recipient_cuit;
   const recipientDocType = recipientCuit ? 80 : 99;
   const recipientDocNumber = recipientCuit ?? '0';
-  const vatLabel = vatConditionLabel(parsed.data.recipient_vat_condition_id);
+  const vatLabel = vatConditionLabel(draft.recipient_vat_condition_id);
 
   const { data: invoice, error: invoiceError } = await supabase
     .from('billing_invoices')
     .insert({
       tenant_id: tenantId,
       professional_id: user.id,
-      patient_id: parsed.data.patient_id,
-      billing_entity_id: parsed.data.billing_entity_id,
+      patient_id: draft.patient_id,
+      billing_entity_id: draft.billing_entity_id,
       environment: 'homologacion',
       status: 'draft',
       voucher_type: 11,
-      point_of_sale: parsed.data.point_of_sale,
+      point_of_sale: draft.point_of_sale,
       concept_id: 2,
-      issue_date: parsed.data.issue_date,
-      service_from: parsed.data.service_from,
-      service_to: parsed.data.service_to,
-      due_date: parsed.data.due_date,
+      issue_date: draft.issue_date,
+      service_from: draft.service_from,
+      service_to: draft.service_to,
+      due_date: draft.due_date,
       currency: 'PES',
       currency_rate: 1,
-      total: parsed.data.total,
-      detail: parsed.data.detail,
-      sale_condition: parsed.data.sale_condition,
+      total: draft.total,
+      detail: draft.detail,
+      sale_condition: draft.sale_condition,
       recipient_doc_type: recipientDocType,
       recipient_doc_number: recipientDocNumber,
-      recipient_legal_name: parsed.data.recipient_legal_name,
+      recipient_legal_name: draft.recipient_legal_name,
       recipient_cuit: recipientCuit,
-      recipient_vat_condition_id: parsed.data.recipient_vat_condition_id,
+      recipient_vat_condition_id: draft.recipient_vat_condition_id,
       recipient_vat_condition_label: vatLabel,
-      recipient_address: parsed.data.recipient_address,
-      recipient_email: parsed.data.recipient_email,
-      activity_code: parsed.data.activity_code,
-      activity_description: parsed.data.activity_description,
+      recipient_address: draft.recipient_address,
+      recipient_email: draft.recipient_email,
+      activity_code: draft.activity_code,
+      activity_description: draft.activity_description,
     })
     .select('id')
     .single();
 
   if (invoiceError || !invoice) {
-    invoiceRedirectError('No se pudo guardar el borrador de factura.', parsed.data.patient_id);
+    invoiceRedirectError('No se pudo guardar el borrador de factura.', draft.patient_id);
   }
+  const invoiceId = invoiceId;
 
   const quantity = Math.max(validAppointmentIds.length, 1);
-  const unitPrice = Math.round((parsed.data.total / quantity) * 100) / 100;
+  const unitPrice = Math.round((draft.total / quantity) * 100) / 100;
 
   const { error: lineError } = await supabase
     .from('billing_invoice_lines')
     .insert({
       tenant_id: tenantId,
-      invoice_id: invoice.id,
-      description: parsed.data.detail,
+      invoice_id: invoiceId,
+      description: draft.detail,
       quantity,
       unit_price: unitPrice,
-      line_total: parsed.data.total,
+      line_total: draft.total,
     });
 
   if (lineError) {
-    await supabase.from('billing_invoices').delete().eq('id', invoice.id).eq('tenant_id', tenantId);
-    invoiceRedirectError('No se pudo guardar el detalle de la factura.', parsed.data.patient_id);
+    await supabase.from('billing_invoices').delete().eq('id', invoiceId).eq('tenant_id', tenantId);
+    invoiceRedirectError('No se pudo guardar el detalle de la factura.', draft.patient_id);
   }
 
   if (validAppointmentIds.length > 0) {
@@ -246,19 +250,19 @@ export async function createBillingInvoiceDraft(formData: FormData) {
       .from('billing_invoice_appointments')
       .insert(validAppointmentIds.map((appointmentId) => ({
         tenant_id: tenantId,
-        invoice_id: invoice.id,
+        invoice_id: invoiceId,
         appointment_id: appointmentId,
       })));
 
     if (linkError) {
-      await supabase.from('billing_invoices').delete().eq('id', invoice.id).eq('tenant_id', tenantId);
-      invoiceRedirectError('No se pudieron asociar las sesiones a la factura.', parsed.data.patient_id);
+      await supabase.from('billing_invoices').delete().eq('id', invoiceId).eq('tenant_id', tenantId);
+      invoiceRedirectError('No se pudieron asociar las sesiones a la factura.', draft.patient_id);
     }
   }
 
   revalidatePath('/billing');
-  revalidatePath(`/patients/${parsed.data.patient_id}`);
-  redirect(`/billing/${invoice.id}?success=draft`);
+  revalidatePath(`/patients/${draft.patient_id}`);
+  redirect(`/billing/${invoiceId}?success=draft`);
 }
 
 const authorizeSchema = z.object({
@@ -275,13 +279,14 @@ export async function authorizeBillingInvoice(formData: FormData) {
   if (!parsed.success) {
     redirect('/billing?error=Confirmación%20inválida');
   }
+  const input = parsed.data;
 
   const { supabase, user, tenantId } = await requireTenant();
 
   const { data: invoice, error } = await supabase
     .from('billing_invoices')
     .select('*')
-    .eq('id', parsed.data.invoice_id)
+    .eq('id', input.invoice_id)
     .eq('tenant_id', tenantId)
     .eq('professional_id', user.id)
     .maybeSingle();
@@ -289,43 +294,44 @@ export async function authorizeBillingInvoice(formData: FormData) {
   if (error || !invoice) {
     redirect('/billing?error=Factura%20no%20disponible');
   }
+  const currentInvoice = invoice;
 
-  if (invoice.status === 'authorized') {
-    redirect(`/billing/${invoice.id}?error=La%20factura%20ya%20está%20autorizada`);
+  if (currentInvoice.status === 'authorized') {
+    redirect(`/billing/${currentInvoice.id}?error=La%20factura%20ya%20está%20autorizada`);
   }
 
-  if (invoice.status !== 'draft') {
-    redirect(`/billing/${invoice.id}?error=Sólo%20se%20pueden%20emitir%20borradores`);
+  if (currentInvoice.status !== 'draft') {
+    redirect(`/billing/${currentInvoice.id}?error=Sólo%20se%20pueden%20emitir%20borradores`);
   }
 
-  if (invoice.environment !== 'homologacion') {
-    redirect(`/billing/${invoice.id}?error=La%20emisión%20de%20producción%20todavía%20está%20deshabilitada`);
+  if (currentInvoice.environment !== 'homologacion') {
+    redirect(`/billing/${currentInvoice.id}?error=La%20emisión%20de%20producción%20todavía%20está%20deshabilitada`);
   }
 
   if (
-    !invoice.point_of_sale ||
-    !invoice.service_from ||
-    !invoice.service_to ||
-    !invoice.due_date ||
-    !invoice.recipient_doc_type ||
-    !invoice.recipient_doc_number ||
-    !invoice.recipient_vat_condition_id
+    !currentInvoice.point_of_sale ||
+    !currentInvoice.service_from ||
+    !currentInvoice.service_to ||
+    !currentInvoice.due_date ||
+    !currentInvoice.recipient_doc_type ||
+    !currentInvoice.recipient_doc_number ||
+    !currentInvoice.recipient_vat_condition_id
   ) {
-    redirect(`/billing/${invoice.id}?error=Faltan%20datos%20fiscales%20obligatorios`);
+    redirect(`/billing/${currentInvoice.id}?error=Faltan%20datos%20fiscales%20obligatorios`);
   }
 
   const result = await authorizeWsfeInvoiceC({
     tenantId,
     userId: user.id,
-    pointOfSale: Number(invoice.point_of_sale),
-    issueDate: invoice.issue_date,
-    serviceFrom: invoice.service_from,
-    serviceTo: invoice.service_to,
-    dueDate: invoice.due_date,
-    total: Number(invoice.total),
-    recipientDocType: Number(invoice.recipient_doc_type),
-    recipientDocNumber: String(invoice.recipient_doc_number),
-    recipientVatConditionId: Number(invoice.recipient_vat_condition_id),
+    pointOfSale: Number(currentInvoice.point_of_sale),
+    issueDate: currentInvoice.issue_date,
+    serviceFrom: currentInvoice.service_from,
+    serviceTo: currentInvoice.service_to,
+    dueDate: currentInvoice.due_date,
+    total: Number(currentInvoice.total),
+    recipientDocType: Number(currentInvoice.recipient_doc_type),
+    recipientDocNumber: String(currentInvoice.recipient_doc_number),
+    recipientVatConditionId: Number(currentInvoice.recipient_vat_condition_id),
     environment: 'homologacion',
   });
 
@@ -336,11 +342,11 @@ export async function authorizeBillingInvoice(formData: FormData) {
         arca_error_message: result.errorMessage.slice(0, 500),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', invoice.id)
+      .eq('id', currentInvoice.id)
       .eq('tenant_id', tenantId);
 
-    revalidatePath(`/billing/${invoice.id}`);
-    redirect(`/billing/${invoice.id}?error=${encodeURIComponent(result.errorMessage)}`);
+    revalidatePath(`/billing/${currentInvoice.id}`);
+    redirect(`/billing/${currentInvoice.id}?error=${encodeURIComponent(result.errorMessage)}`);
   }
 
   const approved = result.data.result === 'A' && Boolean(result.data.cae);
@@ -367,23 +373,23 @@ export async function authorizeBillingInvoice(formData: FormData) {
         authorized_at: now,
         updated_at: now,
       })
-      .eq('id', invoice.id)
+      .eq('id', currentInvoice.id)
       .eq('tenant_id', tenantId)
       .eq('status', 'draft');
 
     if (updateError) {
       console.error('[billing] ARCA authorized but local update failed', {
-        invoiceId: invoice.id,
+        invoiceId: currentInvoice.id,
         code: updateError.code,
         message: updateError.message,
       });
-      redirect(`/billing/${invoice.id}?error=${encodeURIComponent('ARCA autorizó el comprobante, pero TurnIA no pudo guardar el resultado. No vuelvas a emitir y contactá soporte.')}`);
+      redirect(`/billing/${currentInvoice.id}?error=${encodeURIComponent('ARCA autorizó el comprobante, pero TurnIA no pudo guardar el resultado. No vuelvas a emitir y contactá soporte.')}`);
     }
 
     revalidatePath('/billing');
-    revalidatePath(`/billing/${invoice.id}`);
-    if (invoice.patient_id) revalidatePath(`/patients/${invoice.patient_id}`);
-    redirect(`/billing/${invoice.id}?success=authorized`);
+    revalidatePath(`/billing/${currentInvoice.id}`);
+    if (currentInvoice.patient_id) revalidatePath(`/patients/${currentInvoice.patient_id}`);
+    redirect(`/billing/${currentInvoice.id}?success=authorized`);
   }
 
   await supabase
@@ -395,10 +401,10 @@ export async function authorizeBillingInvoice(formData: FormData) {
       arca_processed_at: now,
       updated_at: now,
     })
-    .eq('id', invoice.id)
+    .eq('id', currentInvoice.id)
     .eq('tenant_id', tenantId);
 
   revalidatePath('/billing');
-  revalidatePath(`/billing/${invoice.id}`);
-  redirect(`/billing/${invoice.id}?error=${encodeURIComponent(observations || 'ARCA rechazó el comprobante.')}`);
+  revalidatePath(`/billing/${currentInvoice.id}`);
+  redirect(`/billing/${currentInvoice.id}?error=${encodeURIComponent(observations || 'ARCA rechazó el comprobante.')}`);
 }
