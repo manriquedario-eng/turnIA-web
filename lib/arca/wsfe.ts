@@ -66,6 +66,21 @@ export type WsfeTestInvoiceResult = {
   requestedAt: string;
 };
 
+export type WsfeInvoiceAuthorizationResult = {
+  environment: ArcaEnvironment;
+  pointOfSale: number;
+  voucherType: number;
+  voucherNumber: number;
+  amount: number;
+  result: string;
+  cae: string | null;
+  caeExpiresAt: string | null;
+  observations: string[];
+  events: string[];
+  processedAt: string | null;
+  requestedAt: string;
+};
+
 function escapeXml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -616,6 +631,173 @@ export async function issueWsfeTestInvoiceC(params: {
     data: {
       environment,
       pointOfSale: asNumber(header.PtoVta) ?? pointOfSale,
+      voucherType: asNumber(header.CbteTipo) ?? voucherType,
+      voucherNumber: asNumber(detail.CbteDesde) ?? voucherNumber,
+      amount,
+      result,
+      cae,
+      caeExpiresAt,
+      observations,
+      events,
+      processedAt: asString(header.FchProceso),
+      requestedAt: new Date().toISOString(),
+    },
+  };
+}
+
+
+function compactDate(value: string): string {
+  const compact = value.replace(/\D/g, '');
+  if (!/^\d{8}$/.test(compact)) {
+    throw new Error('Fecha inválida para ARCA.');
+  }
+  return compact;
+}
+
+export async function authorizeWsfeInvoiceC(params: {
+  tenantId: string;
+  userId: string;
+  pointOfSale: number;
+  issueDate: string;
+  serviceFrom: string;
+  serviceTo: string;
+  dueDate: string;
+  total: number;
+  recipientDocType: number;
+  recipientDocNumber: string;
+  recipientVatConditionId: number;
+  environment?: ArcaEnvironment;
+}): Promise<ArcaResult<WsfeInvoiceAuthorizationResult>> {
+  const environment = params.environment ?? 'homologacion';
+  const voucherType = 11;
+  const conceptId = 2;
+
+  if (environment !== 'homologacion') {
+    return {
+      ok: false,
+      reason: 'provider_error',
+      errorMessage: 'La emisión de producción todavía está deshabilitada en TurnIA.',
+    };
+  }
+
+  if (!Number.isInteger(params.pointOfSale) || params.pointOfSale <= 0) {
+    return { ok: false, reason: 'provider_error', errorMessage: 'Punto de venta inválido.' };
+  }
+
+  if (!Number.isFinite(params.total) || params.total <= 0) {
+    return { ok: false, reason: 'provider_error', errorMessage: 'Importe total inválido.' };
+  }
+
+  if (!Number.isInteger(params.recipientDocType) || params.recipientDocType < 0) {
+    return { ok: false, reason: 'provider_error', errorMessage: 'Tipo de documento del receptor inválido.' };
+  }
+
+  if (!Number.isInteger(params.recipientVatConditionId) || params.recipientVatConditionId <= 0) {
+    return { ok: false, reason: 'provider_error', errorMessage: 'Condición frente al IVA del receptor inválida.' };
+  }
+
+  let issueDate: string;
+  let serviceFrom: string;
+  let serviceTo: string;
+  let dueDate: string;
+  try {
+    issueDate = compactDate(params.issueDate);
+    serviceFrom = compactDate(params.serviceFrom);
+    serviceTo = compactDate(params.serviceTo);
+    dueDate = compactDate(params.dueDate);
+  } catch {
+    return { ok: false, reason: 'provider_error', errorMessage: 'Las fechas de la factura no son válidas.' };
+  }
+
+  const last = await getWsfeLastAuthorized({
+    tenantId: params.tenantId,
+    userId: params.userId,
+    pointOfSale: params.pointOfSale,
+    voucherType,
+    environment,
+  });
+  if (!last.ok) return last;
+
+  const voucherNumber = (last.data.lastAuthorizedNumber ?? 0) + 1;
+
+  const auth = await getWsaaAuthContext({
+    tenantId: params.tenantId,
+    userId: params.userId,
+    environment,
+  });
+  if (!auth.ok) return auth;
+
+  const amount = Math.round(params.total * 100) / 100;
+  const docNumber = params.recipientDocNumber.replace(/\D/g, '') || '0';
+
+  const innerXml =
+    buildAuthXml(auth.data) +
+    '<ar:FeCAEReq>' +
+      '<ar:FeCabReq>' +
+        '<ar:CantReg>1</ar:CantReg>' +
+        '<ar:PtoVta>' + String(params.pointOfSale) + '</ar:PtoVta>' +
+        '<ar:CbteTipo>' + String(voucherType) + '</ar:CbteTipo>' +
+      '</ar:FeCabReq>' +
+      '<ar:FeDetReq>' +
+        '<ar:FECAEDetRequest>' +
+          '<ar:Concepto>' + String(conceptId) + '</ar:Concepto>' +
+          '<ar:DocTipo>' + String(params.recipientDocType) + '</ar:DocTipo>' +
+          '<ar:DocNro>' + escapeXml(docNumber) + '</ar:DocNro>' +
+          '<ar:CbteDesde>' + String(voucherNumber) + '</ar:CbteDesde>' +
+          '<ar:CbteHasta>' + String(voucherNumber) + '</ar:CbteHasta>' +
+          '<ar:CbteFch>' + issueDate + '</ar:CbteFch>' +
+          '<ar:ImpTotal>' + amount.toFixed(2) + '</ar:ImpTotal>' +
+          '<ar:ImpTotConc>0.00</ar:ImpTotConc>' +
+          '<ar:ImpNeto>' + amount.toFixed(2) + '</ar:ImpNeto>' +
+          '<ar:ImpOpEx>0.00</ar:ImpOpEx>' +
+          '<ar:ImpTrib>0.00</ar:ImpTrib>' +
+          '<ar:ImpIVA>0.00</ar:ImpIVA>' +
+          '<ar:FchServDesde>' + serviceFrom + '</ar:FchServDesde>' +
+          '<ar:FchServHasta>' + serviceTo + '</ar:FchServHasta>' +
+          '<ar:FchVtoPago>' + dueDate + '</ar:FchVtoPago>' +
+          '<ar:MonId>PES</ar:MonId>' +
+          '<ar:MonCotiz>1</ar:MonCotiz>' +
+          '<ar:CondicionIVAReceptorId>' + String(params.recipientVatConditionId) + '</ar:CondicionIVAReceptorId>' +
+        '</ar:FECAEDetRequest>' +
+      '</ar:FeDetReq>' +
+    '</ar:FeCAEReq>';
+
+  const called = await callWsfe({
+    environment,
+    operationElement: 'FECAESolicitar',
+    innerXml,
+  });
+  if (!called.ok) return called;
+
+  const responseNode = asRecord(called.data.FECAESolicitarResponse);
+  const resultNode = asRecord(responseNode.FECAESolicitarResult);
+
+  const generalErrors = extractMessages(resultNode.Errors, 'Err');
+  if (generalErrors.length > 0) {
+    return {
+      ok: false,
+      reason: 'provider_error',
+      errorMessage: generalErrors.join(' | ').slice(0, 500),
+    };
+  }
+
+  const header = asRecord(resultNode.FeCabResp);
+  const detailContainer = asRecord(resultNode.FeDetResp);
+  const detail = asRecord(arrayify(detailContainer.FECAEDetResponse as unknown)[0]);
+
+  const observations = extractMessages(detail.Observaciones, 'Obs');
+  const events = extractMessages(resultNode.Events, 'Evt');
+  const result = asString(detail.Resultado) ?? asString(header.Resultado) ?? '';
+  const caeRaw = asString(detail.CAE);
+  const cae = caeRaw && caeRaw.trim() ? caeRaw.trim() : null;
+  const caeExpiresAtRaw = asString(detail.CAEFchVto);
+  const caeExpiresAt = caeExpiresAtRaw && caeExpiresAtRaw.trim() ? caeExpiresAtRaw.trim() : null;
+
+  return {
+    ok: true,
+    data: {
+      environment,
+      pointOfSale: asNumber(header.PtoVta) ?? params.pointOfSale,
       voucherType: asNumber(header.CbteTipo) ?? voucherType,
       voucherNumber: asNumber(detail.CbteDesde) ?? voucherNumber,
       amount,
