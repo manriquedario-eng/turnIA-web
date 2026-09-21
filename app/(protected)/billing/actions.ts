@@ -283,7 +283,7 @@ export async function authorizeBillingInvoice(formData: FormData) {
 
   const { supabase, user, tenantId } = await requireTenant();
 
-  const { data: invoice, error } = await supabase
+  const { data: existingInvoice, error: existingError } = await supabase
     .from('billing_invoices')
     .select('*')
     .eq('id', input.invoice_id)
@@ -291,34 +291,59 @@ export async function authorizeBillingInvoice(formData: FormData) {
     .eq('professional_id', user.id)
     .maybeSingle();
 
-  if (error || !invoice) {
+  if (existingError || !existingInvoice) {
     redirect('/billing?error=Factura%20no%20disponible');
   }
-  const currentInvoice = invoice;
 
-  if (currentInvoice.status === 'authorized') {
-    redirect(`/billing/${currentInvoice.id}?error=La%20factura%20ya%20está%20autorizada`);
+  if (existingInvoice.status === 'authorized') {
+    redirect(`/billing/${existingInvoice.id}?error=La%20factura%20ya%20está%20autorizada`);
   }
 
-  if (currentInvoice.status !== 'draft') {
-    redirect(`/billing/${currentInvoice.id}?error=Sólo%20se%20pueden%20emitir%20borradores`);
+  if (existingInvoice.status === 'authorizing') {
+    redirect(`/billing/${existingInvoice.id}?error=La%20factura%20ya%20se%20está%20procesando%20en%20ARCA`);
   }
 
-  if (currentInvoice.environment !== 'homologacion') {
-    redirect(`/billing/${currentInvoice.id}?error=La%20emisión%20de%20producción%20todavía%20está%20deshabilitada`);
+  if (existingInvoice.status !== 'draft') {
+    redirect(`/billing/${existingInvoice.id}?error=Sólo%20se%20pueden%20emitir%20borradores`);
+  }
+
+  if (existingInvoice.environment !== 'homologacion') {
+    redirect(`/billing/${existingInvoice.id}?error=La%20emisión%20de%20producción%20todavía%20está%20deshabilitada`);
   }
 
   if (
-    !currentInvoice.point_of_sale ||
-    !currentInvoice.service_from ||
-    !currentInvoice.service_to ||
-    !currentInvoice.due_date ||
-    !currentInvoice.recipient_doc_type ||
-    !currentInvoice.recipient_doc_number ||
-    !currentInvoice.recipient_vat_condition_id
+    !existingInvoice.point_of_sale ||
+    !existingInvoice.service_from ||
+    !existingInvoice.service_to ||
+    !existingInvoice.due_date ||
+    !existingInvoice.recipient_doc_type ||
+    !existingInvoice.recipient_doc_number ||
+    !existingInvoice.recipient_vat_condition_id
   ) {
-    redirect(`/billing/${currentInvoice.id}?error=Faltan%20datos%20fiscales%20obligatorios`);
+    redirect(`/billing/${existingInvoice.id}?error=Faltan%20datos%20fiscales%20obligatorios`);
   }
+
+  // Claim atómico del borrador: sólo una solicitud puede cambiar draft ->
+  // authorizing. Evita doble CAE por doble click o dos pestañas concurrentes.
+  const { data: claimedInvoice, error: claimError } = await supabase
+    .from('billing_invoices')
+    .update({
+      status: 'authorizing',
+      arca_error_message: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', existingInvoice.id)
+    .eq('tenant_id', tenantId)
+    .eq('professional_id', user.id)
+    .eq('status', 'draft')
+    .select('*')
+    .maybeSingle();
+
+  if (claimError || !claimedInvoice) {
+    redirect(`/billing/${existingInvoice.id}?error=La%20factura%20ya%20está%20siendo%20procesada%20o%20cambió%20de%20estado`);
+  }
+
+  const currentInvoice = claimedInvoice;
 
   const result = await authorizeWsfeInvoiceC({
     tenantId,
@@ -339,11 +364,14 @@ export async function authorizeBillingInvoice(formData: FormData) {
     await supabase
       .from('billing_invoices')
       .update({
+        status: 'draft',
         arca_error_message: result.errorMessage.slice(0, 500),
         updated_at: new Date().toISOString(),
       })
       .eq('id', currentInvoice.id)
-      .eq('tenant_id', tenantId);
+      .eq('tenant_id', tenantId)
+      .eq('professional_id', user.id)
+      .eq('status', 'authorizing');
 
     revalidatePath(`/billing/${currentInvoice.id}`);
     redirect(`/billing/${currentInvoice.id}?error=${encodeURIComponent(result.errorMessage)}`);
@@ -375,7 +403,8 @@ export async function authorizeBillingInvoice(formData: FormData) {
       })
       .eq('id', currentInvoice.id)
       .eq('tenant_id', tenantId)
-      .eq('status', 'draft');
+      .eq('professional_id', user.id)
+      .eq('status', 'authorizing');
 
     if (updateError) {
       console.error('[billing] ARCA authorized but local update failed', {
@@ -402,7 +431,9 @@ export async function authorizeBillingInvoice(formData: FormData) {
       updated_at: now,
     })
     .eq('id', currentInvoice.id)
-    .eq('tenant_id', tenantId);
+    .eq('tenant_id', tenantId)
+    .eq('professional_id', user.id)
+    .eq('status', 'authorizing');
 
   revalidatePath('/billing');
   revalidatePath(`/billing/${currentInvoice.id}`);
