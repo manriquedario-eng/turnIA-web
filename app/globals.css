@@ -1833,6 +1833,12 @@ table tbody tr:hover {
     gap: 0;
   }
 
+  .app-topbar {
+    position: static;
+    top: auto;
+    z-index: auto;
+  }
+
   .app-sidebar {
     position: fixed;
     left: 0;
