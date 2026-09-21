@@ -35,6 +35,8 @@ const settingsSchema = z.object({
   cuit: optionalProfileField,
   business_name: optionalProfileField,
   tax_condition: optionalProfileField,
+  activity_code: optionalProfileField,
+  activity_description: optionalProfileField,
   // Datos de contacto
   professional_phone: optionalProfileField,
   professional_email: z.preprocess(
@@ -100,6 +102,8 @@ export async function updateSettings(formData: FormData) {
       cuit: parsed.data.cuit ?? null,
       business_name: parsed.data.business_name ?? null,
       tax_condition: parsed.data.tax_condition ?? null,
+      activity_code: parsed.data.activity_code ?? null,
+      activity_description: parsed.data.activity_description ?? null,
       professional_phone: parsed.data.professional_phone ?? null,
       professional_email: parsed.data.professional_email ?? null,
       office_address: parsed.data.office_address ?? null,
