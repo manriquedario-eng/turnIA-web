@@ -143,10 +143,20 @@ export async function connectMisRx(params: {
     );
 
   if (statusError) {
+    // Evitamos estado parcial: si no pudimos reflejar la conexión en
+    // integration_status, eliminamos las credenciales recién guardadas.
+    // Así Settings nunca muestra "no conectado" mientras una contraseña
+    // válida quedó persistida en segundo plano.
+    await service
+      .from('misrx_connections')
+      .delete()
+      .eq('tenant_id', params.tenantId)
+      .eq('user_id', params.userId);
+
     return {
       ok: false,
       reason: 'provider_error',
-      errorMessage: 'La conexión se validó, pero no se pudo actualizar su estado en TurnIA.',
+      errorMessage: 'La conexión se validó, pero no se pudo guardar de forma consistente en TurnIA.',
     };
   }
 
