@@ -1,5 +1,5 @@
 import { requireTenant } from '@/lib/auth/require-user';
-import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago, updateAiTranscriptionSetting, saveArcaConnection, testArcaConnection, updateArcaBillingPreferences } from './actions';
+import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago, updateAiTranscriptionSetting, saveArcaConnection, testArcaConnection, updateArcaBillingPreferences, saveMisRxConnection, testMisRxConnection, disconnectMisRxIntegration } from './actions';
 import { isGoogleOAuthConfigured } from '@/lib/google/oauth';
 import { isMercadoPagoOAuthConfigured } from '@/lib/mercadopago/oauth';
 import { isWhatsAppConfigured } from '@/lib/whatsapp/provider';
@@ -9,6 +9,7 @@ import { getWsfeActivities } from '@/lib/arca/wsfe';
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
 import { FiscalProfileFields } from '@/components/settings/FiscalProfileFields';
 import { isFiscalProfileEnabled } from '@/lib/billing/fiscal-profile';
+import { isMisRxConnectionConfigured } from '@/lib/misrx/connection';
 
 type PageProps = {
   searchParams?: Promise<{ ok?: string; error?: string; arca_activities?: string }>;
@@ -27,7 +28,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
   const { supabase, user, tenantId } = await requireTenant();
 
-  const [{ data: profile }, { data: settings }, { data: googleIntegration }, { data: mercadoPagoIntegration }, { data: transcriptionAccount, error: transcriptionAccountError }] = await Promise.all([
+  const [{ data: profile }, { data: settings }, { data: googleIntegration }, { data: mercadoPagoIntegration }, { data: misRxIntegration }, { data: transcriptionAccount, error: transcriptionAccountError }] = await Promise.all([
     supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
     // `profile` acá es la columna jsonb existente de `settings` (datos del
     // profesional/consultorio) — no confundir con la tabla `profiles`
@@ -50,6 +51,13 @@ export default async function SettingsPage({ searchParams }: PageProps) {
       .eq('tenant_id', tenantId)
       .eq('user_id', user.id)
       .eq('provider', 'mercadopago')
+      .maybeSingle(),
+    supabase
+      .from('integration_status')
+      .select('status, account_label, connected_at')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', user.id)
+      .eq('provider', 'misrx')
       .maybeSingle(),
     supabase
       .from('ai_transcription_accounts')
@@ -83,6 +91,9 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const googleConfigured = isGoogleOAuthConfigured();
   const mercadoPagoConnected = mercadoPagoIntegration?.status === 'connected';
   const mercadoPagoConfigured = isMercadoPagoOAuthConfigured();
+  const misRxConnected = misRxIntegration?.status === 'connected';
+  const misRxError = misRxIntegration?.status === 'error';
+  const misRxConfigured = isMisRxConnectionConfigured();
   const whatsappConfigured = isWhatsAppConfigured();
   const emailConfigured = isEmailConfigured();
 
@@ -314,18 +325,47 @@ export default async function SettingsPage({ searchParams }: PageProps) {
               <div className="integration-row">
                 <div className="integration-row-name">
                   MisRX · Receta electrónica
-                  <span className="badge badge-pendiente">
-                    En preparación
+                  <span className={`badge ${misRxConnected ? 'badge-confirmado' : misRxError ? 'badge-cancelado' : misRxConfigured ? 'badge-pendiente' : 'badge-neutral'}`}>
+                    {misRxConnected ? 'Conectado' : misRxError ? 'Error' : misRxConfigured ? 'No conectado' : 'No disponible'}
                   </span>
                 </div>
                 <div className="integration-row-desc">
-                  TurnIA se conectará con MisRX para emitir, consultar y anular recetas electrónicas desde la ficha del paciente.
-                  La emisión real permanece deshabilitada hasta completar el alta de TurnIA como software integrador y configurar las credenciales oficiales.
+                  Conecta TurnIA con MisRX para preparar la emisión, consulta y anulación de recetas electrónicas.
+                  {misRxConnected && misRxIntegration?.account_label ? ` Cuenta: ${misRxIntegration.account_label}.` : ''}
+                  {' '}La emisión real seguirá deshabilitada hasta completar el alta de TurnIA como software integrador y configurar el AppID oficial.
                 </div>
-                <div className="integration-row-action">
-                  <span className="btn secondary btn-compact" aria-disabled="true" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-                    Conectar
-                  </span>
+                <div className="integration-row-action" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {misRxConnected ? (
+                    <>
+                      <form action={testMisRxConnection}>
+                        <button className="btn secondary btn-compact" type="submit">Probar conexión</button>
+                      </form>
+                      <form action={disconnectMisRxIntegration}>
+                        <button className="btn danger btn-compact" type="submit">Desconectar</button>
+                      </form>
+                    </>
+                  ) : misRxConfigured ? (
+                    <form action={saveMisRxConnection} className="form-grid" style={{ width: '100%', marginTop: 8 }}>
+                      <label>
+                        Usuario MisRX
+                        <input name="username" autoComplete="username" maxLength={200} required />
+                      </label>
+                      <label>
+                        Contraseña MisRX
+                        <input name="password" type="password" autoComplete="current-password" maxLength={500} required />
+                      </label>
+                      <p className="field-hint" style={{ gridColumn: '1 / -1', margin: 0 }}>
+                        TurnIA prueba primero el acceso contra MisRX y sólo guarda la contraseña si el login es válido. Se almacena cifrada y nunca se expone al navegador nuevamente.
+                      </p>
+                      <div className="form-actions">
+                        <button className="btn secondary btn-compact" type="submit">Conectar MisRX</button>
+                      </div>
+                    </form>
+                  ) : (
+                    <span className="btn secondary btn-compact" aria-disabled="true" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                      Conectar
+                    </span>
+                  )}
                 </div>
               </div>
 
