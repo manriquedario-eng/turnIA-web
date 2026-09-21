@@ -9,7 +9,7 @@ function serviceLabel(value: string) {
   return value;
 }
 
-function statusLabel(status: string) {
+function reimbursementStatusLabel(status: string) {
   if (status === 'ready') return 'Listo';
   if (status === 'submitted') return 'Presentado';
   if (status === 'approved') return 'Aprobado';
@@ -17,6 +17,38 @@ function statusLabel(status: string) {
   if (status === 'rejected') return 'Rechazado';
   if (status === 'closed') return 'Cerrado';
   return 'Borrador';
+}
+
+function appointmentStatusLabel(status: string | null) {
+  const normalized = String(status ?? '').toLowerCase();
+  if (['scheduled', 'programado'].includes(normalized)) return 'Programado';
+  if (['pendiente', 'pending'].includes(normalized)) return 'Pendiente';
+  if (['confirmado', 'confirmed'].includes(normalized)) return 'Confirmado';
+  if (['completed', 'completado', 'realizado'].includes(normalized)) return 'Realizado';
+  if (['cancelled', 'canceled', 'cancelado'].includes(normalized)) return 'Cancelado';
+  if (['no_show', 'ausente'].includes(normalized)) return 'Ausente';
+  return status || '—';
+}
+
+function modalityLabel(modality: string | null) {
+  if (modality === 'presencial') return 'Presencial';
+  if (modality === 'online') return 'Virtual';
+  if (modality === 'domicilio') return 'Domicilio';
+  return modality || '—';
+}
+
+function sessionCountLabel(count: number) {
+  if (count === 1) return '1 sesión asociada';
+  return `${count} sesiones asociadas`;
+}
+
+function formatMoney(amount: number | null, currency: string | null) {
+  if (amount == null) return '—';
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: currency || 'ARS',
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 export default async function ReimbursementDetailPage({
@@ -43,7 +75,7 @@ export default async function ReimbursementDetailPage({
 
   const { data: links, error: linksError } = await supabase
     .from('reimbursement_case_appointments')
-    .select('id,appointments(id,starts_at,status,modality,quoted_amount,currency)')
+    .select('id,appointments(id,starts_at,status,modality,quoted_amount,currency,services(name))')
     .eq('tenant_id', tenantId)
     .eq('reimbursement_case_id', id);
 
@@ -71,17 +103,7 @@ export default async function ReimbursementDetailPage({
     {
       label: 'Sesiones del período',
       ok: sessions.length > 0,
-      detail: sessions.length > 0 ? `${sessions.length} sesión/es asociada/s` : 'No hay sesiones asociadas',
-    },
-    {
-      label: 'Factura ARCA',
-      ok: Boolean(invoice?.id),
-      detail: invoice?.id ? 'Factura vinculada' : 'Pendiente de vincular o emitir',
-    },
-    {
-      label: 'Firma digital legal',
-      ok: false,
-      detail: 'Pendiente de integración con proveedor de firma digital',
+      detail: sessions.length > 0 ? sessionCountLabel(sessions.length) : 'No hay sesiones asociadas',
     },
   ];
 
@@ -105,7 +127,7 @@ export default async function ReimbursementDetailPage({
       <div className="stat-strip">
         <div className="stat-strip-item">
           <span className="stat-strip-label">Estado</span>
-          <span className="stat-strip-value">{statusLabel(reimbursement.status)}</span>
+          <span className="stat-strip-value">{reimbursementStatusLabel(reimbursement.status)}</span>
         </div>
         <div className="stat-strip-item">
           <span className="stat-strip-label">Sesiones</span>
@@ -121,7 +143,7 @@ export default async function ReimbursementDetailPage({
         <div className="card stack">
           <div>
             <h2 style={{ marginBottom: 4 }}>Datos del reintegro</h2>
-            <p className="muted" style={{ margin: 0 }}>Datos congelados al crear este expediente.</p>
+            <p className="muted" style={{ margin: 0 }}>Datos utilizados para este reintegro.</p>
           </div>
           <div>
             <strong>Paciente</strong>
@@ -153,8 +175,11 @@ export default async function ReimbursementDetailPage({
         <div className="card stack">
           <div>
             <h2 style={{ marginBottom: 4 }}>Control documental</h2>
-            <p className="muted" style={{ margin: 0 }}>Esta lista se volverá específica por cobertura cuando incorporemos la matriz verificada.</p>
+            <p className="muted" style={{ margin: 0 }}>
+              TurnIA irá adaptando esta lista a los requisitos verificados de cada cobertura.
+            </p>
           </div>
+
           {checklist.map((item) => (
             <div key={item.label} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
               <span className={`badge ${item.ok ? 'badge-confirmado' : 'badge-pendiente'}`}>
@@ -166,6 +191,33 @@ export default async function ReimbursementDetailPage({
               </div>
             </div>
           ))}
+
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <span className={`badge ${invoice?.id ? 'badge-confirmado' : 'badge-pendiente'}`}>
+              {invoice?.id ? 'OK' : 'Pendiente'}
+            </span>
+            <div>
+              <strong>Factura ARCA</strong>
+              <div className="muted">{invoice?.id ? 'Factura vinculada' : 'Todavía no hay una factura vinculada'}</div>
+              {!invoice?.id && patient?.id ? (
+                <div style={{ marginTop: 6 }}>
+                  <Link href={`/billing/new?patient=${patient.id}`}>Crear factura</Link>
+                </div>
+              ) : invoice?.id ? (
+                <div style={{ marginTop: 6 }}>
+                  <Link href={`/billing/${invoice.id}`}>Ver factura</Link>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <span className="badge badge-neutral">No disponible</span>
+            <div>
+              <strong>Firma digital</strong>
+              <div className="muted">Se habilitará cuando esté disponible la integración de firma digital legal.</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -178,10 +230,11 @@ export default async function ReimbursementDetailPage({
             <p className="muted" style={{ margin: 0 }}>No se encontraron sesiones para este período.</p>
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 820 }}>
             <thead>
               <tr>
                 <th style={{ textAlign: 'left', padding: 12 }}>Fecha</th>
+                <th style={{ textAlign: 'left', padding: 12 }}>Prestación</th>
                 <th style={{ textAlign: 'left', padding: 12 }}>Modalidad</th>
                 <th style={{ textAlign: 'left', padding: 12 }}>Estado</th>
                 <th style={{ textAlign: 'right', padding: 12 }}>Honorario</th>
@@ -194,15 +247,16 @@ export default async function ReimbursementDetailPage({
                     {new Date(session.starts_at).toLocaleDateString('es-AR')}
                   </td>
                   <td style={{ padding: 12, borderTop: '1px solid var(--border, #e5e7eb)' }}>
-                    {session.modality || '—'}
+                    {session.services?.name || serviceLabel(reimbursement.service_type)}
                   </td>
                   <td style={{ padding: 12, borderTop: '1px solid var(--border, #e5e7eb)' }}>
-                    {session.status || '—'}
+                    {modalityLabel(session.modality)}
+                  </td>
+                  <td style={{ padding: 12, borderTop: '1px solid var(--border, #e5e7eb)' }}>
+                    {appointmentStatusLabel(session.status)}
                   </td>
                   <td style={{ padding: 12, borderTop: '1px solid var(--border, #e5e7eb)', textAlign: 'right' }}>
-                    {session.quoted_amount != null
-                      ? `$ ${Number(session.quoted_amount).toLocaleString('es-AR')}`
-                      : '—'}
+                    {formatMoney(session.quoted_amount == null ? null : Number(session.quoted_amount), session.currency)}
                   </td>
                 </tr>
               ))}
@@ -212,7 +266,7 @@ export default async function ReimbursementDetailPage({
       </div>
 
       <p className="text-helper">
-        Próxima capa: reglas versionadas por cobertura/plan, generación del paquete documental, vínculo con factura ARCA y firma digital legal.
+        Próxima capa: requisitos versionados por cobertura y plan, generación del paquete documental y firma digital legal.
       </p>
     </section>
   );
