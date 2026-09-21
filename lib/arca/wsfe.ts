@@ -51,6 +51,21 @@ export type WsfeLastAuthorizedResult = {
   checkedAt: string;
 };
 
+export type WsfeTestInvoiceResult = {
+  environment: ArcaEnvironment;
+  pointOfSale: number;
+  voucherType: number;
+  voucherNumber: number;
+  amount: number;
+  result: 'A' | 'R' | 'P' | string;
+  cae: string | null;
+  caeExpiresAt: string | null;
+  observations: string[];
+  events: string[];
+  processedAt: string | null;
+  requestedAt: string;
+};
+
 function escapeXml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -80,7 +95,7 @@ function asNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function extractMessages(container: unknown, key: 'Err' | 'Evt'): string[] {
+function extractMessages(container: unknown, key: 'Err' | 'Evt' | 'Obs'): string[] {
   const record = asRecord(container);
   return arrayify(record[key] as unknown).map((entry) => {
     const item = asRecord(entry);
@@ -479,6 +494,138 @@ export async function getWsfeLastAuthorized(params: {
       lastAuthorizedNumber,
       events,
       checkedAt: new Date().toISOString(),
+    },
+  };
+}
+
+
+function argentinaTodayYYYYMMDD(): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return String(byType.year) + String(byType.month) + String(byType.day);
+}
+
+export async function issueWsfeTestInvoiceC(params: {
+  tenantId: string;
+  userId: string;
+}): Promise<ArcaResult<WsfeTestInvoiceResult>> {
+  const environment: ArcaEnvironment = 'homologacion';
+  const pointOfSale = 3;
+  const voucherType = 11; // Factura C
+  const amount = 1000;
+
+  // La numeración debe ser correlativa por punto de venta y tipo de
+  // comprobante. Consultamos inmediatamente antes de solicitar el CAE.
+  const last = await getWsfeLastAuthorized({
+    tenantId: params.tenantId,
+    userId: params.userId,
+    pointOfSale,
+    voucherType,
+    environment,
+  });
+  if (!last.ok) return last;
+
+  const lastNumber = last.data.lastAuthorizedNumber ?? 0;
+  const voucherNumber = lastNumber + 1;
+
+  const auth = await getWsaaAuthContext({
+    tenantId: params.tenantId,
+    userId: params.userId,
+    environment,
+  });
+  if (!auth.ok) return auth;
+
+  const today = argentinaTodayYYYYMMDD();
+
+  // Factura C de prueba, concepto Servicios, receptor Consumidor Final.
+  // Para tipo C: ImpTotConc=0, ImpOpEx=0, ImpIVA=0 y no se informa array
+  // IVA. CondicionIVAReceptorId=5 corresponde a Consumidor Final.
+  const innerXml =
+    buildAuthXml(auth.data) +
+    '<ar:FeCAEReq>' +
+      '<ar:FeCabReq>' +
+        '<ar:CantReg>1</ar:CantReg>' +
+        '<ar:PtoVta>' + String(pointOfSale) + '</ar:PtoVta>' +
+        '<ar:CbteTipo>' + String(voucherType) + '</ar:CbteTipo>' +
+      '</ar:FeCabReq>' +
+      '<ar:FeDetReq>' +
+        '<ar:FECAEDetRequest>' +
+          '<ar:Concepto>2</ar:Concepto>' +
+          '<ar:DocTipo>99</ar:DocTipo>' +
+          '<ar:DocNro>0</ar:DocNro>' +
+          '<ar:CbteDesde>' + String(voucherNumber) + '</ar:CbteDesde>' +
+          '<ar:CbteHasta>' + String(voucherNumber) + '</ar:CbteHasta>' +
+          '<ar:CbteFch>' + today + '</ar:CbteFch>' +
+          '<ar:ImpTotal>' + amount.toFixed(2) + '</ar:ImpTotal>' +
+          '<ar:ImpTotConc>0.00</ar:ImpTotConc>' +
+          '<ar:ImpNeto>' + amount.toFixed(2) + '</ar:ImpNeto>' +
+          '<ar:ImpOpEx>0.00</ar:ImpOpEx>' +
+          '<ar:ImpTrib>0.00</ar:ImpTrib>' +
+          '<ar:ImpIVA>0.00</ar:ImpIVA>' +
+          '<ar:FchServDesde>' + today + '</ar:FchServDesde>' +
+          '<ar:FchServHasta>' + today + '</ar:FchServHasta>' +
+          '<ar:FchVtoPago>' + today + '</ar:FchVtoPago>' +
+          '<ar:MonId>PES</ar:MonId>' +
+          '<ar:MonCotiz>1</ar:MonCotiz>' +
+          '<ar:CondicionIVAReceptorId>5</ar:CondicionIVAReceptorId>' +
+        '</ar:FECAEDetRequest>' +
+      '</ar:FeDetReq>' +
+    '</ar:FeCAEReq>';
+
+  const called = await callWsfe({
+    environment,
+    operationElement: 'FECAESolicitar',
+    innerXml,
+  });
+  if (!called.ok) return called;
+
+  const responseNode = asRecord(called.data.FECAESolicitarResponse);
+  const resultNode = asRecord(responseNode.FECAESolicitarResult);
+
+  const generalErrors = extractMessages(resultNode.Errors, 'Err');
+  if (generalErrors.length > 0) {
+    return {
+      ok: false,
+      reason: 'provider_error',
+      errorMessage: generalErrors.join(' | ').slice(0, 500),
+    };
+  }
+
+  const header = asRecord(resultNode.FeCabResp);
+  const detailContainer = asRecord(resultNode.FeDetResp);
+  const detailRaw = arrayify(detailContainer.FECAEDetResponse as unknown)[0];
+  const detail = asRecord(detailRaw);
+
+  const observations = extractMessages(detail.Observaciones, 'Obs');
+  const events = extractMessages(resultNode.Events, 'Evt');
+
+  const result = asString(detail.Resultado) ?? asString(header.Resultado) ?? '';
+  const caeRaw = asString(detail.CAE);
+  const cae = caeRaw && caeRaw.trim() ? caeRaw.trim() : null;
+  const caeExpiresAtRaw = asString(detail.CAEFchVto);
+  const caeExpiresAt = caeExpiresAtRaw && caeExpiresAtRaw.trim() ? caeExpiresAtRaw.trim() : null;
+
+  return {
+    ok: true,
+    data: {
+      environment,
+      pointOfSale: asNumber(header.PtoVta) ?? pointOfSale,
+      voucherType: asNumber(header.CbteTipo) ?? voucherType,
+      voucherNumber: asNumber(detail.CbteDesde) ?? voucherNumber,
+      amount,
+      result,
+      cae,
+      caeExpiresAt,
+      observations,
+      events,
+      processedAt: asString(header.FchProceso),
+      requestedAt: new Date().toISOString(),
     },
   };
 }

@@ -8,6 +8,7 @@ import { isArcaWsaaConfigured, getArcaConnectionSummary } from '@/lib/arca/wsaa'
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
 import { ArcaWsfeParameters } from '@/components/settings/ArcaWsfeParameters';
 import { ArcaLastAuthorizedTest } from '@/components/settings/ArcaLastAuthorizedTest';
+import { ArcaTestInvoiceC } from '@/components/settings/ArcaTestInvoiceC';
 
 type PageProps = {
   searchParams?: Promise<{ ok?: string; error?: string }>;
@@ -385,6 +386,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                     <>
                       <ArcaWsfeParameters />
                       <ArcaLastAuthorizedTest />
+                      <ArcaTestInvoiceC />
                     </>
                   ) : null}
                 </>
