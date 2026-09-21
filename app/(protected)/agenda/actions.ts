@@ -75,6 +75,31 @@ function appendQueryParam(path: string, key: string, value: string) {
   return `${path}${path.includes('?') ? '&' : '?'}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
 }
 
+function appointmentConflictReturn(returnTo: string, parsed: z.infer<typeof appointmentSchema>, message: string) {
+  const separator = returnTo.includes('?') ? '&' : '?';
+  const [slot, time] = parsed.starts_at_local.split('T');
+  const params = new URLSearchParams({
+    error: message,
+    patient: parsed.patient_id,
+    service: parsed.service_id,
+    slot,
+    time,
+    modality: parsed.modality,
+    amount: parsed.quoted_amount == null ? '' : String(parsed.quoted_amount),
+    new: '1',
+  });
+  return `${returnTo}${separator}${params.toString()}#turno-drawer`;
+}
+
+function editConflictReturn(returnTo: string, appointmentId: string, message: string) {
+  const separator = returnTo.includes('?') ? '&' : '?';
+  const params = new URLSearchParams({
+    error: message,
+    edit: appointmentId,
+  });
+  return `${returnTo}${separator}${params.toString()}#turno-drawer`;
+}
+
 function parseAppointment(formData: FormData) {
   return appointmentSchema.safeParse({
     id: formData.get('id') || undefined,
@@ -120,7 +145,8 @@ export async function createAppointment(formData: FormData) {
       endsAtIso: endsAt,
     });
   } catch (err) {
-    redirect(`${returnTo}&error=${encodeURIComponent(err instanceof Error ? err.message : 'No se pudo validar el horario')}`);
+    const message = err instanceof Error ? err.message : 'No se pudo validar el horario';
+    redirect(appointmentConflictReturn(returnTo, parsed.data, message));
   }
 
   const { data: created, error } = await supabase.from('appointments').insert({
@@ -351,7 +377,8 @@ export async function updateAppointment(formData: FormData) {
       excludeAppointmentId: parsed.data.id,
     });
   } catch (err) {
-    redirect(`${returnTo}&error=${encodeURIComponent(err instanceof Error ? err.message : 'No se pudo validar el horario')}`);
+    const message = err instanceof Error ? err.message : 'No se pudo validar el horario';
+    redirect(editConflictReturn(returnTo, parsed.data.id, message));
   }
 
   // NOTA (PARTE 4 del pedido, fase futura): si el turno es online y ya tiene
