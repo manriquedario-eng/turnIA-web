@@ -20,6 +20,7 @@ const saleConditionSchema = z.enum([
 
 const draftSchema = z.object({
   patient_id: z.string().uuid(),
+  recipient_mode: z.enum(['patient_reimbursement', 'direct_payer']),
   billing_entity_id: z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
     z.string().uuid().nullable(),
@@ -71,6 +72,7 @@ export async function createBillingInvoiceDraft(formData: FormData) {
 
   const parsed = draftSchema.safeParse({
     patient_id: formData.get('patient_id'),
+    recipient_mode: formData.get('recipient_mode'),
     billing_entity_id: formData.get('billing_entity_id'),
     point_of_sale: formData.get('point_of_sale'),
     issue_date: formData.get('issue_date'),
@@ -109,7 +111,7 @@ export async function createBillingInvoiceDraft(formData: FormData) {
 
   const { data: patient, error: patientError } = await supabase
     .from('patients')
-    .select('id,name,dni,billing_entity_id')
+    .select('id,name,dni,insurance_name,insurance_member_number,insurance_plan,billing_entity_id')
     .eq('id', draft.patient_id)
     .eq('tenant_id', tenantId)
     .is('deleted_at', null)
@@ -119,7 +121,7 @@ export async function createBillingInvoiceDraft(formData: FormData) {
     invoiceRedirectError('El paciente seleccionado no está disponible.', draft.patient_id);
   }
 
-  if (draft.billing_entity_id) {
+  if (draft.recipient_mode === 'direct_payer' && draft.billing_entity_id) {
     const { data: entity } = await supabase
       .from('billing_entities')
       .select('id')
@@ -128,7 +130,15 @@ export async function createBillingInvoiceDraft(formData: FormData) {
       .is('deleted_at', null)
       .maybeSingle();
 
-    if (!entity) invoiceRedirectError('El pagador seleccionado no está disponible.', draft.patient_id);
+    if (!entity) invoiceRedirectError('La obra social o empresa seleccionada no está disponible.', draft.patient_id);
+  }
+
+  if (draft.recipient_mode === 'patient_reimbursement' && draft.recipient_legal_name !== patient.name) {
+    invoiceRedirectError('En una factura para reintegro, el receptor debe ser el paciente.', draft.patient_id);
+  }
+
+  if (draft.recipient_mode === 'direct_payer' && !draft.recipient_cuit) {
+    invoiceRedirectError('Para facturación directa a una obra social o empresa, ingresá su CUIT.', draft.patient_id);
   }
 
   const uniqueAppointmentIds = Array.from(new Set(appointmentIds));
@@ -182,8 +192,13 @@ export async function createBillingInvoiceDraft(formData: FormData) {
   }
 
   const recipientCuit = draft.recipient_cuit;
-  const recipientDocType = recipientCuit ? 80 : 99;
-  const recipientDocNumber = recipientCuit ?? '0';
+  const patientDni = String(patient.dni ?? '').replace(/\D/g, '');
+  const recipientDocType = recipientCuit
+    ? 80
+    : draft.recipient_mode === 'patient_reimbursement' && patientDni
+      ? 96
+      : 99;
+  const recipientDocNumber = recipientCuit ?? (recipientDocType === 96 ? patientDni : '0');
   const vatLabel = vatConditionLabel(draft.recipient_vat_condition_id);
 
   const { data: invoice, error: invoiceError } = await supabase
@@ -192,7 +207,8 @@ export async function createBillingInvoiceDraft(formData: FormData) {
       tenant_id: tenantId,
       professional_id: user.id,
       patient_id: draft.patient_id,
-      billing_entity_id: draft.billing_entity_id,
+      billing_entity_id: draft.recipient_mode === 'direct_payer' ? draft.billing_entity_id : null,
+      recipient_mode: draft.recipient_mode,
       environment: 'homologacion',
       status: 'draft',
       voucher_type: 11,
