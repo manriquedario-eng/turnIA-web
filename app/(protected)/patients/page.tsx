@@ -146,6 +146,20 @@ export default async function PatientsPage({
           <PhoneInput />
           <label>Email<input name="email" type="email" maxLength={200} /></label>
           <label>DNI<input name="dni" maxLength={160} /></label>
+          <label>
+            Escuela, colegio o institución
+            <input name="institution_name" maxLength={240} placeholder="Opcional" />
+            <span className="text-helper">
+              Útil cuando el paciente fue derivado o acompañado por una institución educativa.
+            </span>
+          </label>
+          <label>
+            Domicilio real
+            <input name="home_address" maxLength={240} placeholder="Calle, número, localidad" />
+            <span className="text-helper">
+              Domicilio habitual del paciente. Es distinto del domicilio fiscal.
+            </span>
+          </label>
           <label>Lugar de atención<input name="care_location" maxLength={160} /></label>
           <label>Precio habitual<input name="default_price" type="number" min="0" step="0.01" /></label>
 
