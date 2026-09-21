@@ -32,17 +32,14 @@ export type NavSection = {
   items: NavItem[];
 };
 
-// Misma información y mismas rutas que el nav anterior — sólo reorganizadas
-// en secciones para el nuevo sidebar. No se agrega ni se quita ninguna página.
+// Navegación principal de TurnIA. Las rutas ocultas siguen existiendo cuando
+// conceptualmente pertenecen a otra sección o tienen un acceso más directo.
 export const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Principal',
     items: [
       { href: '/dashboard', label: 'Inicio', icon: IconHome, mobile: true },
       { href: '/search', label: 'Buscar', icon: IconSearch, mobile: true, hideOnDesktopSidebar: true },
-      // Recordatorios personales — ítem visible en el sidebar de escritorio
-      // (antes oculto a propósito; Dario pidió que aparezca como entrada
-      // propia en vez de depender sólo de la tarjeta del Dashboard).
       { href: '/reminders', label: 'Recordatorios', icon: IconBell },
     ],
   },
@@ -51,10 +48,6 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/agenda', label: 'Agenda', icon: IconCalendar, mobile: true },
       { href: '/patients', label: 'Pacientes', icon: IconUsers, mobile: true },
-      // Recurrentes y lista de espera sigue existiendo como ruta — ya no es
-      // un ítem propio y permanente del sidebar (conceptualmente es parte
-      // de Agenda). Se accede desde el header de Agenda. hideOnDesktopSidebar
-      // ya cubre exactamente este caso: no listar en desktop, ruta intacta.
       { href: '/planning', label: 'Recurrentes y espera', icon: IconClock, hideOnDesktopSidebar: true },
     ],
   },
@@ -63,6 +56,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/payments', label: 'Pagos y caja', icon: IconWallet, mobile: true },
       { href: '/billing', label: 'Facturación', icon: IconReceipt },
+      { href: '/reimbursements', label: 'Reintegros', icon: IconReceipt },
       { href: '/metrics', label: 'Deudas y métricas', icon: IconWallet },
     ],
   },
@@ -70,9 +64,6 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Sistema',
     items: [
       { href: '/settings', label: 'Configuración', icon: IconSettings },
-      // Servicios vive dentro de Configuración (pestaña "Servicios") — la
-      // ruta /services sigue existiendo, sólo no es un ítem propio del
-      // sidebar de escritorio para no competir con Configuración.
       { href: '/services', label: 'Servicios', icon: IconTag, hideOnDesktopSidebar: true },
     ],
   },

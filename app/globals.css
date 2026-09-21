@@ -1701,11 +1701,10 @@ table tbody tr:hover {
   justify-content: space-between;
   gap: 16px;
   padding: 0 4px 0 8px;
-  /* v5: ya no es una barra administrativa con su propio fondo/borde — queda
-     transparente, integrada al fondo marfil de la página, con sólo un
-     hairline apenas visible abajo. El peso visual pasa a estar en el título
-     (tipografía editorial) en vez de en el contenedor. */
-  background: transparent;
+  /* Fondo opaco: el topbar es sticky y no debe dejar ver ni tapar visualmente
+     tarjetas/títulos al desplazarse por páginas largas. Conserva el mismo
+     marfil del fondo general para seguir viéndose liviano. */
+  background: var(--color-bg);
   border-bottom: 1px solid var(--color-border-soft);
   position: sticky;
   top: 0;

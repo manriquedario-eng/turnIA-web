@@ -58,7 +58,46 @@ async function validateRelations(tenantId: string, patientId: string, serviceId:
 
 function safeReturn(formData: FormData) {
   const returnTo = String(formData.get('return_to') || '/agenda');
-  return returnTo.startsWith('/agenda') ? returnTo : '/agenda';
+
+  if (returnTo.startsWith('/agenda')) return returnTo;
+
+  // También permitimos volver a una ficha de paciente concreta cuando una
+  // acción de turno se inició desde allí. Se valida la ruta completa para
+  // no convertir return_to en un redirect abierto.
+  if (/^\/patients\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(returnTo)) {
+    return returnTo;
+  }
+
+  return '/agenda';
+}
+
+function appendQueryParam(path: string, key: string, value: string) {
+  return `${path}${path.includes('?') ? '&' : '?'}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+}
+
+function appointmentConflictReturn(returnTo: string, parsed: z.infer<typeof appointmentSchema>, message: string) {
+  const separator = returnTo.includes('?') ? '&' : '?';
+  const [slot, time] = parsed.starts_at_local.split('T');
+  const params = new URLSearchParams({
+    error: message,
+    patient: parsed.patient_id,
+    service: parsed.service_id,
+    slot,
+    time,
+    modality: parsed.modality,
+    amount: parsed.quoted_amount == null ? '' : String(parsed.quoted_amount),
+    new: '1',
+  });
+  return `${returnTo}${separator}${params.toString()}#turno-drawer`;
+}
+
+function editConflictReturn(returnTo: string, appointmentId: string, message: string) {
+  const separator = returnTo.includes('?') ? '&' : '?';
+  const params = new URLSearchParams({
+    error: message,
+    edit: appointmentId,
+  });
+  return `${returnTo}${separator}${params.toString()}#turno-drawer`;
 }
 
 function parseAppointment(formData: FormData) {
@@ -106,7 +145,8 @@ export async function createAppointment(formData: FormData) {
       endsAtIso: endsAt,
     });
   } catch (err) {
-    redirect(`${returnTo}&error=${encodeURIComponent(err instanceof Error ? err.message : 'No se pudo validar el horario')}`);
+    const message = err instanceof Error ? err.message : 'No se pudo validar el horario';
+    redirect(appointmentConflictReturn(returnTo, parsed.data, message));
   }
 
   const { data: created, error } = await supabase.from('appointments').insert({
@@ -337,7 +377,8 @@ export async function updateAppointment(formData: FormData) {
       excludeAppointmentId: parsed.data.id,
     });
   } catch (err) {
-    redirect(`${returnTo}&error=${encodeURIComponent(err instanceof Error ? err.message : 'No se pudo validar el horario')}`);
+    const message = err instanceof Error ? err.message : 'No se pudo validar el horario';
+    redirect(editConflictReturn(returnTo, parsed.data.id, message));
   }
 
   // NOTA (PARTE 4 del pedido, fase futura): si el turno es online y ya tiene
@@ -396,7 +437,7 @@ export async function generateMercadoPagoCheckout(formData: FormData) {
   const { user, tenantId } = await requireTenant();
   const returnTo = safeReturn(formData);
   const id = z.string().uuid().safeParse(formData.get('appointment_id'));
-  if (!id.success) redirect(`${returnTo}&error=Turno%20inválido`);
+  if (!id.success) redirect(appendQueryParam(returnTo, 'error', 'Turno inválido'));
 
   const result = await createMercadoPagoCheckoutForAppointment({
     tenantId,
@@ -404,8 +445,9 @@ export async function generateMercadoPagoCheckout(formData: FormData) {
     appointmentId: id.data,
   });
 
-  if (!result.ok) redirect(`${returnTo}&error=${encodeURIComponent(result.message)}`);
+  if (!result.ok) redirect(appendQueryParam(returnTo, 'error', result.message));
 
   revalidatePath('/agenda');
+  if (returnTo.startsWith('/patients/')) revalidatePath(returnTo);
   redirect(result.checkoutUrl);
 }

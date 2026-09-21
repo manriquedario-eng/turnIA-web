@@ -12,6 +12,7 @@ import { VoiceTranscriptionTextarea } from '@/components/patients/VoiceTranscrip
 import { ExportMenu, type ExportMenuItem } from '@/components/export/ExportMenu';
 import { statusLabel, modalityLabel, paymentMethodLabel } from '@/lib/labels';
 import { SALE_CONDITIONS, VAT_CONDITIONS } from '@/lib/billing/constants';
+import { generateMercadoPagoCheckout } from '@/app/(protected)/agenda/actions';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -64,9 +65,9 @@ export default async function PatientDetailPage({
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const { supabase, tenantId } = await requireTenant();
+  const { supabase, tenantId, user } = await requireTenant();
 
-  const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult] = await Promise.all([
+  const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult, mercadoPagoResult] = await Promise.all([
     supabase
       .from('patients')
       .select('id,name,phone,email,dni,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at,phone_e164,whatsapp_consent,whatsapp_consent_at,appointment_reminders_opt_in,billing_entity_id,fiscal_cuit,fiscal_vat_condition_id,fiscal_address,fiscal_email')
@@ -83,7 +84,7 @@ export default async function PatientDetailPage({
       .order('created_at', { ascending: false }),
     supabase
       .from('appointments')
-      .select('id,starts_at,status,modality,quoted_amount,currency,services(name)')
+      .select('id,starts_at,status,modality,quoted_amount,currency,professional_id,services(name,price)')
       .eq('patient_id', id)
       .eq('tenant_id', tenantId)
       .order('starts_at', { ascending: false }),
@@ -99,6 +100,13 @@ export default async function PatientDetailPage({
       .eq('patient_id', id)
       .eq('tenant_id', tenantId)
       .maybeSingle(),
+    supabase
+      .from('integration_status')
+      .select('status')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', user.id)
+      .eq('provider', 'mercadopago')
+      .maybeSingle(),
   ]);
 
   const patient = patientResult.data;
@@ -106,6 +114,7 @@ export default async function PatientDetailPage({
   const appointments = appointmentResult.data ?? [];
   const payments = paymentResult.data ?? [];
   const record = recordResult.data;
+  const mercadoPagoConnected = mercadoPagoResult.data?.status === 'connected';
 
   if (!patient) notFound();
 
@@ -188,9 +197,21 @@ export default async function PatientDetailPage({
   // Cálculos de presentación sobre datos ya obtenidos — sin queries nuevas.
   const now = Date.now();
   const activeAppointments = appointments.filter((a: any) => !isCancelled(a.status));
-  const nextAppointment = activeAppointments
+  const nextAppointment: any = activeAppointments
     .filter((a: any) => new Date(a.starts_at).getTime() >= now)
     .sort((a: any, b: any) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())[0];
+  const nextAppointmentAmount = nextAppointment
+    ? (nextAppointment.quoted_amount != null && Number(nextAppointment.quoted_amount) > 0
+        ? Number(nextAppointment.quoted_amount)
+        : Number(nextAppointment.services?.price ?? 0))
+    : 0;
+  const canChargeNextAppointment = Boolean(
+    nextAppointment
+      && mercadoPagoConnected
+      && nextAppointmentAmount > 0
+      && nextAppointment.professional_id === user.id
+      && !isCancelled(nextAppointment.status)
+  );
   const lastAppointment = activeAppointments
     .filter((a: any) => new Date(a.starts_at).getTime() < now)
     .sort((a: any, b: any) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime())[0];
@@ -301,10 +322,29 @@ export default async function PatientDetailPage({
           <div className="patient-meta-item">
             <span className="patient-meta-label">Próximo turno</span>
             {nextAppointment ? (
-              <span className="patient-meta-value-row">
-                <span className="patient-meta-value">{formatDateTime(nextAppointment.starts_at)}</span>
-                <StatusBadge status={nextAppointment.status} label={statusLabel(nextAppointment.status)} />
-              </span>
+              <>
+                <span className="patient-meta-value-row">
+                  <span className="patient-meta-value">{formatDateTime(nextAppointment.starts_at)}</span>
+                  <StatusBadge status={nextAppointment.status} label={statusLabel(nextAppointment.status)} />
+                </span>
+                <span className="nav" style={{ marginTop: 8, flexWrap: 'wrap', gap: 8 }}>
+                  <Link
+                    className="btn-ghost"
+                    href={`/agenda?view=day&date=${dateKeyInTz(nextAppointment.starts_at)}&edit=${nextAppointment.id}#turno-drawer`}
+                  >
+                    Reprogramar
+                  </Link>
+                  {canChargeNextAppointment ? (
+                    <form action={generateMercadoPagoCheckout}>
+                      <input type="hidden" name="appointment_id" value={nextAppointment.id} />
+                      <input type="hidden" name="return_to" value={`/patients/${patient.id}`} />
+                      <button className="btn-ghost" type="submit">
+                        Cobrar con Mercado Pago
+                      </button>
+                    </form>
+                  ) : null}
+                </span>
+              </>
             ) : (
               <span className="patient-meta-hint">Sin turnos programados</span>
             )}

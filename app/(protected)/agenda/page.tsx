@@ -181,6 +181,14 @@ export default async function AgendaPage({
   // paciente (?patient=<id>). Sólo aplica al crear, nunca pisa el paciente
   // de un turno que se está editando.
   const presetPatientId = typeof params.patient === 'string' ? params.patient : undefined;
+  const presetServiceId = typeof params.service === 'string' ? params.service : undefined;
+  const presetTime = typeof params.time === 'string' && /^\d{2}:\d{2}$/.test(params.time) ? params.time : undefined;
+  const presetModality = typeof params.modality === 'string' && ['presencial', 'domicilio', 'online'].includes(params.modality)
+    ? params.modality
+    : undefined;
+  const presetAmount = typeof params.amount === 'string' && /^\d+(?:\.\d+)?$/.test(params.amount)
+    ? params.amount
+    : undefined;
   const slotDate = isValidDate(params.slot) ? params.slot : date;
   const todayDate = todayInMendoza();
 
@@ -265,7 +273,10 @@ export default async function AgendaPage({
   const editing = editId ? appointments.find((a) => a.id === editId) : undefined;
   const showDrawer = Boolean(editing) || wantsNew;
   const drawerDate = editing ? dateKeyInTz(editing.starts_at) : slotDate;
-  const [drawerDefaultDate, drawerDefaultTime] = (editing ? dateTimeLocal(editing.starts_at) : `${drawerDate}T09:00`).split('T');
+  const [drawerDefaultDate, drawerDefaultTime] = (editing
+    ? dateTimeLocal(editing.starts_at)
+    : `${drawerDate}T${presetTime ?? '09:00'}`
+  ).split('T');
   // Duración ya guardada del turno (si se está editando) — se preserva salvo
   // que la persona elija deliberadamente otro servicio en el drawer.
   const initialDurationMinutes = editing
@@ -633,7 +644,7 @@ export default async function AgendaPage({
                 <AppointmentDateTimeFields
                   key={editing?.id ?? `new-${drawerDate}`}
                   services={(services ?? []).map((s) => ({ id: s.id, name: s.name, duration_minutes: s.duration_minutes }))}
-                  defaultServiceId={editing?.service_id ?? undefined}
+                  defaultServiceId={editing?.service_id ?? (!editing ? presetServiceId : undefined)}
                   defaultDate={drawerDefaultDate}
                   defaultTime={drawerDefaultTime}
                   initialDurationMinutes={initialDurationMinutes}
@@ -641,8 +652,8 @@ export default async function AgendaPage({
 
                 <ModalityField
                   key={`modality-${editing?.id ?? `new-${drawerDate}`}`}
-                  defaultModality={editing?.modality ?? 'presencial'}
-                  defaultAmount={editing?.quoted_amount ?? ''}
+                  defaultModality={editing?.modality ?? (!editing ? presetModality : undefined) ?? 'presencial'}
+                  defaultAmount={editing?.quoted_amount ?? (!editing ? presetAmount : undefined) ?? ''}
                   googleConnected={googleConnected}
                 />
               </AppointmentForm>
