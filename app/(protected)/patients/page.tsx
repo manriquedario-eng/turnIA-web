@@ -143,15 +143,33 @@ export default async function PatientsPage({
           <label>Plan<input name="insurance_plan" maxLength={160} /></label>
 
           <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
-            <h3>Datos para facturación</h3>
+            <h3>Datos fiscales del paciente</h3>
             <p className="text-helper" style={{ marginTop: 4 }}>
-              Podés elegir una obra social/pagador ya guardado o cargar los datos fiscales acá mismo.
-              TurnIA los reutiliza para futuras facturas.
+              Se usan cuando la factura se emite a nombre del paciente para que luego la presente a su obra social por reintegro.
+            </p>
+          </div>
+          <label>CUIT del paciente<input name="fiscal_cuit" inputMode="numeric" placeholder="Opcional · 11 dígitos" maxLength={14} /></label>
+          <label>
+            Condición frente al IVA
+            <select name="fiscal_vat_condition_id" defaultValue="5">
+              {VAT_CONDITIONS.map((item) => (
+                <option key={item.id} value={item.id}>{item.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>Domicilio fiscal<input name="fiscal_address" maxLength={240} /></label>
+          <label>Email fiscal<input name="fiscal_email" type="email" maxLength={200} /></label>
+
+          <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
+            <h3>Facturación directa a obra social / empresa</h3>
+            <p className="text-helper" style={{ marginTop: 4 }}>
+              Opcional. Usalo sólo si el profesional factura directamente a una obra social o empresa.
+              Estos datos son del receptor institucional, no del paciente.
             </p>
           </div>
 
           <label>
-            Pagador / receptor fiscal guardado
+            Obra social / empresa guardada
             <select name="billing_entity_id" defaultValue="">
               <option value="">Crear / completar uno nuevo</option>
               {billingEntities.map((entity) => (
@@ -161,7 +179,7 @@ export default async function PatientsPage({
               ))}
             </select>
           </label>
-          <label>Nombre de obra social / pagador<input name="billing_display_name" maxLength={240} /></label>
+          <label>Nombre comercial<input name="billing_display_name" maxLength={240} /></label>
           <label>Razón social<input name="billing_legal_name" maxLength={240} /></label>
           <label>CUIT<input name="billing_cuit" inputMode="numeric" placeholder="11 dígitos" maxLength={14} /></label>
           <label>
@@ -176,7 +194,7 @@ export default async function PatientsPage({
           <label>Domicilio comercial / fiscal<input name="billing_address" maxLength={240} /></label>
           <label>Email de facturación<input name="billing_email" type="email" maxLength={200} /></label>
           <label>
-            Condición de venta predeterminada
+            Condición de venta habitual
             <select name="billing_sale_condition" defaultValue="cuenta_corriente">
               {SALE_CONDITIONS.map((item) => (
                 <option key={item.value} value={item.value}>{item.label}</option>
