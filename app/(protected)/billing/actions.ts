@@ -20,6 +20,7 @@ const saleConditionSchema = z.enum([
 
 const draftSchema = z.object({
   patient_id: z.string().uuid(),
+  session_count: z.coerce.number().int().min(1).max(100),
   recipient_mode: z.enum(['patient_reimbursement', 'direct_payer']),
   billing_entity_id: z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
@@ -72,6 +73,7 @@ export async function createBillingInvoiceDraft(formData: FormData) {
 
   const parsed = draftSchema.safeParse({
     patient_id: formData.get('patient_id'),
+    session_count: formData.get('session_count'),
     recipient_mode: formData.get('recipient_mode'),
     billing_entity_id: formData.get('billing_entity_id'),
     point_of_sale: formData.get('point_of_sale'),
@@ -242,7 +244,7 @@ export async function createBillingInvoiceDraft(formData: FormData) {
   }
   const invoiceId: string = invoice.id;
 
-  const quantity = Math.max(validAppointmentIds.length, 1);
+  const quantity = draft.session_count;
   const unitPrice = Math.round((draft.total / quantity) * 100) / 100;
 
   const { error: lineError } = await supabase
