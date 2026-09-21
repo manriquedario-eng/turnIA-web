@@ -57,7 +57,7 @@ export async function assertNoOverlap(
   // (`cancelled`/`cancelado`, ver lib/labels.ts) con un único `.not(...in...)`.
   const base = supabase
     .from('appointments')
-    .select('id')
+    .select('id,starts_at,ends_at,patient_id')
     .eq('tenant_id', tenantId)
     .eq('professional_id', professionalId)
     .lt('starts_at', endsAtIso)
@@ -67,5 +67,40 @@ export async function assertNoOverlap(
 
   const { data, error } = await (excludeAppointmentId ? base.neq('id', excludeAppointmentId) : base);
   if (error) throw new Error('No pudimos validar la disponibilidad del horario. Probá de nuevo.');
-  if (data && data.length > 0) throw new Error(OVERLAP_MESSAGE);
+  if (data && data.length > 0) {
+    const conflict: any = data[0];
+    const requestedStart = new Date(startsAtIso);
+    const conflictStart = new Date(conflict.starts_at);
+    const conflictEnd = new Date(conflict.ends_at);
+    const differenceMinutes = Math.round(Math.abs(requestedStart.getTime() - conflictStart.getTime()) / 60000);
+
+    let patientName = 'otro paciente';
+    if (conflict.patient_id) {
+      const { data: patient } = await supabase
+        .from('patients')
+        .select('name')
+        .eq('id', conflict.patient_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      if (patient?.name) patientName = patient.name;
+    }
+
+    const timeFormat = new Intl.DateTimeFormat('es-AR', {
+      timeZone: APPOINTMENTS_TZ,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+
+    const conflictStartLabel = timeFormat.format(conflictStart);
+    const conflictEndLabel = timeFormat.format(conflictEnd);
+    const relation = requestedStart.getTime() >= conflictStart.getTime() ? 'después' : 'antes';
+    const differenceLabel = differenceMinutes === 1 ? '1 minuto' : `${differenceMinutes} minutos`;
+
+    throw new Error(
+      `Ese horario se superpone con el turno de ${patientName}, de ${conflictStartLabel} a ${conflictEndLabel}. ` +
+      `El nuevo turno comienza ${differenceLabel} ${relation} del inicio de ese turno. ` +
+      `Elegí un horario fuera de ese intervalo; el primer horario libre después de ese turno es ${conflictEndLabel}.`
+    );
+  }
 }
