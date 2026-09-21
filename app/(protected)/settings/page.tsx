@@ -132,6 +132,21 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 <label>Condición fiscal<input name="tax_condition" defaultValue={text('tax_condition')} placeholder="Ej. Monotributista" maxLength={200} /></label>
 
                 <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
+                  <h3 style={{ margin: 0 }}>Actividad fiscal</h3>
+                  <p className="text-helper" style={{ marginTop: 4 }}>
+                    Se usa como valor predeterminado al emitir facturas. Cargala una sola vez con los datos del profesional.
+                  </p>
+                </div>
+                <label>
+                  Código de actividad ARCA
+                  <input name="activity_code" defaultValue={text('activity_code')} placeholder="Ej. 869090" maxLength={40} />
+                </label>
+                <label>
+                  Nombre de la actividad
+                  <input name="activity_description" defaultValue={text('activity_description')} placeholder="Descripción tal como figura en ARCA" maxLength={200} />
+                </label>
+
+                <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
                   <h3 style={{ margin: 0 }}>Datos de contacto</h3>
                 </div>
                 <label>Teléfono profesional<input name="professional_phone" defaultValue={text('professional_phone')} maxLength={200} /></label>
@@ -383,20 +398,12 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                     <div className="card" style={{ marginTop: 16 }}>
                       <h3 style={{ marginTop: 0 }}>Preferencias de facturación</h3>
                       <p className="text-helper" style={{ marginTop: 0 }}>
-                        Se usan como valores predeterminados al crear facturas. No hace falta volver a cargar certificado y clave para modificarlas.
+                        El punto de venta pertenece a la integración ARCA. El código y nombre de actividad se cargan una sola vez en <strong>Datos profesionales</strong>.
                       </p>
                       <form action={updateArcaBillingPreferences} className="form-grid">
                         <label>
                           Punto de venta
                           <input name="punto_venta" type="number" min="1" defaultValue={arcaConnection.puntoVenta ?? 3} />
-                        </label>
-                        <label>
-                          Código de actividad ARCA
-                          <input name="activity_code" defaultValue={arcaConnection.activityCode ?? ''} placeholder="Ej. 869090" maxLength={40} />
-                        </label>
-                        <label style={{ gridColumn: '1 / -1' }}>
-                          Descripción de la actividad
-                          <input name="activity_description" defaultValue={arcaConnection.activityDescription ?? ''} placeholder="Descripción tal como figura en ARCA" maxLength={240} />
                         </label>
                         <div className="form-actions">
                           <button className="btn secondary" type="submit">Guardar preferencias</button>
