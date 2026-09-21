@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
 import { normalizePhone, type KnownCountryPrefix } from '@/lib/phone';
 import { findDuplicatePatient } from '@/lib/patients/duplicate-check';
+import { vatConditionLabel } from '@/lib/billing/constants';
 
 // Tipos de retorno de las 3 RPC de auditoría clínica (Fase 1, ver
 // supabase/migrations/20260918120000_clinical_audit_log.sql). El cliente de
@@ -57,6 +58,43 @@ const optionalText = z.preprocess(
   z.string().trim().max(160).nullable().optional()
 );
 
+const optionalFiscalText = z.preprocess(
+  (value) => typeof value === 'string' && value.trim() === '' ? null : value,
+  z.string().trim().max(240).nullable().optional(),
+);
+
+const optionalBillingCuit = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string' || value.trim() === '') return null;
+    return value.replace(/\D/g, '');
+  },
+  z.string().regex(/^\d{11}$/, 'El CUIT de facturación debe tener 11 dígitos').nullable().optional(),
+);
+
+const optionalVatConditionId = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+  z.coerce.number().int().positive().nullable().optional(),
+);
+
+const optionalBillingEntityId = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+  z.string().uuid().nullable().optional(),
+);
+
+const optionalSaleCondition = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+  z.enum([
+    'contado',
+    'cuenta_corriente',
+    'transferencia',
+    'tarjeta_debito',
+    'tarjeta_credito',
+    'cheque',
+    'otra',
+    'otros_medios_electronicos',
+  ]).nullable().optional(),
+);
+
 // Checkbox HTML: cuando está tildado, FormData trae 'on' (o el value que se le
 // haya dado); cuando no está tildado, el campo directamente no viene en el
 // FormData. Por eso el preprocess trata "ausente" y "off" como false, nunca
@@ -78,6 +116,24 @@ const patientSchema = z.object({
   insurance_name: optionalText,
   insurance_member_number: optionalText,
   insurance_plan: optionalText,
+  fiscal_cuit: optionalBillingCuit,
+  fiscal_vat_condition_id: optionalVatConditionId,
+  fiscal_address: optionalFiscalText,
+  fiscal_email: z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? null : value,
+    z.string().trim().email('Email fiscal del paciente inválido').max(200).nullable().optional(),
+  ),
+  billing_entity_id: optionalBillingEntityId,
+  billing_display_name: optionalFiscalText,
+  billing_legal_name: optionalFiscalText,
+  billing_cuit: optionalBillingCuit,
+  billing_vat_condition_id: optionalVatConditionId,
+  billing_address: optionalFiscalText,
+  billing_email: z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? null : value,
+    z.string().trim().email('Email de facturación inválido').max(200).nullable().optional(),
+  ),
+  billing_sale_condition: optionalSaleCondition,
   care_location: optionalText,
   default_price: z.preprocess(
     (value) => typeof value === 'string' && value.trim() === '' ? null : value,
@@ -97,11 +153,165 @@ function formDataToPatient(formData: FormData) {
     insurance_name: formData.get('insurance_name'),
     insurance_member_number: formData.get('insurance_member_number'),
     insurance_plan: formData.get('insurance_plan'),
+    fiscal_cuit: formData.get('fiscal_cuit'),
+    fiscal_vat_condition_id: formData.get('fiscal_vat_condition_id'),
+    fiscal_address: formData.get('fiscal_address'),
+    fiscal_email: formData.get('fiscal_email'),
+    billing_entity_id: formData.get('billing_entity_id'),
+    billing_display_name: formData.get('billing_display_name'),
+    billing_legal_name: formData.get('billing_legal_name'),
+    billing_cuit: formData.get('billing_cuit'),
+    billing_vat_condition_id: formData.get('billing_vat_condition_id'),
+    billing_address: formData.get('billing_address'),
+    billing_email: formData.get('billing_email'),
+    billing_sale_condition: formData.get('billing_sale_condition'),
     care_location: formData.get('care_location'),
     default_price: formData.get('default_price'),
     whatsapp_consent: formData.get('whatsapp_consent'),
     appointment_reminders_opt_in: formData.get('appointment_reminders_opt_in'),
   });
+}
+
+async function resolveBillingEntity(params: {
+  supabase: any;
+  tenantId: string;
+  updateSelected?: boolean;
+  data: {
+    insurance_name?: string | null;
+    billing_entity_id?: string | null;
+    billing_display_name?: string | null;
+    billing_legal_name?: string | null;
+    billing_cuit?: string | null;
+    billing_vat_condition_id?: number | null;
+    billing_address?: string | null;
+    billing_email?: string | null;
+    billing_sale_condition?: string | null;
+  };
+}): Promise<string | null> {
+  const { supabase, tenantId, data, updateSelected = false } = params;
+
+  if (data.billing_entity_id) {
+    const { data: existing, error } = await supabase
+      .from('billing_entities')
+      .select('id')
+      .eq('id', data.billing_entity_id)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (error || !existing) {
+      throw new Error('El pagador seleccionado no está disponible.');
+    }
+
+    const hasFiscalEdits = Boolean(
+      data.billing_display_name ||
+      data.billing_legal_name ||
+      data.billing_cuit ||
+      data.billing_vat_condition_id ||
+      data.billing_address ||
+      data.billing_email ||
+      data.billing_sale_condition
+    );
+
+    if (updateSelected && hasFiscalEdits) {
+      const updatePayload: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (data.billing_display_name) updatePayload.display_name = data.billing_display_name;
+      if (data.billing_legal_name) updatePayload.legal_name = data.billing_legal_name;
+      if (data.billing_cuit) updatePayload.cuit = data.billing_cuit;
+      if (data.billing_vat_condition_id) {
+        updatePayload.vat_condition_id = data.billing_vat_condition_id;
+        updatePayload.vat_condition_label = vatConditionLabel(data.billing_vat_condition_id);
+      }
+      if (data.billing_address) updatePayload.commercial_address = data.billing_address;
+      if (data.billing_email) updatePayload.billing_email = data.billing_email;
+      if (data.billing_sale_condition) updatePayload.default_sale_condition = data.billing_sale_condition;
+
+      const { error: updateError } = await supabase
+        .from('billing_entities')
+        .update(updatePayload)
+        .eq('id', existing.id)
+        .eq('tenant_id', tenantId);
+
+      if (updateError) throw new Error('No se pudo actualizar el pagador.');
+    }
+
+    return existing.id as string;
+  }
+
+  const displayName =
+    data.billing_display_name ??
+    data.insurance_name ??
+    data.billing_legal_name ??
+    null;
+
+  const hasNewBillingData = Boolean(
+    displayName ||
+    data.billing_cuit ||
+    data.billing_legal_name ||
+    data.billing_vat_condition_id ||
+    data.billing_address ||
+    data.billing_email
+  );
+
+  if (!hasNewBillingData) return null;
+  if (!displayName) {
+    throw new Error('Ingresá el nombre de la obra social o pagador.');
+  }
+
+  if (data.billing_cuit) {
+    const { data: byCuit, error: lookupError } = await supabase
+      .from('billing_entities')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('cuit', data.billing_cuit)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (lookupError) throw new Error('No se pudo verificar el CUIT del pagador.');
+
+    if (byCuit) {
+      const { error: updateError } = await supabase
+        .from('billing_entities')
+        .update({
+          display_name: displayName,
+          legal_name: data.billing_legal_name ?? null,
+          vat_condition_id: data.billing_vat_condition_id ?? null,
+          vat_condition_label: vatConditionLabel(data.billing_vat_condition_id ?? null),
+          commercial_address: data.billing_address ?? null,
+          billing_email: data.billing_email ?? null,
+          default_sale_condition: data.billing_sale_condition ?? 'cuenta_corriente',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', byCuit.id)
+        .eq('tenant_id', tenantId);
+
+      if (updateError) throw new Error('No se pudo actualizar el pagador.');
+      return byCuit.id as string;
+    }
+  }
+
+  const { data: inserted, error: insertError } = await supabase
+    .from('billing_entities')
+    .insert({
+      tenant_id: tenantId,
+      kind: 'insurance',
+      display_name: displayName,
+      legal_name: data.billing_legal_name ?? null,
+      cuit: data.billing_cuit ?? null,
+      vat_condition_id: data.billing_vat_condition_id ?? null,
+      vat_condition_label: vatConditionLabel(data.billing_vat_condition_id ?? null),
+      commercial_address: data.billing_address ?? null,
+      billing_email: data.billing_email ?? null,
+      default_sale_condition: data.billing_sale_condition ?? 'cuenta_corriente',
+    })
+    .select('id')
+    .single();
+
+  if (insertError || !inserted) throw new Error('No se pudo guardar el pagador.');
+  return inserted.id as string;
 }
 
 export async function createPatient(formData: FormData) {
@@ -111,7 +321,19 @@ export async function createPatient(formData: FormData) {
   }
 
   const { supabase, tenantId } = await requireTenant();
-  const { id: _id, ...payload } = parsed.data;
+  const {
+    id: _id,
+    billing_entity_id,
+    billing_display_name,
+    billing_legal_name,
+    billing_cuit,
+    billing_vat_condition_id,
+    billing_address,
+    billing_email,
+    billing_sale_condition,
+    ...payload
+  } = parsed.data;
+
   const phoneNormalization = normalizePhone(payload.phone ?? null, { selectedPrefix: readSelectedPrefix(formData) });
 
   const duplicate = await findDuplicatePatient(supabase, {
@@ -121,9 +343,31 @@ export async function createPatient(formData: FormData) {
   });
   if (duplicate) redirect(`/patients?${duplicateRedirectQuery(duplicate)}`);
 
+  let resolvedBillingEntityId: string | null = null;
+  try {
+    resolvedBillingEntityId = await resolveBillingEntity({
+      supabase,
+      tenantId,
+      data: {
+        insurance_name: payload.insurance_name ?? null,
+        billing_entity_id: billing_entity_id ?? null,
+        billing_display_name: billing_display_name ?? null,
+        billing_legal_name: billing_legal_name ?? null,
+        billing_cuit: billing_cuit ?? null,
+        billing_vat_condition_id: billing_vat_condition_id ?? null,
+        billing_address: billing_address ?? null,
+        billing_email: billing_email ?? null,
+        billing_sale_condition: billing_sale_condition ?? null,
+      },
+    });
+  } catch (error) {
+    redirect(`/patients?error=${encodeURIComponent(error instanceof Error ? error.message : 'No se pudo guardar el pagador')}`);
+  }
+
   const { error } = await supabase.from('patients').insert({
     tenant_id: tenantId,
     ...payload,
+    billing_entity_id: resolvedBillingEntityId,
     phone_e164: phoneNormalization.e164,
     whatsapp_consent_at: payload.whatsapp_consent ? new Date().toISOString() : null,
   });
@@ -143,7 +387,19 @@ export async function updatePatient(formData: FormData) {
   }
 
   const { supabase, tenantId } = await requireTenant();
-  const { id, ...payload } = parsed.data;
+  const {
+    id,
+    billing_entity_id,
+    billing_display_name,
+    billing_legal_name,
+    billing_cuit,
+    billing_vat_condition_id,
+    billing_address,
+    billing_email,
+    billing_sale_condition,
+    ...payload
+  } = parsed.data;
+
   const phoneNormalization = normalizePhone(payload.phone ?? null, { selectedPrefix: readSelectedPrefix(formData) });
 
   const duplicate = await findDuplicatePatient(supabase, {
@@ -159,7 +415,7 @@ export async function updatePatient(formData: FormData) {
   // Si ya estaba en true y sigue en true, se conserva la fecha original.
   const { data: existing } = await supabase
     .from('patients')
-    .select('whatsapp_consent, whatsapp_consent_at')
+    .select('whatsapp_consent, whatsapp_consent_at, billing_entity_id')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .is('deleted_at', null)
@@ -172,10 +428,37 @@ export async function updatePatient(formData: FormData) {
     whatsappConsentAt = null;
   }
 
+  let resolvedBillingEntityId: string | null = null;
+  try {
+    resolvedBillingEntityId = await resolveBillingEntity({
+      supabase,
+      tenantId,
+      updateSelected: Boolean(
+        billing_entity_id &&
+        existing?.billing_entity_id &&
+        billing_entity_id === existing.billing_entity_id
+      ),
+      data: {
+        insurance_name: payload.insurance_name ?? null,
+        billing_entity_id: billing_entity_id ?? null,
+        billing_display_name: billing_display_name ?? null,
+        billing_legal_name: billing_legal_name ?? null,
+        billing_cuit: billing_cuit ?? null,
+        billing_vat_condition_id: billing_vat_condition_id ?? null,
+        billing_address: billing_address ?? null,
+        billing_email: billing_email ?? null,
+        billing_sale_condition: billing_sale_condition ?? null,
+      },
+    });
+  } catch (error) {
+    redirect(`/patients/${id}?error=${encodeURIComponent(error instanceof Error ? error.message : 'No se pudo guardar el pagador')}`);
+  }
+
   const { data, error } = await supabase
     .from('patients')
     .update({
       ...payload,
+      billing_entity_id: resolvedBillingEntityId,
       phone_e164: phoneNormalization.e164,
       whatsapp_consent_at: whatsappConsentAt,
       updated_at: new Date().toISOString(),

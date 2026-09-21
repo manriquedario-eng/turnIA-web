@@ -375,6 +375,8 @@ export async function saveArcaConnection(params: {
 export type ArcaConnectionSummary = {
   cuit: string;
   puntoVenta: number | null;
+  activityCode: string | null;
+  activityDescription: string | null;
   environment: ArcaEnvironment;
   connectedAt: string | null;
 };
@@ -388,7 +390,7 @@ export async function getArcaConnectionSummary(params: {
   const serviceClient = createSupabaseServiceClient();
   const { data } = await serviceClient
     .from('arca_connections')
-    .select('cuit, punto_venta, environment, connected_at')
+    .select('cuit, punto_venta, activity_code, activity_description, environment, connected_at')
     .eq('tenant_id', params.tenantId)
     .eq('user_id', params.userId)
     .eq('environment', 'homologacion')
@@ -400,9 +402,62 @@ export async function getArcaConnectionSummary(params: {
   return {
     cuit: data.cuit,
     puntoVenta: data.punto_venta,
+    activityCode: data.activity_code ?? null,
+    activityDescription: data.activity_description ?? null,
     environment: data.environment as ArcaEnvironment,
     connectedAt: data.connected_at,
   };
+}
+
+// ----------------------------------------------------------------------------
+// 7.b) Preferencias operativas de facturación ARCA
+// ----------------------------------------------------------------------------
+
+export async function updateArcaBillingPreferences(params: {
+  tenantId: string;
+  userId: string;
+  puntoVenta: number | null;
+  activityCode: string | null;
+  activityDescription: string | null;
+}): Promise<ArcaResult<true>> {
+  if (!isServiceRoleConfigured()) {
+    return { ok: false, reason: 'not_configured', errorMessage: 'La integración ARCA no está configurada.' };
+  }
+
+  const serviceClient = createSupabaseServiceClient();
+
+  const { data: connection } = await serviceClient
+    .from('arca_connections')
+    .select('id')
+    .eq('tenant_id', params.tenantId)
+    .eq('user_id', params.userId)
+    .eq('environment', 'homologacion')
+    .is('revoked_at', null)
+    .maybeSingle();
+
+  if (!connection) {
+    return { ok: false, reason: 'not_connected', errorMessage: 'Primero conectá ARCA antes de guardar preferencias de facturación.' };
+  }
+
+  const { error } = await serviceClient
+    .from('arca_connections')
+    .update({
+      punto_venta: params.puntoVenta,
+      activity_code: params.activityCode,
+      activity_description: params.activityDescription,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', connection.id);
+
+  if (error) {
+    console.error('ARCA: no se pudieron actualizar preferencias de facturación', {
+      code: error.code,
+      message: error.message,
+    });
+    return { ok: false, reason: 'provider_error', errorMessage: 'No se pudieron guardar las preferencias de facturación.' };
+  }
+
+  return { ok: true, data: true };
 }
 
 // ----------------------------------------------------------------------------

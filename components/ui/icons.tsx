@@ -49,6 +49,15 @@ export function IconClock({ size = 18 }: IconProps) {
   );
 }
 
+export function IconReceipt({ size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" {...base}>
+      <path d="M5 2.8h10v14.4l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2-2 1.2V4.8a2 2 0 0 1 2-2Z" />
+      <path d="M7 7h6M7 10h6M7 13h4" />
+    </svg>
+  );
+}
+
 export function IconWallet({ size = 18 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" {...base}>

@@ -6,6 +6,7 @@ import { PhoneInput } from '@/components/ui/PhoneInput';
 import { PatientsTable } from '@/components/patients/PatientsTable';
 import { IconPlus } from '@/components/ui/icons';
 import { SimpleExportMenu } from '@/components/export/ExportMenu';
+import { SALE_CONDITIONS, VAT_CONDITIONS } from '@/lib/billing/constants';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -24,12 +25,25 @@ export default async function PatientsPage({
 }) {
   const params = await searchParams;
   const { supabase, tenantId } = await requireTenant();
-  const { data: patients, error } = await supabase
-    .from('patients')
-    .select('id,name,phone,email,insurance_name,care_location,created_at')
-    .eq('tenant_id', tenantId)
-    .is('deleted_at', null)
-    .order('name', { ascending: true });
+
+  const [patientsResult, billingEntitiesResult] = await Promise.all([
+    supabase
+      .from('patients')
+      .select('id,name,phone,email,insurance_name,care_location,created_at')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('name', { ascending: true }),
+    supabase
+      .from('billing_entities')
+      .select('id,display_name,legal_name,cuit,vat_condition_id,commercial_address,billing_email,default_sale_condition')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('display_name', { ascending: true }),
+  ]);
+
+  const patients = patientsResult.data;
+  const error = patientsResult.error;
+  const billingEntities = billingEntitiesResult.data ?? [];
 
   if (error) {
     throw new Error(`No se pudieron cargar los pacientes: ${error.message}`);
@@ -127,6 +141,66 @@ export default async function PatientsPage({
           <label>Obra social<input name="insurance_name" maxLength={160} /></label>
           <label>Nº afiliado<input name="insurance_member_number" maxLength={160} /></label>
           <label>Plan<input name="insurance_plan" maxLength={160} /></label>
+
+          <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
+            <h3>Datos fiscales del paciente</h3>
+            <p className="text-helper" style={{ marginTop: 4 }}>
+              Se usan cuando la factura se emite a nombre del paciente para que luego la presente a su obra social por reintegro.
+            </p>
+          </div>
+          <label>CUIT del paciente<input name="fiscal_cuit" inputMode="numeric" placeholder="Opcional · 11 dígitos" maxLength={14} /></label>
+          <label>
+            Condición frente al IVA
+            <select name="fiscal_vat_condition_id" defaultValue="5">
+              {VAT_CONDITIONS.map((item) => (
+                <option key={item.id} value={item.id}>{item.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>Domicilio fiscal<input name="fiscal_address" maxLength={240} /></label>
+          <label>Email fiscal<input name="fiscal_email" type="email" maxLength={200} /></label>
+
+          <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
+            <h3>Facturación directa a obra social / empresa</h3>
+            <p className="text-helper" style={{ marginTop: 4 }}>
+              Opcional. Usalo sólo si el profesional factura directamente a una obra social o empresa.
+              Estos datos son del receptor institucional, no del paciente.
+            </p>
+          </div>
+
+          <label>
+            Obra social / empresa guardada
+            <select name="billing_entity_id" defaultValue="">
+              <option value="">Crear / completar uno nuevo</option>
+              {billingEntities.map((entity) => (
+                <option key={entity.id} value={entity.id}>
+                  {entity.display_name}{entity.cuit ? ` · CUIT ${entity.cuit}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>Nombre comercial<input name="billing_display_name" maxLength={240} /></label>
+          <label>Razón social<input name="billing_legal_name" maxLength={240} /></label>
+          <label>CUIT<input name="billing_cuit" inputMode="numeric" placeholder="11 dígitos" maxLength={14} /></label>
+          <label>
+            Condición frente al IVA
+            <select name="billing_vat_condition_id" defaultValue="">
+              <option value="">Seleccionar...</option>
+              {VAT_CONDITIONS.map((item) => (
+                <option key={item.id} value={item.id}>{item.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>Domicilio comercial / fiscal<input name="billing_address" maxLength={240} /></label>
+          <label>Email de facturación<input name="billing_email" type="email" maxLength={200} /></label>
+          <label>
+            Condición de venta habitual
+            <select name="billing_sale_condition" defaultValue="cuenta_corriente">
+              {SALE_CONDITIONS.map((item) => (
+                <option key={item.value} value={item.value}>{item.label}</option>
+              ))}
+            </select>
+          </label>
 
           <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
             <h3>Comunicación y recordatorios</h3>

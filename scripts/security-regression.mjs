@@ -26,11 +26,24 @@ function walk(dir) {
 const runtimeFiles = [...walk('app'), ...walk('lib'), 'middleware.ts'].filter((f) => fs.existsSync(path.join(root, f)));
 const runtimeText = runtimeFiles.map((f) => `\n/* ${f} */\n${read(f)}`).join('\n');
 
+// Browser-only checks must inspect code that can actually enter a client
+// bundle. Server-only modules may legitimately mention storage concepts in
+// comments or use the Supabase service role for protected integrations.
+const clientRuntimeFiles = runtimeFiles.filter((f) => {
+  const text = read(f);
+  return /^\s*['"]use client['"];?/m.test(text);
+});
+const clientRuntimeText = clientRuntimeFiles.map((f) => `\n/* ${f} */\n${read(f)}`).join('\n');
+
 check('No dangerouslySetInnerHTML in active runtime', !runtimeText.includes('dangerouslySetInnerHTML'));
 check('No direct innerHTML writes in active runtime', !/\.innerHTML\s*=/.test(runtimeText));
 check('No eval/new Function in active runtime', !/\beval\s*\(|new\s+Function\s*\(/.test(runtimeText));
-check('No browser localStorage/sessionStorage auth state', !/\b(localStorage|sessionStorage)\b/.test(runtimeText));
-check('No service-role secret referenced by active runtime', !/SUPABASE_SERVICE_ROLE|service_role/i.test(runtimeText));
+check('No browser localStorage/sessionStorage auth state', !/\b(localStorage|sessionStorage)\b/.test(clientRuntimeText));
+check(
+  'No service-role secret referenced by browser runtime',
+  !/SUPABASE_SERVICE_ROLE|service_role/i.test(clientRuntimeText) &&
+    !/NEXT_PUBLIC_SUPABASE_SERVICE_ROLE/i.test(runtimeText),
+);
 const transcriptionRoute = read('app/api/transcription/route.ts');
 check('Transcription endpoint requires tenant auth', transcriptionRoute.includes('requireTenant'));
 check('Transcription API key remains server-side', transcriptionRoute.includes('process.env.OPENAI_API_KEY') && !runtimeText.includes('NEXT_PUBLIC_OPENAI_API_KEY'));

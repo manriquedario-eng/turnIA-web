@@ -9,6 +9,7 @@ import { disconnectMercadoPagoOAuthConnection } from '@/lib/mercadopago/oauth';
 import {
   saveArcaConnection as saveArcaConnectionCore,
   testArcaConnection as testArcaConnectionCore,
+  updateArcaBillingPreferences as updateArcaBillingPreferencesCore,
 } from '@/lib/arca/wsaa';
 
 // Campos profesionales opcionales. NO se agregó ninguna columna nueva a la
@@ -34,6 +35,8 @@ const settingsSchema = z.object({
   cuit: optionalProfileField,
   business_name: optionalProfileField,
   tax_condition: optionalProfileField,
+  activity_code: optionalProfileField,
+  activity_description: optionalProfileField,
   // Datos de contacto
   professional_phone: optionalProfileField,
   professional_email: z.preprocess(
@@ -99,6 +102,8 @@ export async function updateSettings(formData: FormData) {
       cuit: parsed.data.cuit ?? null,
       business_name: parsed.data.business_name ?? null,
       tax_condition: parsed.data.tax_condition ?? null,
+      activity_code: parsed.data.activity_code ?? null,
+      activity_description: parsed.data.activity_description ?? null,
       professional_phone: parsed.data.professional_phone ?? null,
       professional_email: parsed.data.professional_email ?? null,
       office_address: parsed.data.office_address ?? null,
@@ -270,4 +275,50 @@ export async function testArcaConnection() {
 
   revalidatePath('/settings');
   redirect('/settings?ok=Conexi%C3%B3n%20con%20ARCA%20exitosa#facturacion');
+}
+
+
+const arcaBillingPreferencesSchema = z.object({
+  punto_venta: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+    z.coerce.number().int().positive().nullable(),
+  ),
+  activity_code: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+    z.string().trim().max(40).nullable(),
+  ),
+  activity_description: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+    z.string().trim().max(240).nullable(),
+  ),
+});
+
+export async function updateArcaBillingPreferences(formData: FormData) {
+  const { user, tenantId } = await requireTenant();
+
+  const parsed = arcaBillingPreferencesSchema.safeParse({
+    punto_venta: formData.get('punto_venta'),
+    activity_code: formData.get('activity_code'),
+    activity_description: formData.get('activity_description'),
+  });
+
+  if (!parsed.success) {
+    redirect(`/settings?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? 'Preferencias ARCA inválidas')}#facturacion`);
+  }
+
+  const result = await updateArcaBillingPreferencesCore({
+    tenantId,
+    userId: user.id,
+    puntoVenta: parsed.data.punto_venta,
+    activityCode: parsed.data.activity_code,
+    activityDescription: parsed.data.activity_description,
+  });
+
+  if (!result.ok) {
+    redirect(`/settings?error=${encodeURIComponent(result.errorMessage)}#facturacion`);
+  }
+
+  revalidatePath('/settings');
+  revalidatePath('/billing');
+  redirect('/settings?ok=Preferencias%20de%20facturaci%C3%B3n%20ARCA%20guardadas#facturacion');
 }
