@@ -474,14 +474,19 @@ export function BillingDraftForm({
             Punto de venta
             <input name="point_of_sale" type="number" min="1" defaultValue={arca.pointOfSale} required />
           </label>
-          <label>
-            Código de actividad ARCA
-            <input name="activity_code" defaultValue={arca.activityCode} maxLength={40} />
-          </label>
-          <label>
-            Actividad
-            <input name="activity_description" defaultValue={arca.activityDescription} maxLength={240} />
-          </label>
+          <input type="hidden" name="activity_code" value={arca.activityCode} />
+          <input type="hidden" name="activity_description" value={arca.activityDescription} />
+          <div style={{ gridColumn: '1 / -1' }}>
+            <span className="muted">Actividad fiscal del profesional</span><br />
+            <strong>
+              {arca.activityCode
+                ? `${arca.activityCode}${arca.activityDescription ? ` · ${arca.activityDescription}` : ''}`
+                : 'No configurada'}
+            </strong>
+            <div className="field-hint">
+              Se toma automáticamente de Configuración → Datos profesionales.
+            </div>
+          </div>
           <label style={{ gridColumn: '1 / -1' }}>
             Detalle
             <textarea
