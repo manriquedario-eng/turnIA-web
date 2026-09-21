@@ -13,6 +13,7 @@ import { ExportMenu, type ExportMenuItem } from '@/components/export/ExportMenu'
 import { statusLabel, modalityLabel, paymentMethodLabel } from '@/lib/labels';
 import { SALE_CONDITIONS, VAT_CONDITIONS } from '@/lib/billing/constants';
 import { generateMercadoPagoCheckout } from '@/app/(protected)/agenda/actions';
+import { createPrescriptionDraft } from '../prescription-actions';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -297,6 +298,7 @@ export default async function PatientDetailPage({
       {query.success === 'updated' ? <p className="alert success">Datos actualizados.</p> : null}
       {query.success === 'followup' ? <p className="alert success">Nota guardada.</p> : null}
       {query.success === 'record' ? <p className="alert success">Ficha clínica actualizada.</p> : null}
+      {query.success === 'prescription-draft' ? <p className="alert success">Borrador de receta creado.</p> : null}
 
       {/* Segunda pasada de rediseño: la ficha del paciente pasa de sentirse
           "tabla administrativa dentro de una card" a una ficha profesional —
@@ -558,11 +560,35 @@ export default async function PatientDetailPage({
                 </span>
               </div>
 
-              <button className="btn" type="button" disabled title="La emisión se habilitará cuando TurnIA tenga el AppID oficial de MisRX">
-                Nueva receta
-              </button>
+              <details>
+                <summary className="btn" style={{ display: 'inline-flex', cursor: 'pointer' }}>
+                  Nueva receta
+                </summary>
+                <form action={createPrescriptionDraft} className="form-grid" style={{ marginTop: 16 }}>
+                  <input type="hidden" name="patientId" value={patient.id} />
+                  <label>
+                    Diagnóstico
+                    <input name="diagnosis" maxLength={500} placeholder="Opcional" />
+                  </label>
+                  <label>
+                    CIE-10
+                    <input name="cie10" maxLength={20} placeholder="Opcional" />
+                  </label>
+                  <label style={{ gridColumn: '1 / -1' }}>
+                    Observaciones / indicaciones
+                    <textarea name="observations" maxLength={4000} rows={4} placeholder="Opcional" />
+                  </label>
+                  <label className="checkbox-field" style={{ gridColumn: '1 / -1' }}>
+                    <input type="checkbox" name="longTermTreatment" />
+                    Tratamiento prolongado
+                  </label>
+                  <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
+                    <button className="btn" type="submit">Guardar borrador</button>
+                  </div>
+                </form>
+              </details>
               <p className="field-hint" style={{ marginBottom: 0 }}>
-                La emisión real permanece deshabilitada hasta completar el alta de TurnIA como software integrador de MisRX.
+                Este paso sólo guarda un borrador dentro de TurnIA. No emite ni envía nada a MisRX.
               </p>
             </div>
 
