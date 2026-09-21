@@ -1,14 +1,11 @@
 import { requireTenant } from '@/lib/auth/require-user';
-import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago, updateAiTranscriptionSetting, saveArcaConnection, testArcaConnection } from './actions';
+import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago, updateAiTranscriptionSetting, saveArcaConnection, testArcaConnection, updateArcaBillingPreferences } from './actions';
 import { isGoogleOAuthConfigured } from '@/lib/google/oauth';
 import { isMercadoPagoOAuthConfigured } from '@/lib/mercadopago/oauth';
 import { isWhatsAppConfigured } from '@/lib/whatsapp/provider';
 import { isEmailConfigured } from '@/lib/email/provider';
 import { isArcaWsaaConfigured, getArcaConnectionSummary } from '@/lib/arca/wsaa';
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
-import { ArcaWsfeParameters } from '@/components/settings/ArcaWsfeParameters';
-import { ArcaLastAuthorizedTest } from '@/components/settings/ArcaLastAuthorizedTest';
-import { ArcaTestInvoiceC } from '@/components/settings/ArcaTestInvoiceC';
 
 type PageProps = {
   searchParams?: Promise<{ ok?: string; error?: string }>;
@@ -323,11 +320,11 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         facturacion={
           <div className="stack">
             <div className="card">
-              <h2 style={{ marginTop: 0 }}>Facturación ARCA</h2>
+              <h2 style={{ marginTop: 0 }}>Integración ARCA</h2>
               <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
-                Fase 1: sólo autenticación contra ARCA en <strong>ambiente de homologación</strong>. Todavía no emite
-                comprobantes — sólo confirma que TurnIA puede autenticarse con tu certificado. Tus credenciales son
-                tuyas: nunca se comparten con otros consultorios ni con una cuenta fiscal central de TurnIA.
+                Acá se configura únicamente la conexión fiscal con ARCA: credenciales, punto de venta y actividad.
+                La operatoria diaria de borradores, sesiones y comprobantes vive en el menú <strong>Facturación</strong>.
+                Por ahora la emisión continúa limitada al <strong>ambiente de homologación</strong>.
               </p>
 
               {!arcaConfigured ? (
@@ -382,12 +379,30 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                     </div>
                   </form>
 
-                  {arcaConnected ? (
-                    <>
-                      <ArcaWsfeParameters />
-                      <ArcaLastAuthorizedTest />
-                      <ArcaTestInvoiceC />
-                    </>
+                  {arcaConnection ? (
+                    <div className="card" style={{ marginTop: 16 }}>
+                      <h3 style={{ marginTop: 0 }}>Preferencias de facturación</h3>
+                      <p className="text-helper" style={{ marginTop: 0 }}>
+                        Se usan como valores predeterminados al crear facturas. No hace falta volver a cargar certificado y clave para modificarlas.
+                      </p>
+                      <form action={updateArcaBillingPreferences} className="form-grid">
+                        <label>
+                          Punto de venta
+                          <input name="punto_venta" type="number" min="1" defaultValue={arcaConnection.puntoVenta ?? 3} />
+                        </label>
+                        <label>
+                          Código de actividad ARCA
+                          <input name="activity_code" defaultValue={arcaConnection.activityCode ?? ''} placeholder="Ej. 869090" maxLength={40} />
+                        </label>
+                        <label style={{ gridColumn: '1 / -1' }}>
+                          Descripción de la actividad
+                          <input name="activity_description" defaultValue={arcaConnection.activityDescription ?? ''} placeholder="Descripción tal como figura en ARCA" maxLength={240} />
+                        </label>
+                        <div className="form-actions">
+                          <button className="btn secondary" type="submit">Guardar preferencias</button>
+                        </div>
+                      </form>
+                    </div>
                   ) : null}
                 </>
               )}
