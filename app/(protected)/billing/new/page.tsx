@@ -21,12 +21,22 @@ function monthStart(date: string) {
   return `${date.slice(0, 7)}-01`;
 }
 
+function safeBillingReturn(value?: string) {
+  if (!value) return '/billing';
+  if (value === '/billing') return value;
+  if (/^\/reimbursements\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) return value;
+  if (/^\/patients\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) return value;
+  return '/billing';
+}
+
 export default async function NewBillingInvoicePage({
   searchParams,
 }: {
-  searchParams: Promise<{ patient?: string; error?: string }>;
+  searchParams: Promise<{ patient?: string; error?: string; return_to?: string }>;
 }) {
   const query = await searchParams;
+  const returnTo = safeBillingReturn(query.return_to);
+  const returnLabel = returnTo.startsWith('/reimbursements/') ? 'Volver al reintegro' : returnTo.startsWith('/patients/') ? 'Volver al paciente' : 'Volver a Facturación';
   const { supabase, user, tenantId } = await requireTenant();
 
   const { data: fiscalSettings } = await supabase
@@ -40,7 +50,7 @@ export default async function NewBillingInvoicePage({
       <section className="stack">
         <div className="page-header">
           <div>
-            <p><Link href="/billing">← Volver a Facturación</Link></p>
+            <p><Link href={returnTo}>← {returnLabel}</Link></p>
             <h1>Nueva factura</h1>
           </div>
         </div>
@@ -70,7 +80,7 @@ export default async function NewBillingInvoicePage({
       <section className="stack">
         <div className="page-header">
           <div>
-            <p><Link href="/billing">← Volver a Facturación</Link></p>
+            <p><Link href={returnTo}>← {returnLabel}</Link></p>
             <h1>Nueva factura</h1>
             <p className="muted">Elegí el paciente cuyas sesiones querés facturar.</p>
           </div>
@@ -80,6 +90,7 @@ export default async function NewBillingInvoicePage({
 
         <div className="card">
           <form method="get" action="/billing/new" className="form-grid">
+            <input type="hidden" name="return_to" value={returnTo} />
             <label style={{ gridColumn: '1 / -1' }}>
               Paciente
               <select name="patient" defaultValue="" required>
@@ -211,7 +222,7 @@ export default async function NewBillingInvoicePage({
     <section className="stack">
       <div className="page-header">
         <div>
-          <p><Link href="/billing">← Volver a Facturación</Link></p>
+          <p><Link href={returnTo}>← {returnLabel}</Link></p>
           <h1>Nueva factura</h1>
           <p className="muted">
             Paciente: <strong>{patient.name}</strong>{patient.dni ? ` · DNI ${patient.dni}` : ''}
