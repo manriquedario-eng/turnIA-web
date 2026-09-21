@@ -128,10 +128,38 @@ export default async function PatientsPage({
       <div className="card" id="nuevo-paciente">
         <h2>Nuevo paciente</h2>
         <form action={createPatient} className="form-grid">
-          <label>Nombre<input name="name" required minLength={2} maxLength={160} /></label>
+          <label>
+            Nombre completo (nombres y apellidos)
+            <input name="name" required minLength={2} maxLength={160} />
+          </label>
+          <label>
+            Alias
+            <input name="alias" maxLength={160} placeholder="Ej.: Euge" />
+            <span className="text-helper">
+              Nombre corto o preferido que TurnIA puede usar en WhatsApp, emails y recordatorios.
+            </span>
+          </label>
+          <label className="checkbox-field">
+            <input type="checkbox" name="use_alias_for_communications" />
+            Usar alias en comunicaciones
+          </label>
           <PhoneInput />
           <label>Email<input name="email" type="email" maxLength={200} /></label>
           <label>DNI<input name="dni" maxLength={160} /></label>
+          <label>
+            Escuela, colegio o institución
+            <input name="institution_name" maxLength={240} placeholder="Opcional" />
+            <span className="text-helper">
+              Útil cuando el paciente fue derivado o acompañado por una institución educativa.
+            </span>
+          </label>
+          <label>
+            Domicilio real
+            <input name="home_address" maxLength={240} placeholder="Calle, número, localidad" />
+            <span className="text-helper">
+              Domicilio habitual del paciente. Es distinto del domicilio fiscal.
+            </span>
+          </label>
           <label>Lugar de atención<input name="care_location" maxLength={160} /></label>
           <label>Precio habitual<input name="default_price" type="number" min="0" step="0.01" /></label>
 

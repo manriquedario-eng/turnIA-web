@@ -107,12 +107,16 @@ const checkboxBoolean = z.preprocess(
 const patientSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(2, 'El nombre es obligatorio').max(160),
+  alias: optionalText,
+  use_alias_for_communications: checkboxBoolean,
   phone: optionalText,
   email: z.preprocess(
     (value) => typeof value === 'string' && value.trim() === '' ? null : value,
     z.string().trim().email('Email inválido').max(200).nullable().optional()
   ),
   dni: optionalText,
+  institution_name: optionalFiscalText,
+  home_address: optionalFiscalText,
   insurance_name: optionalText,
   insurance_member_number: optionalText,
   insurance_plan: optionalText,
@@ -147,9 +151,13 @@ function formDataToPatient(formData: FormData) {
   return patientSchema.safeParse({
     id: formData.get('id') || undefined,
     name: formData.get('name'),
+    alias: formData.get('alias'),
+    use_alias_for_communications: formData.get('use_alias_for_communications'),
     phone: formData.get('phone'),
     email: formData.get('email'),
     dni: formData.get('dni'),
+    institution_name: formData.get('institution_name'),
+    home_address: formData.get('home_address'),
     insurance_name: formData.get('insurance_name'),
     insurance_member_number: formData.get('insurance_member_number'),
     insurance_plan: formData.get('insurance_plan'),
