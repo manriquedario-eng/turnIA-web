@@ -14,6 +14,8 @@ import type {
   MisRxProfessionalProfile,
   MisRxCancelPrescriptionPayload,
   MisRxPlan,
+  MisRxCancelPrescriptionResponse,
+  MisRxExternalPrescriptionList,
 } from './types';
 
 export class MisRxAdapter {
@@ -134,7 +136,7 @@ export class MisRxAdapter {
 
     return this.withToken((accessToken) =>
       misRxRequest<MisRxPrescriptionResponse>({
-        path: '/api/informa_receta',
+        path: '/api/informa_prescripcion',
         method: 'PUT',
         accessToken,
         appId: this.provider.appId,
@@ -147,12 +149,21 @@ export class MisRxAdapter {
     );
   }
 
-  async getPrescription(token: string): Promise<MisRxApiResult<MisRxPrescriptionResponse>> {
+  async listPrescriptions(params: {
+    convenioId: number;
+    page?: number;
+    filter?: string;
+  }): Promise<MisRxApiResult<MisRxExternalPrescriptionList>> {
     return this.withToken((accessToken) =>
-      misRxRequest<MisRxPrescriptionResponse>({
-        path: '/api/receta',
+      misRxRequest<MisRxExternalPrescriptionList>({
+        path: '/api/prescripciones',
         accessToken,
-        query: { token, verify_exp: false },
+        query: {
+          convenio_id: params.convenioId,
+          page: params.page ?? 0,
+          filtro: params.filter ?? '',
+          verify_exp: false,
+        },
       }),
     );
   }
@@ -176,7 +187,7 @@ export class MisRxAdapter {
 
   async cancelPrescription(
     payload: Omit<MisRxCancelPrescriptionPayload, 'soft_id'>,
-  ): Promise<MisRxApiResult<Record<string, unknown>>> {
+  ): Promise<MisRxApiResult<MisRxCancelPrescriptionResponse>> {
     const softId = this.provider.softId;
     if (!softId) {
       return {
@@ -187,8 +198,8 @@ export class MisRxAdapter {
     }
 
     return this.withToken((accessToken) =>
-      misRxRequest<Record<string, unknown>>({
-        path: '/api/anular_receta',
+      misRxRequest<MisRxCancelPrescriptionResponse>({
+        path: '/api/anular_prescripcion',
         method: 'DELETE',
         accessToken,
         appId: this.provider.appId,

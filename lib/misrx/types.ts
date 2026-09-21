@@ -102,13 +102,13 @@ export type MisRxDiagnosis = {
 };
 
 export type MisRxPrescriptionItemPayload = {
-  code: string;
+  producto_id?: number;
+  troquel?: number;
+  codigobarra?: string;
   cantidad: number;
   porc_cobertura?: number;
   imprimeMarca?: boolean;
-  sinMarca?: string;
   sustituible?: boolean;
-  promo_id?: number;
   diagnostico?: string;
   cie10?: string;
   solo_codigo_cie10?: boolean;
@@ -117,9 +117,19 @@ export type MisRxPrescriptionItemPayload = {
 export type MisRxPrescriptionPayload = {
   soft_id: string;
   convenio_id: number;
+  nrorecetario?: string;
+  medico_id?: number;
+  medico_dni?: number;
+  medico_tipo_matricula?: string;
+  medico_matricula?: number;
+  medico_especialidad_id?: number;
+  medico_apellido?: string;
+  medico_nombres?: string;
+  medico_sexo?: 'M' | 'F' | 'X';
+  tercero_medico_id?: number;
   afiliado_id?: number;
   afiliado_dni?: number;
-  afiliado_sexo?: string;
+  afiliado_sexo?: 'M' | 'F' | 'X';
   afiliado_fecha_nacimiento?: string;
   afiliado_credencial?: string;
   afiliado_apellido?: string;
@@ -128,40 +138,51 @@ export type MisRxPrescriptionPayload = {
   autorizacion_motivo?: string;
   autorizacion_numero?: string;
   diagnostico?: string;
-  cie10?: string;
-  solo_codigo_cie10?: boolean;
   tProlongado?: boolean;
-  items: MisRxPrescriptionItemPayload[];
-  plan_id?: number;
   convenio_plan_cod?: number;
   observaciones?: string;
   prestador_id?: number;
   fecha_receta?: string;
-  repetir_fechas?: string[];
-  vih?: number;
+  vih?: 0 | 1;
   extra_params?: string;
-  medico_data?: {
-    tipo_matricula?: string;
-    matricula?: number;
-    especialidad_id?: number;
-    provincia?: string;
-    localidad?: string;
-    direccion?: string;
-  };
+  items: MisRxPrescriptionItemPayload[];
 };
 
 export type MisRxPrescriptionResponse = {
-  convenio_id?: number;
   status?: string;
   msg?: string;
   nrorecetario?: string;
   nrorecetario_os?: string;
   nrorecetario_receta?: string;
   afiliado_id?: number;
+  afiliado_sexo?: string;
+  afiliado_apellido?: string;
+  afiliado_nombres?: string;
+  afiliado_dni?: string | number;
+  afiliado_fecha_nacimiento?: string;
   medico_id?: number;
+  medico_dni?: number;
+  medico_tipo_matricula?: string;
+  medico_matricula?: number;
+  medico_apellido?: string;
+  medico_nombres?: string;
+  medico_sexo?: string;
+  medico_especialidad_id?: number;
   token?: string;
-  lote_token?: string;
-  items?: Array<Record<string, unknown>>;
+  items?: Array<{
+    status?: string;
+    msg?: string;
+    cantidad?: number;
+    codigoab?: number;
+    codigobarra?: string;
+    troquel?: number;
+    laboratorio?: string;
+    marca?: string;
+    presentacion?: string;
+    porc_cobertura?: number;
+    nroitem?: number;
+    [key: string]: unknown;
+  }>;
   [key: string]: unknown;
 };
 
@@ -169,7 +190,18 @@ export type MisRxCancelPrescriptionPayload = {
   soft_id: string;
   convenio_id: number;
   nro_recetario: string;
-  lote_token: string;
+};
+
+export type MisRxCancelPrescriptionResponse = {
+  success?: boolean;
+  resultado_id?: number;
+  data?: string;
+  [key: string]: unknown;
+};
+
+export type MisRxExternalPrescriptionList = {
+  tot_reg: number;
+  data: Array<Record<string, unknown>>;
 };
 
 export type MisRxPlan = {
