@@ -107,9 +107,12 @@ export function BillingDraftForm({
   const [saleCondition, setSaleCondition] = useState('contado');
 
   const [selectedIds, setSelectedIds] = useState<string[]>(initialSelectedIds);
+  const [sessionCount, setSessionCount] = useState(
+    Math.max(initialSelectedIds.length, 1),
+  );
   const [detailDirty, setDetailDirty] = useState(false);
   const [detail, setDetail] = useState(
-    buildDetail('patient_reimbursement', initialSelectedIds.length, patient),
+    buildDetail('patient_reimbursement', Math.max(initialSelectedIds.length, 1), patient),
   );
 
   const selectedAppointments = useMemo(
@@ -166,7 +169,7 @@ export function BillingDraftForm({
     }
 
     if (!detailDirty) {
-      setDetail(buildDetail(mode, selectedIds.length, patient));
+      setDetail(buildDetail(mode, sessionCount, patient));
     }
   }
 
@@ -176,6 +179,10 @@ export function BillingDraftForm({
       : selectedIds.filter((value) => value !== id);
 
     setSelectedIds(next);
+
+    if (next.length > 0) {
+      setSessionCount(next.length);
+    }
 
     const nextAppointments = appointments.filter((appointment) => next.includes(appointment.id));
     const nextAmounts = nextAppointments.map((item) => item.amount ?? patient.defaultPrice ?? 0);
@@ -191,7 +198,7 @@ export function BillingDraftForm({
     setServiceTo(dates[dates.length - 1] ?? today);
 
     if (!detailDirty) {
-      setDetail(buildDetail(recipientMode, next.length, patient));
+      setDetail(buildDetail(recipientMode, next.length > 0 ? next.length : sessionCount, patient));
     }
   }
 
@@ -254,11 +261,38 @@ export function BillingDraftForm({
               Seleccioná una o varias sesiones ya realizadas. TurnIA evita incluir una sesión que ya esté en otro borrador o factura autorizada.
             </p>
           </div>
-          <span className="badge badge-neutral">{selectedIds.length} seleccionadas</span>
+          <span className="badge badge-neutral">{selectedIds.length} turnos vinculados</span>
+        </div>
+
+        <div className="form-grid" style={{ marginBottom: 14 }}>
+          <label>
+            Cantidad de sesiones a facturar
+            <input
+              name="session_count"
+              type="number"
+              min="1"
+              max="100"
+              step="1"
+              value={sessionCount}
+              onChange={(event) => {
+                const nextCount = Math.max(1, Number(event.target.value || 1));
+                setSessionCount(nextCount);
+                if (!detailDirty) {
+                  setDetail(buildDetail(recipientMode, nextCount, patient));
+                }
+              }}
+              required
+            />
+            <span className="field-hint">
+              Podés escribir la cantidad aunque no selecciones turnos específicos.
+            </span>
+          </label>
         </div>
 
         {appointments.length === 0 ? (
-          <p className="alert">No hay sesiones anteriores disponibles para este paciente.</p>
+          <p className="alert">
+            No hay turnos anteriores disponibles para vincular. Igual podés facturar indicando la cantidad de sesiones arriba.
+          </p>
         ) : (
           <div className="stack" style={{ gap: 8 }}>
             {appointments.map((appointment) => {
