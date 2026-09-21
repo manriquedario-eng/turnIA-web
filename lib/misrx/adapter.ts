@@ -79,10 +79,13 @@ export class MisRxAdapter {
     query: string;
     convenioId: number;
     credential?: string;
-    dni?: string;
-    authorization?: string;
+    dni?: number;
+    authorization?: number;
     planId?: number;
-    noIncluyeBajas?: boolean;
+    monodrogaId?: number;
+    formaFarmaId?: number;
+    noIncluyeBajas?: number;
+    productoId?: number;
   }): Promise<MisRxApiResult<MisRxListResponse<MisRxProduct>>> {
     const softId = this.provider.softId;
     if (!softId) {
@@ -102,22 +105,32 @@ export class MisRxAdapter {
           convenio_id: params.convenioId,
           query: params.query,
           afiliado_credencial: params.credential ?? '',
-          afiliado_dni: params.dni ?? '',
-          autorizacion: params.authorization ?? '',
+          afiliado_dni: params.dni ?? 0,
+          autorizacion: params.authorization ?? 0,
           plan_id: params.planId ?? 0,
-          no_incluye_bajas: params.noIncluyeBajas ?? true,
+          monodroga_id: params.monodrogaId ?? 0,
+          forma_farma_id: params.formaFarmaId ?? 0,
+          no_incluye_bajas: params.noIncluyeBajas ?? 0,
+          producto_id: params.productoId ?? 0,
           verify_exp: false,
         },
       }),
     );
   }
 
-  async searchDiagnoses(query: string): Promise<MisRxApiResult<MisRxListResponse<MisRxDiagnosis>>> {
+  async searchDiagnoses(params: {
+    query: string;
+    value?: number;
+  }): Promise<MisRxApiResult<MisRxListResponse<MisRxDiagnosis>>> {
     return this.withToken((accessToken) =>
       misRxRequest<MisRxListResponse<MisRxDiagnosis>>({
         path: '/api/diagnosticos_ci10',
         accessToken,
-        query: { query },
+        query: {
+          query: params.query,
+          valor: params.value ?? 0,
+          verify_exp: false,
+        },
       }),
     );
   }
@@ -139,7 +152,6 @@ export class MisRxAdapter {
         path: '/api/informa_prescripcion',
         method: 'PUT',
         accessToken,
-        appId: this.provider.appId,
         body: {
           ...payload,
           soft_id: softId,

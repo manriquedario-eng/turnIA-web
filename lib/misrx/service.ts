@@ -17,8 +17,16 @@ export function isMisRxProviderConfigured(): boolean {
   return Boolean(
     isServiceRoleConfigured() &&
     isMisRxCredentialEncryptionConfigured() &&
-    provider.appId &&
     provider.softId
+  );
+}
+
+export function isMisRxOnboardingConfigured(): boolean {
+  const provider = providerConfig();
+  return Boolean(
+    isServiceRoleConfigured() &&
+    isMisRxCredentialEncryptionConfigured() &&
+    provider.appId
   );
 }
 
