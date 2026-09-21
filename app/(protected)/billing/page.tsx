@@ -31,7 +31,7 @@ export default async function BillingPage({
 
   const { data: invoices, error } = await supabase
     .from('billing_invoices')
-    .select('id,status,issue_date,total,recipient_legal_name,patient_id,point_of_sale,arca_voucher_number,arca_cae,sale_condition,created_at,patients(name)')
+    .select('id,status,recipient_mode,issue_date,total,recipient_legal_name,patient_id,point_of_sale,arca_voucher_number,arca_cae,sale_condition,created_at,patients(name)')
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .limit(200);
@@ -88,6 +88,7 @@ export default async function BillingPage({
                 <th style={{ textAlign: 'left', padding: 12 }}>Estado</th>
                 <th style={{ textAlign: 'left', padding: 12 }}>Paciente</th>
                 <th style={{ textAlign: 'left', padding: 12 }}>Receptor</th>
+                <th style={{ textAlign: 'left', padding: 12 }}>Circuito</th>
                 <th style={{ textAlign: 'left', padding: 12 }}>Comprobante</th>
                 <th style={{ textAlign: 'right', padding: 12 }}>Total</th>
                 <th style={{ textAlign: 'left', padding: 12 }}>Condición venta</th>
@@ -108,6 +109,9 @@ export default async function BillingPage({
                   </td>
                   <td style={{ padding: 12, borderTop: '1px solid var(--border, #e5e7eb)' }}>
                     {invoice.recipient_legal_name}
+                  </td>
+                  <td style={{ padding: 12, borderTop: '1px solid var(--border, #e5e7eb)' }}>
+                    {invoice.recipient_mode === 'direct_payer' ? 'Obra social / empresa' : 'Paciente / reintegro'}
                   </td>
                   <td style={{ padding: 12, borderTop: '1px solid var(--border, #e5e7eb)' }}>
                     {voucherNumber(invoice.point_of_sale, invoice.arca_voucher_number)}
