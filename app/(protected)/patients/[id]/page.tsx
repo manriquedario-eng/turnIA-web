@@ -11,6 +11,7 @@ import { ClinicalRecordCard } from '@/components/patients/ClinicalRecordCard';
 import { VoiceTranscriptionTextarea } from '@/components/patients/VoiceTranscriptionTextarea';
 import { ExportMenu, type ExportMenuItem } from '@/components/export/ExportMenu';
 import { statusLabel, modalityLabel, paymentMethodLabel } from '@/lib/labels';
+import { SALE_CONDITIONS, VAT_CONDITIONS } from '@/lib/billing/constants';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -68,7 +69,7 @@ export default async function PatientDetailPage({
   const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult] = await Promise.all([
     supabase
       .from('patients')
-      .select('id,name,phone,email,dni,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at,phone_e164,whatsapp_consent,whatsapp_consent_at,appointment_reminders_opt_in')
+      .select('id,name,phone,email,dni,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at,phone_e164,whatsapp_consent,whatsapp_consent_at,appointment_reminders_opt_in,billing_entity_id')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
@@ -107,6 +108,24 @@ export default async function PatientDetailPage({
   const record = recordResult.data;
 
   if (!patient) notFound();
+
+  const [{ data: billingEntity }, { data: billingEntities }] = await Promise.all([
+    patient.billing_entity_id
+      ? supabase
+          .from('billing_entities')
+          .select('id,display_name,legal_name,cuit,vat_condition_id,commercial_address,billing_email,default_sale_condition')
+          .eq('id', patient.billing_entity_id)
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from('billing_entities')
+      .select('id,display_name,legal_name,cuit,vat_condition_id,commercial_address,billing_email,default_sale_condition')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('display_name', { ascending: true }),
+  ]);
 
   // Sesiones vs. Seguimientos: misma tabla (patient_follow_ups). Se separan
   // usando `source_type` + `appointment_id` juntos (no sólo presentación):
@@ -273,6 +292,7 @@ export default async function PatientDetailPage({
               Nuevo turno
             </Link>
             <Link className="btn secondary" href="/payments">Registrar pago</Link>
+            <Link className="btn secondary" href={`/billing/new?patient=${patient.id}`}>Facturar</Link>
             <ExportMenu items={exportItems} />
           </div>
         </div>
@@ -488,6 +508,47 @@ export default async function PatientDetailPage({
                 <label>Obra social<input name="insurance_name" defaultValue={patient.insurance_name ?? ''} maxLength={160} /></label>
                 <label>Nº afiliado<input name="insurance_member_number" defaultValue={patient.insurance_member_number ?? ''} maxLength={160} /></label>
                 <label>Plan<input name="insurance_plan" defaultValue={patient.insurance_plan ?? ''} maxLength={160} /></label>
+
+                <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
+                  <h3>Datos para facturación</h3>
+                  <p className="text-helper" style={{ marginTop: 4 }}>
+                    Estos datos corresponden al receptor de la factura (por ejemplo, la obra social), no necesariamente al paciente.
+                  </p>
+                </div>
+
+                <label>
+                  Pagador / receptor fiscal
+                  <select name="billing_entity_id" defaultValue={patient.billing_entity_id ?? ''}>
+                    <option value="">Crear / completar uno nuevo</option>
+                    {(billingEntities ?? []).map((entity: any) => (
+                      <option key={entity.id} value={entity.id}>
+                        {entity.display_name}{entity.cuit ? ` · CUIT ${entity.cuit}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>Nombre de obra social / pagador<input name="billing_display_name" defaultValue={billingEntity?.display_name ?? ''} maxLength={240} /></label>
+                <label>Razón social<input name="billing_legal_name" defaultValue={billingEntity?.legal_name ?? ''} maxLength={240} /></label>
+                <label>CUIT<input name="billing_cuit" inputMode="numeric" defaultValue={billingEntity?.cuit ?? ''} placeholder="11 dígitos" maxLength={14} /></label>
+                <label>
+                  Condición frente al IVA
+                  <select name="billing_vat_condition_id" defaultValue={billingEntity?.vat_condition_id ? String(billingEntity.vat_condition_id) : ''}>
+                    <option value="">Seleccionar...</option>
+                    {VAT_CONDITIONS.map((item) => (
+                      <option key={item.id} value={item.id}>{item.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>Domicilio comercial / fiscal<input name="billing_address" defaultValue={billingEntity?.commercial_address ?? ''} maxLength={240} /></label>
+                <label>Email de facturación<input name="billing_email" type="email" defaultValue={billingEntity?.billing_email ?? ''} maxLength={200} /></label>
+                <label>
+                  Condición de venta predeterminada
+                  <select name="billing_sale_condition" defaultValue={billingEntity?.default_sale_condition ?? 'cuenta_corriente'}>
+                    {SALE_CONDITIONS.map((item) => (
+                      <option key={item.value} value={item.value}>{item.label}</option>
+                    ))}
+                  </select>
+                </label>
 
                 <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
                   <h3>Comunicación y recordatorios</h3>
