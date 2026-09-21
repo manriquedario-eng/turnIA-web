@@ -666,6 +666,7 @@ export async function authorizeWsfeInvoiceC(params: {
   recipientDocType: number;
   recipientDocNumber: string;
   recipientVatConditionId: number;
+  activityCode?: string | null;
   environment?: ArcaEnvironment;
 }): Promise<ArcaResult<WsfeInvoiceAuthorizationResult>> {
   const environment = params.environment ?? 'homologacion';
@@ -729,6 +730,10 @@ export async function authorizeWsfeInvoiceC(params: {
 
   const amount = Math.round(params.total * 100) / 100;
   const docNumber = params.recipientDocNumber.replace(/\D/g, '') || '0';
+  const activityCode = params.activityCode?.replace(/\D/g, '') || '';
+  const activitiesXml = activityCode
+    ? '<ar:Actividades><ar:Actividad><ar:Id>' + escapeXml(activityCode) + '</ar:Id></ar:Actividad></ar:Actividades>'
+    : '';
 
   const innerXml =
     buildAuthXml(auth.data) +
@@ -758,6 +763,7 @@ export async function authorizeWsfeInvoiceC(params: {
           '<ar:MonId>PES</ar:MonId>' +
           '<ar:MonCotiz>1</ar:MonCotiz>' +
           '<ar:CondicionIVAReceptorId>' + String(params.recipientVatConditionId) + '</ar:CondicionIVAReceptorId>' +
+          activitiesXml +
         '</ar:FECAEDetRequest>' +
       '</ar:FeDetReq>' +
     '</ar:FeCAEReq>';
