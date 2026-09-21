@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
+import { getWsfeActivities } from '@/lib/arca/wsfe';
 import { disconnectGoogleOAuthConnection } from '@/lib/google/oauth';
 import { disconnectMercadoPagoOAuthConnection } from '@/lib/mercadopago/oauth';
 import {
@@ -63,7 +64,7 @@ export async function updateSettings(formData: FormData) {
     business_name: formData.get('business_name'),
     tax_condition: formData.get('tax_condition'),
     activity_code: formData.get('activity_code'),
-    activity_description: formData.get('activity_description'),
+    activity_description: undefined,
     professional_phone: formData.get('professional_phone'),
     professional_email: formData.get('professional_email'),
     office_address: formData.get('office_address'),
@@ -91,8 +92,42 @@ export async function updateSettings(formData: FormData) {
 
   if (currentError) redirect(`/settings?error=${encodeURIComponent(currentError.message)}`);
 
-  const currentProfile = current?.profile && typeof current.profile === 'object' ? current.profile : {};
+  const currentProfile = current?.profile && typeof current.profile === 'object'
+    ? current.profile as Record<string, unknown>
+    : {};
   const currentPreferences = current?.preferences && typeof current.preferences === 'object' ? current.preferences : {};
+
+  let activityCode = typeof currentProfile.activity_code === 'string' ? currentProfile.activity_code : null;
+  let activityDescription = typeof currentProfile.activity_description === 'string' ? currentProfile.activity_description : null;
+
+  // Sólo modificamos la actividad cuando el formulario mostró el selector
+  // alimentado por ARCA. El código recibido nunca se acepta por sí solo:
+  // se vuelve a consultar FEParamGetActividades server-side y la descripción
+  // se toma de esa respuesta, no del navegador.
+  if (formData.get('activity_management') === 'arca_select') {
+    const selectedCode = parsed.data.activity_code ?? null;
+    if (!selectedCode) {
+      redirect('/settings?error=Seleccioná%20una%20actividad%20habilitada%20por%20ARCA');
+    }
+
+    const activitiesResult = await getWsfeActivities({
+      tenantId,
+      userId: user.id,
+      environment: 'homologacion',
+    });
+
+    if (!activitiesResult.ok) {
+      redirect('/settings?error=' + encodeURIComponent('No se pudo validar la actividad con ARCA. ' + activitiesResult.errorMessage));
+    }
+
+    const selectedActivity = activitiesResult.data.find((activity) => activity.id === selectedCode);
+    if (!selectedActivity) {
+      redirect('/settings?error=La%20actividad%20seleccionada%20ya%20no%20está%20habilitada%20por%20ARCA');
+    }
+
+    activityCode = selectedActivity.id;
+    activityDescription = selectedActivity.description || null;
+  }
 
   const { error: settingsError } = await supabase.from('settings').upsert({
     tenant_id: tenantId,
@@ -104,8 +139,8 @@ export async function updateSettings(formData: FormData) {
       cuit: parsed.data.cuit ?? null,
       business_name: parsed.data.business_name ?? null,
       tax_condition: parsed.data.tax_condition ?? null,
-      activity_code: parsed.data.activity_code ?? null,
-      activity_description: parsed.data.activity_description ?? null,
+      activity_code: activityCode,
+      activity_description: activityDescription,
       professional_phone: parsed.data.professional_phone ?? null,
       professional_email: parsed.data.professional_email ?? null,
       office_address: parsed.data.office_address ?? null,
