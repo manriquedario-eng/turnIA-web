@@ -29,6 +29,7 @@ export default async function ServicesPage({ searchParams }: { searchParams: Sea
       <div className="section-tabs">
         <Link href="/settings">Preferencias</Link>
         <Link href="/settings#integraciones">Integraciones</Link>
+        <Link href="/settings#facturacion">Facturación</Link>
         <Link href="/services" className="active">Servicios</Link>
       </div>
 
