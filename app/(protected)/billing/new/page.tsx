@@ -76,7 +76,7 @@ export default async function NewBillingInvoicePage({
 
   const { data: patient, error: patientError } = await supabase
     .from('patients')
-    .select('id,name,dni,default_price,insurance_name,billing_entity_id')
+    .select('id,name,dni,email,default_price,insurance_name,insurance_member_number,insurance_plan,billing_entity_id,fiscal_cuit,fiscal_vat_condition_id,fiscal_address,fiscal_email')
     .eq('id', query.patient)
     .eq('tenant_id', tenantId)
     .is('deleted_at', null)
@@ -84,16 +84,13 @@ export default async function NewBillingInvoicePage({
 
   if (patientError || !patient) notFound();
 
-  const [{ data: billingEntity }, { data: rawAppointments }, arcaConnection] = await Promise.all([
-    patient.billing_entity_id
-      ? supabase
-          .from('billing_entities')
-          .select('id,display_name,legal_name,cuit,vat_condition_id,commercial_address,billing_email,default_sale_condition')
-          .eq('id', patient.billing_entity_id)
-          .eq('tenant_id', tenantId)
-          .is('deleted_at', null)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
+  const [{ data: billingEntities }, { data: rawAppointments }, arcaConnection] = await Promise.all([
+    supabase
+      .from('billing_entities')
+      .select('id,display_name,legal_name,cuit,vat_condition_id,commercial_address,billing_email,default_sale_condition')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('display_name', { ascending: true }),
     supabase
       .from('appointments')
       .select('id,starts_at,status,quoted_amount,services(name)')
@@ -129,7 +126,7 @@ export default async function NewBillingInvoicePage({
 
       const blockingInvoiceIds = new Set(
         (linkedInvoices ?? [])
-          .filter((invoice: any) => invoice.status === 'draft' || invoice.status === 'authorized')
+          .filter((invoice: any) => invoice.status === 'draft' || invoice.status === 'authorizing' || invoice.status === 'authorized')
           .map((invoice: any) => invoice.id),
       );
 
@@ -159,11 +156,16 @@ export default async function NewBillingInvoicePage({
     })
     .map((appointment) => appointment.id);
 
-  const recipientLegalName =
-    billingEntity?.legal_name ??
-    billingEntity?.display_name ??
-    patient.insurance_name ??
-    '';
+  const payers = (billingEntities ?? []).map((entity: any) => ({
+    id: entity.id as string,
+    displayName: entity.display_name as string,
+    legalName: entity.legal_name ?? entity.display_name ?? '',
+    cuit: entity.cuit ?? '',
+    vatConditionId: entity.vat_condition_id ?? null,
+    address: entity.commercial_address ?? '',
+    email: entity.billing_email ?? '',
+    saleCondition: entity.default_sale_condition ?? 'cuenta_corriente',
+  }));
 
   return (
     <section className="stack">
@@ -180,31 +182,24 @@ export default async function NewBillingInvoicePage({
 
       {query.error ? <p className="alert error">{query.error}</p> : null}
 
-      {!billingEntity ? (
-        <p className="alert">
-          Este paciente todavía no tiene un pagador fiscal vinculado. Podés completar los datos del receptor en esta factura,
-          pero conviene guardarlos también desde la ficha del paciente para reutilizarlos.
-        </p>
-      ) : null}
-
       <BillingDraftForm
         patient={{
           id: patient.id,
           name: patient.name,
           dni: patient.dni ?? null,
           defaultPrice: patient.default_price == null ? null : Number(patient.default_price),
+          insuranceName: patient.insurance_name ?? null,
+          insuranceMemberNumber: patient.insurance_member_number ?? null,
+          insurancePlan: patient.insurance_plan ?? null,
+          fiscalCuit: patient.fiscal_cuit ?? null,
+          fiscalVatConditionId: patient.fiscal_vat_condition_id ?? null,
+          fiscalAddress: patient.fiscal_address ?? null,
+          fiscalEmail: patient.fiscal_email ?? patient.email ?? null,
         }}
+        payers={payers}
+        defaultPayerId={patient.billing_entity_id ?? null}
         appointments={appointments}
         initialSelectedIds={initialSelectedIds}
-        recipient={{
-          billingEntityId: billingEntity?.id ?? null,
-          legalName: recipientLegalName,
-          cuit: billingEntity?.cuit ?? '',
-          vatConditionId: billingEntity?.vat_condition_id ?? null,
-          address: billingEntity?.commercial_address ?? '',
-          email: billingEntity?.billing_email ?? '',
-          saleCondition: billingEntity?.default_sale_condition ?? 'cuenta_corriente',
-        }}
         arca={{
           pointOfSale: arcaConnection?.puntoVenta ?? 3,
           activityCode: arcaConnection?.activityCode ?? '',
