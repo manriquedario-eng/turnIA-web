@@ -95,7 +95,7 @@ function asNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function extractMessages(container: unknown, key: 'Err' | 'Evt'): string[] {
+function extractMessages(container: unknown, key: 'Err' | 'Evt' | 'Obs'): string[] {
   const record = asRecord(container);
   return arrayify(record[key] as unknown).map((entry) => {
     const item = asRecord(entry);
@@ -602,7 +602,7 @@ export async function issueWsfeTestInvoiceC(params: {
   const detailRaw = arrayify(detailContainer.FECAEDetResponse as unknown)[0];
   const detail = asRecord(detailRaw);
 
-  const observations = extractMessages(detail.Observaciones, 'Obs' as never);
+  const observations = extractMessages(detail.Observaciones, 'Obs');
   const events = extractMessages(resultNode.Events, 'Evt');
 
   const result = asString(detail.Resultado) ?? asString(header.Resultado) ?? '';
