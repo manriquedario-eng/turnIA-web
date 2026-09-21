@@ -416,6 +416,27 @@ export async function updatePatient(formData: FormData) {
     whatsappConsentAt = null;
   }
 
+  let resolvedBillingEntityId: string | null = null;
+  try {
+    resolvedBillingEntityId = await resolveBillingEntity({
+      supabase,
+      tenantId,
+      data: {
+        insurance_name: payload.insurance_name ?? null,
+        billing_entity_id: billing_entity_id ?? null,
+        billing_display_name: billing_display_name ?? null,
+        billing_legal_name: billing_legal_name ?? null,
+        billing_cuit: billing_cuit ?? null,
+        billing_vat_condition_id: billing_vat_condition_id ?? null,
+        billing_address: billing_address ?? null,
+        billing_email: billing_email ?? null,
+        billing_sale_condition: billing_sale_condition ?? null,
+      },
+    });
+  } catch (error) {
+    redirect(`/patients/${id}?error=${encodeURIComponent(error instanceof Error ? error.message : 'No se pudo guardar el pagador')}`);
+  }
+
   const { data, error } = await supabase
     .from('patients')
     .update({
