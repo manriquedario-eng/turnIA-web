@@ -313,6 +313,24 @@ export default async function SettingsPage({ searchParams }: PageProps) {
 
               <div className="integration-row">
                 <div className="integration-row-name">
+                  MisRX · Receta electrónica
+                  <span className="badge badge-pendiente">
+                    En preparación
+                  </span>
+                </div>
+                <div className="integration-row-desc">
+                  TurnIA se conectará con MisRX para emitir, consultar y anular recetas electrónicas desde la ficha del paciente.
+                  La emisión real permanece deshabilitada hasta completar el alta de TurnIA como software integrador y configurar las credenciales oficiales.
+                </div>
+                <div className="integration-row-action">
+                  <span className="btn secondary btn-compact" aria-disabled="true" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                    Conectar
+                  </span>
+                </div>
+              </div>
+
+              <div className="integration-row">
+                <div className="integration-row-name">
                   WhatsApp
                   <span className={`badge ${whatsappConfigured ? 'badge-confirmado' : 'badge-neutral'}`}>
                     {whatsappConfigured ? 'Activo' : 'No disponible'}
