@@ -7,6 +7,8 @@ import { isEmailConfigured } from '@/lib/email/provider';
 import { isArcaWsaaConfigured, getArcaConnectionSummary } from '@/lib/arca/wsaa';
 import { getWsfeActivities } from '@/lib/arca/wsfe';
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
+import { FiscalProfileFields } from '@/components/settings/FiscalProfileFields';
+import { isFiscalProfileEnabled } from '@/lib/billing/fiscal-profile';
 
 type PageProps = {
   searchParams?: Promise<{ ok?: string; error?: string; arca_activities?: string }>;
@@ -63,6 +65,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
     ? settings.profile as Record<string, unknown>
     : {};
 
+  const fiscalEnabled = isFiscalProfileEnabled(professionalProfile);
+
   const defaultModality = typeof preferences.default_modality === 'string'
     ? preferences.default_modality
     : 'presencial';
@@ -91,17 +95,13 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   // activa, cargamos las actividades habilitadas para usarlas tanto en el
   // selector de Datos profesionales como en el panel de diagnóstico.
   const arcaActivitiesResult =
-    arcaConnected
+    fiscalEnabled && arcaConnected
       ? await getWsfeActivities({ tenantId, userId: user.id, environment: 'homologacion' })
       : null;
   const arcaActivities = arcaActivitiesResult?.ok ? arcaActivitiesResult.data : [];
   const arcaActivitiesError = arcaActivitiesResult && !arcaActivitiesResult.ok
     ? arcaActivitiesResult.errorMessage
     : null;
-  const savedActivityCode = text('activity_code');
-  const savedActivityIsValid = savedActivityCode
-    ? arcaActivities.some((activity) => activity.id === savedActivityCode)
-    : false;
   const transcriptionAvailable = !transcriptionAccountError && Boolean(transcriptionAccount);
   const transcriptionEnabled = Boolean(transcriptionAccount?.enabled);
   const transcriptionBalanceSeconds = Number(transcriptionAccount?.balance_seconds ?? 0);
@@ -144,55 +144,16 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 <label>Profesión / especialidad<input name="profession" defaultValue={text('profession')} placeholder="Ej. Psicóloga clínica" maxLength={200} /></label>
                 <label>Matrícula profesional<input name="license_number" defaultValue={text('license_number')} placeholder="Ej. MP 12345" maxLength={200} /></label>
                 <label>Colegio / entidad profesional<input name="professional_college" defaultValue={text('professional_college')} maxLength={200} /></label>
-                <label>CUIT<input name="cuit" defaultValue={text('cuit')} placeholder="Ej. 20-12345678-9" maxLength={200} /></label>
-                <label>Razón social<input name="business_name" defaultValue={text('business_name')} maxLength={200} /></label>
-                <label>Condición fiscal<input name="tax_condition" defaultValue={text('tax_condition')} placeholder="Ej. Monotributista" maxLength={200} /></label>
-
-                <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
-                  <h3 style={{ margin: 0 }}>Actividad fiscal</h3>
-                  <p className="text-helper" style={{ marginTop: 4 }}>
-                    Se usa como valor predeterminado al emitir facturas. Cargala una sola vez con los datos del profesional.
-                  </p>
-                </div>
-                {arcaConnected && arcaActivitiesResult?.ok ? (
-                  <>
-                    <input type="hidden" name="activity_management" value="arca_select" />
-                    <label style={{ gridColumn: '1 / -1' }}>
-                      Actividad habilitada en ARCA
-                      <select name="activity_code" defaultValue={savedActivityIsValid ? savedActivityCode : ''} required>
-                        <option value="" disabled>Seleccioná una actividad habilitada</option>
-                        {arcaActivities.map((activity) => (
-                          <option key={activity.id} value={activity.id}>
-                            {activity.id} — {activity.description || 'Sin descripción'}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {!savedActivityIsValid && savedActivityCode ? (
-                      <p className="alert error" style={{ gridColumn: '1 / -1', margin: 0 }}>
-                        La actividad guardada {savedActivityCode} ya no figura entre las actividades habilitadas por ARCA.
-                        Seleccioná una opción válida antes de guardar.
-                      </p>
-                    ) : null}
-                    {arcaActivities.length === 0 ? (
-                      <p className="alert" style={{ gridColumn: '1 / -1', margin: 0 }}>
-                        ARCA no devolvió actividades habilitadas para este emisor en homologación.
-                      </p>
-                    ) : (
-                      <p className="field-hint" style={{ gridColumn: '1 / -1', margin: 0 }}>
-                        TurnIA consulta FEParamGetActividades y guarda automáticamente el código y la descripción informados por ARCA.
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <p className="alert" style={{ margin: 0 }}>
-                      {arcaConnected
-                        ? `No se pudieron consultar las actividades de ARCA: ${arcaActivitiesError ?? 'respuesta no disponible'}.`
-                        : 'Conectá y probá ARCA en la pestaña Facturación para poder seleccionar una actividad fiscal válida.'}
-                    </p>
-                  </div>
-                )}
+                <FiscalProfileFields
+                  defaultEnabled={fiscalEnabled}
+                  cuit={text('cuit')}
+                  businessName={text('business_name')}
+                  taxCondition={text('tax_condition')}
+                  savedActivityCode={text('activity_code')}
+                  activities={arcaActivities}
+                  arcaConnected={arcaConnected}
+                  arcaError={arcaActivitiesError}
+                />
 
                 <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
                   <h3 style={{ margin: 0 }}>Datos de contacto</h3>
@@ -390,7 +351,11 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 Por ahora la emisión continúa limitada al <strong>ambiente de homologación</strong>.
               </p>
 
-              {!arcaConfigured ? (
+              {!fiscalEnabled ? (
+                <p className="alert" style={{ marginTop: 8 }}>
+                  Para configurar ARCA y emitir comprobantes, activá <strong>Datos fiscales</strong> en la pestaña Preferencias.
+                </p>
+              ) : !arcaConfigured ? (
                 <p className="alert" style={{ marginTop: 8 }}>Todavía no está disponible en este consultorio.</p>
               ) : (
                 <>

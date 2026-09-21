@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { requireTenant } from '@/lib/auth/require-user';
 import { getArcaConnectionSummary } from '@/lib/arca/wsaa';
 import { BillingDraftForm } from '@/components/billing/BillingDraftForm';
+import { isFiscalProfileEnabled } from '@/lib/billing/fiscal-profile';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -27,6 +28,31 @@ export default async function NewBillingInvoicePage({
 }) {
   const query = await searchParams;
   const { supabase, user, tenantId } = await requireTenant();
+
+  const { data: fiscalSettings } = await supabase
+    .from('settings')
+    .select('profile')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (!isFiscalProfileEnabled(fiscalSettings?.profile)) {
+    return (
+      <section className="stack">
+        <div className="page-header">
+          <div>
+            <p><Link href="/billing">← Volver a Facturación</Link></p>
+            <h1>Nueva factura</h1>
+          </div>
+        </div>
+        <div className="card">
+          <p className="alert" style={{ marginBottom: 12 }}>
+            Para emitir comprobantes, primero activá tus datos fiscales en Configuración.
+          </p>
+          <Link className="btn" href="/settings">Ir a Configuración</Link>
+        </div>
+      </section>
+    );
+  }
 
   const { data: patients, error: patientsError } = await supabase
     .from('patients')

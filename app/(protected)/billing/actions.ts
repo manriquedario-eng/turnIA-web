@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
 import { authorizeWsfeInvoiceC, getWsfeActivities } from '@/lib/arca/wsfe';
 import { vatConditionLabel } from '@/lib/billing/constants';
+import { isFiscalProfileEnabled } from '@/lib/billing/fiscal-profile';
 
 const saleConditionSchema = z.enum([
   'contado',
@@ -110,6 +111,16 @@ export async function createBillingInvoiceDraft(formData: FormData) {
   }
 
   const { supabase, user, tenantId } = await requireTenant();
+
+  const { data: fiscalSettings } = await supabase
+    .from('settings')
+    .select('profile')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (!isFiscalProfileEnabled(fiscalSettings?.profile)) {
+    invoiceRedirectError('Activá tus datos fiscales en Configuración antes de crear una factura.', draft.patient_id);
+  }
 
   const { data: patient, error: patientError } = await supabase
     .from('patients')
@@ -300,6 +311,16 @@ export async function authorizeBillingInvoice(formData: FormData) {
   const input = parsed.data;
 
   const { supabase, user, tenantId } = await requireTenant();
+
+  const { data: fiscalSettings } = await supabase
+    .from('settings')
+    .select('profile')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (!isFiscalProfileEnabled(fiscalSettings?.profile)) {
+    redirect('/billing?error=' + encodeURIComponent('Activá tus datos fiscales en Configuración antes de emitir comprobantes.'));
+  }
 
   const { data: existingInvoice, error: existingError } = await supabase
     .from('billing_invoices')
