@@ -95,6 +95,9 @@ export default async function SettingsPage({ searchParams }: PageProps) {
       ? await getWsfeActivities({ tenantId, userId: user.id, environment: 'homologacion' })
       : null;
   const arcaActivities = arcaActivitiesResult?.ok ? arcaActivitiesResult.data : [];
+  const arcaActivitiesError = arcaActivitiesResult && !arcaActivitiesResult.ok
+    ? arcaActivitiesResult.errorMessage
+    : null;
   const savedActivityCode = text('activity_code');
   const savedActivityIsValid = savedActivityCode
     ? arcaActivities.some((activity) => activity.id === savedActivityCode)
@@ -185,7 +188,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                   <div style={{ gridColumn: '1 / -1' }}>
                     <p className="alert" style={{ margin: 0 }}>
                       {arcaConnected
-                        ? `No se pudieron consultar las actividades de ARCA: ${arcaActivitiesResult?.errorMessage ?? 'respuesta no disponible'}.`
+                        ? `No se pudieron consultar las actividades de ARCA: ${arcaActivitiesError ?? 'respuesta no disponible'}.`
                         : 'Conectá y probá ARCA en la pestaña Facturación para poder seleccionar una actividad fiscal válida.'}
                     </p>
                   </div>
