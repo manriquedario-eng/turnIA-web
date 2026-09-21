@@ -70,7 +70,7 @@ export default async function PatientDetailPage({
   const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult, mercadoPagoResult] = await Promise.all([
     supabase
       .from('patients')
-      .select('id,name,phone,email,dni,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at,phone_e164,whatsapp_consent,whatsapp_consent_at,appointment_reminders_opt_in,billing_entity_id,fiscal_cuit,fiscal_vat_condition_id,fiscal_address,fiscal_email')
+      .select('id,name,alias,use_alias_for_communications,phone,email,dni,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at,phone_e164,whatsapp_consent,whatsapp_consent_at,appointment_reminders_opt_in,billing_entity_id,fiscal_cuit,fiscal_vat_condition_id,fiscal_address,fiscal_email')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
@@ -535,7 +535,25 @@ export default async function PatientDetailPage({
                   de campo y server action intactos, sólo se agrupa. */}
               <form action={updatePatient} className="form-grid">
                 <input type="hidden" name="id" value={patient.id} />
-                <label>Nombre<input name="name" defaultValue={patient.name} required minLength={2} maxLength={160} /></label>
+                <label>
+                  Nombre completo (nombres y apellidos)
+                  <input name="name" defaultValue={patient.name} required minLength={2} maxLength={160} />
+                </label>
+                <label>
+                  Alias
+                  <input name="alias" defaultValue={(patient as any).alias ?? ''} maxLength={160} placeholder="Ej.: Euge" />
+                  <span className="text-helper">
+                    Nombre corto o preferido que TurnIA puede usar en WhatsApp, emails y recordatorios.
+                  </span>
+                </label>
+                <label className="checkbox-field">
+                  <input
+                    type="checkbox"
+                    name="use_alias_for_communications"
+                    defaultChecked={Boolean((patient as any).use_alias_for_communications)}
+                  />
+                  Usar alias en comunicaciones
+                </label>
                 <PhoneInput defaultValue={patient.phone ?? ''} defaultE164={patient.phone_e164 ?? null} />
                 <label>Email<input name="email" type="email" defaultValue={patient.email ?? ''} maxLength={200} /></label>
                 <label>DNI<input name="dni" defaultValue={patient.dni ?? ''} maxLength={160} /></label>
