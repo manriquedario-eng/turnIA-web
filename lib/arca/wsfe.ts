@@ -42,6 +42,15 @@ export type WsfeParametersSnapshot = {
   fetchedAt: string;
 };
 
+export type WsfeLastAuthorizedResult = {
+  environment: ArcaEnvironment;
+  pointOfSale: number;
+  voucherType: number;
+  lastAuthorizedNumber: number | null;
+  events: string[];
+  checkedAt: string;
+};
+
 function escapeXml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -405,6 +414,71 @@ export async function getWsfeParametersSnapshot(params: {
       receiverVatConditions: receiverVatConditionRows,
       warnings,
       fetchedAt: new Date().toISOString(),
+    },
+  };
+}
+
+
+export async function getWsfeLastAuthorized(params: {
+  tenantId: string;
+  userId: string;
+  pointOfSale: number;
+  voucherType: number;
+  environment?: ArcaEnvironment;
+}): Promise<ArcaResult<WsfeLastAuthorizedResult>> {
+  const environment = params.environment ?? 'homologacion';
+
+  if (!Number.isInteger(params.pointOfSale) || params.pointOfSale <= 0 || params.pointOfSale > 99999) {
+    return { ok: false, reason: 'provider_error', errorMessage: 'El punto de venta debe ser un entero entre 1 y 99999.' };
+  }
+
+  if (!Number.isInteger(params.voucherType) || params.voucherType <= 0 || params.voucherType > 999) {
+    return { ok: false, reason: 'provider_error', errorMessage: 'El tipo de comprobante debe ser un entero entre 1 y 999.' };
+  }
+
+  const auth = await getWsaaAuthContext({
+    tenantId: params.tenantId,
+    userId: params.userId,
+    environment,
+  });
+  if (!auth.ok) return auth;
+
+  const called = await callWsfe({
+    environment,
+    operationElement: 'FECompUltimoAutorizado',
+    innerXml:
+      buildAuthXml(auth.data) +
+      '<ar:PtoVta>' + String(params.pointOfSale) + '</ar:PtoVta>' +
+      '<ar:CbteTipo>' + String(params.voucherType) + '</ar:CbteTipo>',
+  });
+  if (!called.ok) return called;
+
+  const responseNode = asRecord(called.data.FECompUltimoAutorizadoResponse);
+  const resultNode = asRecord(responseNode.FECompUltimoAutorizadoResult);
+
+  const errors = extractMessages(resultNode.Errors, 'Err');
+  if (errors.length > 0) {
+    return {
+      ok: false,
+      reason: 'provider_error',
+      errorMessage: errors.join(' | ').slice(0, 300),
+    };
+  }
+
+  const pointOfSale = asNumber(resultNode.PtoVta) ?? params.pointOfSale;
+  const voucherType = asNumber(resultNode.CbteTipo) ?? params.voucherType;
+  const lastAuthorizedNumber = asNumber(resultNode.CbteNro);
+  const events = extractMessages(resultNode.Events, 'Evt');
+
+  return {
+    ok: true,
+    data: {
+      environment,
+      pointOfSale,
+      voucherType,
+      lastAuthorizedNumber,
+      events,
+      checkedAt: new Date().toISOString(),
     },
   };
 }
