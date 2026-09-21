@@ -128,7 +128,21 @@ export default async function PatientsPage({
       <div className="card" id="nuevo-paciente">
         <h2>Nuevo paciente</h2>
         <form action={createPatient} className="form-grid">
-          <label>Nombre<input name="name" required minLength={2} maxLength={160} /></label>
+          <label>
+            Nombre completo (nombres y apellidos)
+            <input name="name" required minLength={2} maxLength={160} />
+          </label>
+          <label>
+            Alias
+            <input name="alias" maxLength={160} placeholder="Ej.: Euge" />
+            <span className="text-helper">
+              Nombre corto o preferido que TurnIA puede usar en WhatsApp, emails y recordatorios.
+            </span>
+          </label>
+          <label className="checkbox-field">
+            <input type="checkbox" name="use_alias_for_communications" />
+            Usar alias en comunicaciones
+          </label>
           <PhoneInput />
           <label>Email<input name="email" type="email" maxLength={200} /></label>
           <label>DNI<input name="dni" maxLength={160} /></label>
