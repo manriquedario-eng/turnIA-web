@@ -5,10 +5,11 @@ import { isMercadoPagoOAuthConfigured } from '@/lib/mercadopago/oauth';
 import { isWhatsAppConfigured } from '@/lib/whatsapp/provider';
 import { isEmailConfigured } from '@/lib/email/provider';
 import { isArcaWsaaConfigured, getArcaConnectionSummary } from '@/lib/arca/wsaa';
+import { getWsfeActivities } from '@/lib/arca/wsfe';
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
 
 type PageProps = {
-  searchParams?: Promise<{ ok?: string; error?: string }>;
+  searchParams?: Promise<{ ok?: string; error?: string; arca_activities?: string }>;
 };
 
 function formatDuration(totalSeconds: number) {
@@ -85,6 +86,11 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const arcaConfigured = isArcaWsaaConfigured();
   const arcaConnection = arcaConfigured ? await getArcaConnectionSummary({ tenantId, userId: user.id }) : null;
   const arcaConnected = Boolean(arcaConnection?.connectedAt);
+  const shouldCheckArcaActivities = params?.arca_activities === '1';
+  const arcaActivitiesResult =
+    shouldCheckArcaActivities && arcaConnected
+      ? await getWsfeActivities({ tenantId, userId: user.id, environment: 'homologacion' })
+      : null;
   const transcriptionAvailable = !transcriptionAccountError && Boolean(transcriptionAccount);
   const transcriptionEnabled = Boolean(transcriptionAccount?.enabled);
   const transcriptionBalanceSeconds = Number(transcriptionAccount?.balance_seconds ?? 0);
@@ -359,15 +365,55 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                         : 'Cargá tu certificado y clave privada de homologación para empezar.'}
                     </div>
                     {arcaConnection ? (
-                      <div className="integration-row-action">
+                      <div className="integration-row-action" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <form action={testArcaConnection}>
                           <button className="btn secondary" type="submit" style={{ padding: '7px 12px', fontSize: 13 }}>
                             Probar conexión con ARCA
                           </button>
                         </form>
+                        <a
+                          className="btn secondary"
+                          href="/settings?arca_activities=1#facturacion"
+                          style={{ padding: '7px 12px', fontSize: 13 }}
+                        >
+                          Consultar actividades ARCA
+                        </a>
                       </div>
                     ) : null}
                   </div>
+
+                  {shouldCheckArcaActivities ? (
+                    <div className="card" style={{ marginTop: 16 }}>
+                      <h3 style={{ marginTop: 0 }}>Actividades informadas por ARCA</h3>
+                      {!arcaConnected ? (
+                        <p className="alert error" style={{ marginBottom: 0 }}>
+                          Primero conectá y probá la credencial de ARCA en homologación.
+                        </p>
+                      ) : arcaActivitiesResult?.ok ? (
+                        arcaActivitiesResult.data.length > 0 ? (
+                          <div className="stack" style={{ gap: 8 }}>
+                            {arcaActivitiesResult.data.map((activity) => (
+                              <div key={activity.id} className="integration-row">
+                                <div className="integration-row-name">
+                                  {activity.id}
+                                  {activity.order != null ? <span className="badge badge-neutral">Orden {activity.order}</span> : null}
+                                </div>
+                                <div className="integration-row-desc">{activity.description || 'Sin descripción'}</div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="alert" style={{ marginBottom: 0 }}>
+                            ARCA no devolvió actividades habilitadas para este emisor en homologación.
+                          </p>
+                        )
+                      ) : (
+                        <p className="alert error" style={{ marginBottom: 0 }}>
+                          {arcaActivitiesResult?.errorMessage ?? 'No se pudieron consultar las actividades en ARCA.'}
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
 
                   <form action={saveArcaConnection} className="form-grid" style={{ marginTop: 16 }}>
                     <label>
