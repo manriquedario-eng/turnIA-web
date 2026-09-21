@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
-import { authorizeWsfeInvoiceC } from '@/lib/arca/wsfe';
+import { authorizeWsfeInvoiceC, getWsfeActivities } from '@/lib/arca/wsfe';
 import { vatConditionLabel } from '@/lib/billing/constants';
 
 const saleConditionSchema = z.enum([
@@ -341,6 +341,30 @@ export async function authorizeBillingInvoice(formData: FormData) {
     redirect(`/billing/${existingInvoice.id}?error=Faltan%20datos%20fiscales%20obligatorios`);
   }
 
+  const invoiceActivityCode = typeof existingInvoice.activity_code === 'string'
+    ? existingInvoice.activity_code.replace(/\D/g, '')
+    : '';
+
+  if (!invoiceActivityCode) {
+    redirect('/billing/' + existingInvoice.id + '?error=' + encodeURIComponent('Falta una actividad fiscal validada por ARCA. Seleccionala en Configuración → Datos profesionales antes de emitir.'));
+  }
+
+  // Validación inmediatamente antes de pedir CAE. Evita enviar a ARCA una
+  // actividad que fue dada de baja o que no pertenece al emisor.
+  const activitiesResult = await getWsfeActivities({
+    tenantId,
+    userId: user.id,
+    environment: 'homologacion',
+  });
+
+  if (!activitiesResult.ok) {
+    redirect('/billing/' + existingInvoice.id + '?error=' + encodeURIComponent('No se pudo verificar la actividad fiscal con ARCA. ' + activitiesResult.errorMessage));
+  }
+
+  const activeActivity = activitiesResult.data.find((activity) => activity.id === invoiceActivityCode);
+  if (!activeActivity) {
+    redirect('/billing/' + existingInvoice.id + '?error=' + encodeURIComponent('La actividad ' + invoiceActivityCode + ' ya no está habilitada para este emisor en ARCA. Actualizala en Configuración → Datos profesionales.'));
+  }
   // Claim atómico del borrador: sólo una solicitud puede cambiar draft ->
   // authorizing. Evita doble CAE por doble click o dos pestañas concurrentes.
   const { data: claimedInvoice, error: claimError } = await supabase
