@@ -611,6 +611,13 @@ export default async function PatientDetailPage({
                         {rx.cie10 ? ` · CIE-10 ${rx.cie10}` : ''}
                         {rx.diagnosis ? ` · ${rx.diagnosis}` : ''}
                       </div>
+                      {rx.status === 'draft' ? (
+                        <div style={{ marginTop: 8 }}>
+                          <Link className="btn-ghost" href={`/patients/${patient.id}/prescriptions/${rx.id}`}>
+                            Continuar borrador
+                          </Link>
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
