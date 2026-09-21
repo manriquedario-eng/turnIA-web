@@ -107,6 +107,8 @@ const checkboxBoolean = z.preprocess(
 const patientSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(2, 'El nombre es obligatorio').max(160),
+  alias: optionalText,
+  use_alias_for_communications: checkboxBoolean,
   phone: optionalText,
   email: z.preprocess(
     (value) => typeof value === 'string' && value.trim() === '' ? null : value,
@@ -147,6 +149,8 @@ function formDataToPatient(formData: FormData) {
   return patientSchema.safeParse({
     id: formData.get('id') || undefined,
     name: formData.get('name'),
+    alias: formData.get('alias'),
+    use_alias_for_communications: formData.get('use_alias_for_communications'),
     phone: formData.get('phone'),
     email: formData.get('email'),
     dni: formData.get('dni'),
