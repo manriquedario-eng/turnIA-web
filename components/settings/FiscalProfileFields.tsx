@@ -77,37 +77,37 @@ export function FiscalProfileFields({
           </div>
 
           {arcaConnected && !arcaError ? (
-            <>
-              <input type="hidden" name="activity_management" value="arca_select" />
-              <label style={{ gridColumn: '1 / -1' }}>
-                Actividad habilitada en ARCA
-                <select name="activity_code" defaultValue={savedActivityIsValid ? savedActivityCode : ''} required>
-                  <option value="" disabled>Seleccioná una actividad habilitada</option>
-                  {activities.map((activity) => (
-                    <option key={activity.id} value={activity.id}>
-                      {activity.id} — {activity.description || 'Sin descripción'}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            activities.length > 0 ? (
+              <>
+                <input type="hidden" name="activity_management" value="arca_select" />
+                <label style={{ gridColumn: '1 / -1' }}>
+                  Actividad habilitada en ARCA
+                  <select name="activity_code" defaultValue={savedActivityIsValid ? savedActivityCode : ''} required>
+                    <option value="" disabled>Seleccioná una actividad habilitada</option>
+                    {activities.map((activity) => (
+                      <option key={activity.id} value={activity.id}>
+                        {activity.id} — {activity.description || 'Sin descripción'}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-              {!savedActivityIsValid && savedActivityCode ? (
-                <p className="alert error" style={{ gridColumn: '1 / -1', margin: 0 }}>
-                  La actividad guardada {savedActivityCode} ya no figura entre las actividades habilitadas por ARCA.
-                  Seleccioná una opción válida antes de guardar.
-                </p>
-              ) : null}
+                {!savedActivityIsValid && savedActivityCode ? (
+                  <p className="alert error" style={{ gridColumn: '1 / -1', margin: 0 }}>
+                    La actividad guardada {savedActivityCode} ya no figura entre las actividades habilitadas por ARCA.
+                    Seleccioná una opción válida antes de guardar.
+                  </p>
+                ) : null}
 
-              {activities.length === 0 ? (
-                <p className="alert" style={{ gridColumn: '1 / -1', margin: 0 }}>
-                  ARCA no devolvió actividades habilitadas para este emisor en homologación.
-                </p>
-              ) : (
                 <p className="field-hint" style={{ gridColumn: '1 / -1', margin: 0 }}>
                   El código y la descripción se guardan automáticamente desde FEParamGetActividades.
                 </p>
-              )}
-            </>
+              </>
+            ) : (
+              <p className="alert" style={{ gridColumn: '1 / -1', margin: 0 }}>
+                ARCA no devolvió actividades habilitadas para este emisor en homologación. Podés guardar tus otros datos fiscales, pero TurnIA no permitirá emitir hasta tener una actividad válida.
+              </p>
+            )
           ) : (
             <div style={{ gridColumn: '1 / -1' }}>
               <p className="alert" style={{ margin: 0 }}>
