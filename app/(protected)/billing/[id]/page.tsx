@@ -16,12 +16,14 @@ function invoiceNumber(pointOfSale: number | null, voucherNumber: number | null)
 
 function statusLabel(status: string) {
   if (status === 'authorized') return 'Emitida';
+  if (status === 'authorizing') return 'Procesando';
   if (status === 'rejected') return 'Rechazada';
   return 'Borrador';
 }
 
 function statusClass(status: string) {
   if (status === 'authorized') return 'badge-confirmado';
+  if (status === 'authorizing') return 'badge-pendiente';
   if (status === 'rejected') return 'badge-cancelado';
   return 'badge-pendiente';
 }
