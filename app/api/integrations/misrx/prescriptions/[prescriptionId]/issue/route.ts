@@ -64,7 +64,7 @@ export async function POST(
 
   const { data: prescription } = await supabase
     .from('prescriptions')
-    .select('id,patient_id,professional_id,status,convention_id,affiliate_id,diagnosis,cie10,observations,long_term_treatment')
+    .select('id,patient_id,professional_id,status,convention_id,plan_id,affiliate_id,diagnosis,cie10,observations,long_term_treatment')
     .eq('id', prescriptionId)
     .eq('tenant_id', tenantId)
     .maybeSingle();
@@ -146,6 +146,36 @@ export async function POST(
     );
   }
 
+  let conventionPlanCode: number | undefined;
+  if (prescription.plan_id) {
+    const plansResult = await adapterResult.data.getPlans({
+      convenioId: prescription.convention_id,
+      affiliateId: prescription.affiliate_id,
+    });
+
+    if (!plansResult.ok) {
+      return NextResponse.json(
+        { error: 'No se pudo validar el plan seleccionado con MisRX.' },
+        { status: plansResult.status ?? 502 },
+      );
+    }
+
+    const selectedPlan = plansResult.data.data.find(
+      (plan) => Number(plan.plan_id) === Number(prescription.plan_id),
+    );
+
+    if (!selectedPlan) {
+      return NextResponse.json(
+        { error: 'El plan guardado ya no está disponible para este afiliado y convenio.' },
+        { status: 400 },
+      );
+    }
+
+    if (selectedPlan.convenio_plan_cod != null) {
+      conventionPlanCode = Number(selectedPlan.convenio_plan_cod);
+    }
+  }
+
   const { data: locked, error: lockError } = await supabase
     .from('prescriptions')
     .update({
@@ -173,6 +203,8 @@ export async function POST(
       convention_id: prescription.convention_id,
       doctor_id: homologation.doctorId,
       item_count: items.length,
+      plan_id: prescription.plan_id ?? null,
+      convenio_plan_cod: conventionPlanCode ?? null,
     },
   });
 
@@ -182,6 +214,7 @@ export async function POST(
     afiliado_id: prescription.affiliate_id,
     diagnostico: prescription.diagnosis ?? undefined,
     tProlongado: Boolean(prescription.long_term_treatment),
+    convenio_plan_cod: conventionPlanCode,
     observaciones: prescription.observations ?? undefined,
     fecha_receta: todayIsoDate(),
     items: items.map((item) => ({
