@@ -32,7 +32,7 @@ export default async function PrescriptionDraftPage({
       .maybeSingle(),
     supabase
       .from('prescriptions')
-      .select('id,patient_id,professional_id,status,convention_id,affiliate_id,diagnosis,cie10,observations,long_term_treatment,created_at')
+      .select('id,patient_id,professional_id,status,convention_id,plan_id,affiliate_id,diagnosis,cie10,observations,long_term_treatment,created_at')
       .eq('id', prescriptionId)
       .eq('patient_id', patientId)
       .eq('tenant_id', tenantId)
@@ -146,6 +146,7 @@ export default async function PrescriptionDraftPage({
             connected={misRxConnected}
             initialConventionId={prescription.convention_id}
             initialAffiliateId={(prescription as any).affiliate_id}
+            initialPlanId={(prescription as any).plan_id}
             initialDiagnosis={prescription.diagnosis}
             initialCie10={prescription.cie10}
             initialObservations={prescription.observations}
