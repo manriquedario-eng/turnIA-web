@@ -115,6 +115,14 @@ const patientSchema = z.object({
     z.string().trim().email('Email inválido').max(200).nullable().optional()
   ),
   dni: optionalText,
+  birth_date: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha de nacimiento inválida').nullable().optional(),
+  ),
+  sex: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+    z.enum(['masculino', 'femenino', 'otro', 'no_informa']).nullable().optional(),
+  ),
   institution_name: optionalFiscalText,
   home_address: optionalFiscalText,
   insurance_name: optionalText,
@@ -156,6 +164,8 @@ function formDataToPatient(formData: FormData) {
     phone: formData.get('phone'),
     email: formData.get('email'),
     dni: formData.get('dni'),
+    birth_date: formData.get('birth_date'),
+    sex: formData.get('sex'),
     institution_name: formData.get('institution_name'),
     home_address: formData.get('home_address'),
     insurance_name: formData.get('insurance_name'),

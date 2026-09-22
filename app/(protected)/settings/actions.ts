@@ -7,6 +7,7 @@ import { requireTenant } from '@/lib/auth/require-user';
 import { getWsfeActivities } from '@/lib/arca/wsfe';
 import { disconnectGoogleOAuthConnection } from '@/lib/google/oauth';
 import { disconnectMercadoPagoOAuthConnection } from '@/lib/mercadopago/oauth';
+import { connectMisRx, disconnectMisRx, testStoredMisRxConnection } from '@/lib/misrx/connection';
 import {
   saveArcaConnection as saveArcaConnectionCore,
   testArcaConnection as testArcaConnectionCore,
@@ -243,6 +244,63 @@ export async function updateAiTranscriptionSetting(formData: FormData) {
       : '/settings?ok=Transcripción%20IA%20desactivada'
   );
 }
+
+const misRxConnectionSchema = z.object({
+  username: z.string().trim().min(1, 'Ingresá el usuario de MisRX').max(200),
+  password: z.string().min(1, 'Ingresá la contraseña de MisRX').max(500),
+});
+
+export async function saveMisRxConnection(formData: FormData) {
+  const { user, tenantId } = await requireTenant();
+
+  const parsed = misRxConnectionSchema.safeParse({
+    username: formData.get('username'),
+    password: formData.get('password'),
+  });
+
+  if (!parsed.success) {
+    redirect(`/settings?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? 'Datos MisRX inválidos')}#integraciones`);
+  }
+
+  const result = await connectMisRx({
+    tenantId,
+    userId: user.id,
+    username: parsed.data.username,
+    password: parsed.data.password,
+  });
+
+  if (!result.ok) {
+    redirect(`/settings?error=${encodeURIComponent(result.errorMessage)}#integraciones`);
+  }
+
+  revalidatePath('/settings');
+  redirect('/settings?ok=MisRX%20conectado%20correctamente#integraciones');
+}
+
+export async function testMisRxConnection() {
+  const { user, tenantId } = await requireTenant();
+
+  const result = await testStoredMisRxConnection({ tenantId, userId: user.id });
+  if (!result.ok) {
+    redirect(`/settings?error=${encodeURIComponent(result.errorMessage)}#integraciones`);
+  }
+
+  revalidatePath('/settings');
+  redirect('/settings?ok=Conexi%C3%B3n%20MisRX%20verificada#integraciones');
+}
+
+export async function disconnectMisRxIntegration() {
+  const { user, tenantId } = await requireTenant();
+
+  const result = await disconnectMisRx({ tenantId, userId: user.id });
+  if (!result.ok) {
+    redirect(`/settings?error=${encodeURIComponent(result.errorMessage)}#integraciones`);
+  }
+
+  revalidatePath('/settings');
+  redirect('/settings?ok=MisRX%20desconectado#integraciones');
+}
+
 
 // ---------------------------------------------------------------------------
 // Facturación ARCA — Fase 1 (sólo WSAA en homologación, ver informe de

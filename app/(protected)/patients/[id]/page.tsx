@@ -13,6 +13,7 @@ import { ExportMenu, type ExportMenuItem } from '@/components/export/ExportMenu'
 import { statusLabel, modalityLabel, paymentMethodLabel } from '@/lib/labels';
 import { SALE_CONDITIONS, VAT_CONDITIONS } from '@/lib/billing/constants';
 import { generateMercadoPagoCheckout } from '@/app/(protected)/agenda/actions';
+import { createPrescriptionDraft } from '../prescription-actions';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -67,10 +68,10 @@ export default async function PatientDetailPage({
   const query = await searchParams;
   const { supabase, tenantId, user } = await requireTenant();
 
-  const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult, mercadoPagoResult] = await Promise.all([
+  const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult, mercadoPagoResult, misRxResult, prescriptionsResult] = await Promise.all([
     supabase
       .from('patients')
-      .select('id,name,alias,use_alias_for_communications,phone,email,dni,institution_name,home_address,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at,phone_e164,whatsapp_consent,whatsapp_consent_at,appointment_reminders_opt_in,billing_entity_id,fiscal_cuit,fiscal_vat_condition_id,fiscal_address,fiscal_email')
+      .select('id,name,alias,use_alias_for_communications,phone,email,dni,birth_date,sex,institution_name,home_address,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at,phone_e164,whatsapp_consent,whatsapp_consent_at,appointment_reminders_opt_in,billing_entity_id,fiscal_cuit,fiscal_vat_condition_id,fiscal_address,fiscal_email')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
@@ -107,6 +108,19 @@ export default async function PatientDetailPage({
       .eq('user_id', user.id)
       .eq('provider', 'mercadopago')
       .maybeSingle(),
+    supabase
+      .from('integration_status')
+      .select('status')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', user.id)
+      .eq('provider', 'misrx')
+      .maybeSingle(),
+    supabase
+      .from('prescriptions')
+      .select('id,provider,provider_prescription_number,status,provider_status,diagnosis,cie10,issued_at,cancelled_at,created_at')
+      .eq('tenant_id', tenantId)
+      .eq('patient_id', id)
+      .order('created_at', { ascending: false }),
   ]);
 
   const patient = patientResult.data;
@@ -115,6 +129,8 @@ export default async function PatientDetailPage({
   const payments = paymentResult.data ?? [];
   const record = recordResult.data;
   const mercadoPagoConnected = mercadoPagoResult.data?.status === 'connected';
+  const misRxConnected = misRxResult.data?.status === 'connected';
+  const prescriptions = prescriptionsResult.data ?? [];
 
   if (!patient) notFound();
 
@@ -282,6 +298,7 @@ export default async function PatientDetailPage({
       {query.success === 'updated' ? <p className="alert success">Datos actualizados.</p> : null}
       {query.success === 'followup' ? <p className="alert success">Nota guardada.</p> : null}
       {query.success === 'record' ? <p className="alert success">Ficha clínica actualizada.</p> : null}
+      {query.success === 'prescription-draft' ? <p className="alert success">Borrador de receta creado.</p> : null}
 
       {/* Segunda pasada de rediseño: la ficha del paciente pasa de sentirse
           "tabla administrativa dentro de una card" a una ficha profesional —
@@ -375,6 +392,7 @@ export default async function PatientDetailPage({
           { id: 'sesiones', label: 'Sesiones' },
           { id: 'actividad', label: 'Actividad' },
           { id: 'seguimientos', label: 'Seguimientos' },
+          { id: 'recetas', label: 'Recetas' },
           { id: 'datos', label: 'Datos' },
         ]}
       >
@@ -527,6 +545,87 @@ export default async function PatientDetailPage({
           </div>
         </div>
 
+        <div data-tab="recetas">
+          <div className="stack">
+            <div className="card">
+              <div className="page-header" style={{ marginBottom: 12 }}>
+                <div>
+                  <h2 style={{ margin: 0 }}>Recetas electrónicas</h2>
+                  <p className="text-helper" style={{ margin: '6px 0 0' }}>
+                    Las recetas emitidas desde TurnIA quedarán vinculadas a este paciente y sincronizadas con MisRX.
+                  </p>
+                </div>
+                <span className={`badge ${misRxConnected ? 'badge-confirmado' : 'badge-neutral'}`}>
+                  {misRxConnected ? 'MisRX conectado' : 'MisRX no conectado'}
+                </span>
+              </div>
+
+              <details>
+                <summary className="btn" style={{ display: 'inline-flex', cursor: 'pointer' }}>
+                  Nueva receta
+                </summary>
+                <form action={createPrescriptionDraft} className="form-grid" style={{ marginTop: 16 }}>
+                  <input type="hidden" name="patientId" value={patient.id} />
+                  <label>
+                    Diagnóstico
+                    <input name="diagnosis" maxLength={500} placeholder="Opcional" />
+                  </label>
+                  <label>
+                    CIE-10
+                    <input name="cie10" maxLength={20} placeholder="Opcional" />
+                  </label>
+                  <label style={{ gridColumn: '1 / -1' }}>
+                    Observaciones / indicaciones
+                    <textarea name="observations" maxLength={4000} rows={4} placeholder="Opcional" />
+                  </label>
+                  <label className="checkbox-field" style={{ gridColumn: '1 / -1' }}>
+                    <input type="checkbox" name="longTermTreatment" />
+                    Tratamiento prolongado
+                  </label>
+                  <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
+                    <button className="btn" type="submit">Guardar borrador</button>
+                  </div>
+                </form>
+              </details>
+              <p className="field-hint" style={{ marginBottom: 0 }}>
+                Este paso sólo guarda un borrador dentro de TurnIA. No emite ni envía nada a MisRX.
+              </p>
+            </div>
+
+            <div className="card">
+              <h2>Historial de recetas</h2>
+              {prescriptions.length === 0 ? (
+                <EmptyState title="Todavía no hay recetas registradas" description="Cuando se habilite MisRX, las recetas emitidas aparecerán acá." />
+              ) : (
+                <div className="stack" style={{ gap: 10 }}>
+                  {prescriptions.map((rx: any) => (
+                    <div key={rx.id} className="integration-row">
+                      <div className="integration-row-name">
+                        {rx.provider_prescription_number ? `Receta ${rx.provider_prescription_number}` : 'Receta'}
+                        <span className={`badge ${rx.status === 'issued' ? 'badge-confirmado' : rx.status === 'cancelled' ? 'badge-cancelado' : 'badge-neutral'}`}>
+                          {rx.status === 'issued' ? 'Emitida' : rx.status === 'cancelled' ? 'Anulada' : rx.status}
+                        </span>
+                      </div>
+                      <div className="integration-row-desc">
+                        {rx.issued_at ? formatDateTime(rx.issued_at) : formatDateTime(rx.created_at)}
+                        {rx.cie10 ? ` · CIE-10 ${rx.cie10}` : ''}
+                        {rx.diagnosis ? ` · ${rx.diagnosis}` : ''}
+                      </div>
+                      {rx.status === 'draft' ? (
+                        <div style={{ marginTop: 8 }}>
+                          <Link className="btn-ghost" href={`/patients/${patient.id}/prescriptions/${rx.id}`}>
+                            Continuar borrador
+                          </Link>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div data-tab="datos">
           <div className="stack">
             <div className="card">
@@ -557,6 +656,17 @@ export default async function PatientDetailPage({
                 <PhoneInput defaultValue={patient.phone ?? ''} defaultE164={patient.phone_e164 ?? null} />
                 <label>Email<input name="email" type="email" defaultValue={patient.email ?? ''} maxLength={200} /></label>
                 <label>DNI<input name="dni" defaultValue={patient.dni ?? ''} maxLength={160} /></label>
+                <label>Fecha de nacimiento<input name="birth_date" type="date" defaultValue={(patient as any).birth_date ?? ''} /></label>
+                <label>
+                  Sexo
+                  <select name="sex" defaultValue={(patient as any).sex ?? ''}>
+                    <option value="">Sin informar</option>
+                    <option value="femenino">Femenino</option>
+                    <option value="masculino">Masculino</option>
+                    <option value="otro">Otro</option>
+                    <option value="no_informa">Prefiere no informar</option>
+                  </select>
+                </label>
                 <label>
                   Escuela, colegio o institución
                   <input name="institution_name" defaultValue={(patient as any).institution_name ?? ''} maxLength={240} placeholder="Opcional" />

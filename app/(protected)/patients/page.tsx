@@ -146,6 +146,17 @@ export default async function PatientsPage({
           <PhoneInput />
           <label>Email<input name="email" type="email" maxLength={200} /></label>
           <label>DNI<input name="dni" maxLength={160} /></label>
+          <label>Fecha de nacimiento<input name="birth_date" type="date" /></label>
+          <label>
+            Sexo
+            <select name="sex" defaultValue="">
+              <option value="">Sin informar</option>
+              <option value="femenino">Femenino</option>
+              <option value="masculino">Masculino</option>
+              <option value="otro">Otro</option>
+              <option value="no_informa">Prefiere no informar</option>
+            </select>
+          </label>
           <label>
             Escuela, colegio o institución
             <input name="institution_name" maxLength={240} placeholder="Opcional" />
