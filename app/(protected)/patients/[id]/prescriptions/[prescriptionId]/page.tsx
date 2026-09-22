@@ -21,7 +21,7 @@ export default async function PrescriptionDraftPage({
   const [{ data: patient }, { data: prescription }, { data: misRxStatus }] = await Promise.all([
     supabase
       .from('patients')
-      .select('id,name,dni,birth_date,sex')
+      .select('id,name,dni,birth_date,sex,insurance_member_number')
       .eq('id', patientId)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
@@ -97,6 +97,8 @@ export default async function PrescriptionDraftPage({
             initialCie10={prescription.cie10}
             initialObservations={prescription.observations}
             initialLongTermTreatment={prescription.long_term_treatment}
+            patientDni={patient.dni}
+            patientCredential={patient.insurance_member_number}
           />
         </div>
       ) : null}
