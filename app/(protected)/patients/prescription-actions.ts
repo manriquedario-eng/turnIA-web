@@ -34,7 +34,7 @@ export async function createPrescriptionDraft(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirect('/patients?error=Datos%20de%20receta%20inv%C3%A1lidos');
+    redirect('/prescriptions?error=Datos%20de%20receta%20inv%C3%A1lidos');
   }
 
   const { supabase, tenantId, user } = await requireTenant();
@@ -48,7 +48,7 @@ export async function createPrescriptionDraft(formData: FormData) {
     .maybeSingle();
 
   if (!patient) {
-    redirect('/patients?error=Paciente%20no%20disponible');
+    redirect('/prescriptions?error=Paciente%20no%20disponible');
   }
 
   const { data: prescription, error } = await supabase
@@ -74,10 +74,11 @@ export async function createPrescriptionDraft(formData: FormData) {
       message: error?.message,
     });
     redirect(
-      `/patients/${parsed.data.patientId}?error=${encodeURIComponent('No se pudo crear el borrador de receta')}#recetas`,
+      `/prescriptions?patient=${parsed.data.patientId}&error=${encodeURIComponent('No se pudo crear el borrador de receta')}`,
     );
   }
 
+  revalidatePath('/prescriptions');
   revalidatePath(`/patients/${parsed.data.patientId}`);
   redirect(`/patients/${parsed.data.patientId}/prescriptions/${prescription.id}`);
 }
@@ -228,6 +229,7 @@ export async function addPrescriptionItem(formData: FormData) {
     );
   }
 
+  revalidatePath('/prescriptions');
   revalidatePath(`/patients/${parsed.data.patientId}`);
   revalidatePath(`/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}`);
   redirect(
@@ -303,6 +305,10 @@ const metadataSchema = z.object({
     (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
     z.coerce.number().int().positive().nullable().optional(),
   ),
+  planId: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+    z.coerce.number().int().positive().nullable().optional(),
+  ),
   diagnosis: optionalText(500),
   cie10: optionalText(20),
   observations: optionalText(4000),
@@ -318,6 +324,7 @@ export async function updatePrescriptionDraftMetadata(formData: FormData) {
     prescriptionId: formData.get('prescriptionId'),
     conventionId: formData.get('conventionId'),
     affiliateId: formData.get('affiliateId'),
+    planId: formData.get('planId'),
     diagnosis: formData.get('diagnosis'),
     cie10: formData.get('cie10'),
     observations: formData.get('observations'),
@@ -377,6 +384,7 @@ export async function updatePrescriptionDraftMetadata(formData: FormData) {
     .update({
       convention_id: parsed.data.conventionId ?? null,
       affiliate_id: parsed.data.affiliateId ?? null,
+      plan_id: parsed.data.planId ?? null,
       diagnosis: parsed.data.diagnosis ?? null,
       cie10: parsed.data.cie10 ?? null,
       observations: parsed.data.observations ?? null,
