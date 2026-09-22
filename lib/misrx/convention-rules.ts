@@ -15,10 +15,6 @@ const KNOWN_RULES: Record<number, MisRxConventionRules> = {
     conventionId: 800,
     maxProducts: 2,
     validityDays: 60,
-    requiresAuthorization: false,
-    requiresDni: true,
-    requiresCredential: true,
-    externalEnabled: true,
     environment: 'homologation',
   },
 };
