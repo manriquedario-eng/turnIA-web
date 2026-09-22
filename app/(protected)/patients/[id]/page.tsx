@@ -583,7 +583,7 @@ export default async function PatientDetailPage({
                     Tratamiento prolongado
                   </label>
                   <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
-                    <button className="btn" type="submit">Guardar borrador</button>
+                    <button className="btn" type="submit">Crear borrador y continuar</button>
                   </div>
                 </form>
               </details>
@@ -599,22 +599,24 @@ export default async function PatientDetailPage({
               ) : (
                 <div className="stack" style={{ gap: 10 }}>
                   {prescriptions.map((rx: any) => (
-                    <div key={rx.id} className="integration-row">
-                      <div className="integration-row-name">
-                        {rx.provider_prescription_number ? `Receta ${rx.provider_prescription_number}` : 'Receta'}
-                        <span className={`badge ${rx.status === 'issued' ? 'badge-confirmado' : rx.status === 'cancelled' ? 'badge-cancelado' : 'badge-neutral'}`}>
-                          {rx.status === 'issued' ? 'Emitida' : rx.status === 'cancelled' ? 'Anulada' : rx.status}
-                        </span>
-                      </div>
-                      <div className="integration-row-desc">
-                        {rx.issued_at ? formatDateTime(rx.issued_at) : formatDateTime(rx.created_at)}
-                        {rx.cie10 ? ` · CIE-10 ${rx.cie10}` : ''}
-                        {rx.diagnosis ? ` · ${rx.diagnosis}` : ''}
+                    <div key={rx.id} className="prescription-row">
+                      <div className="prescription-row-main">
+                        <div className="prescription-row-title">
+                          <span>{rx.provider_prescription_number ? `Receta ${rx.provider_prescription_number}` : 'Receta'}</span>
+                          <span className={`badge ${rx.status === 'issued' ? 'badge-confirmado' : rx.status === 'cancelled' ? 'badge-cancelado' : 'badge-neutral'}`}>
+                            {rx.status === 'issued' ? 'Emitida' : rx.status === 'cancelled' ? 'Anulada' : rx.status === 'draft' ? 'Borrador' : rx.status}
+                          </span>
+                        </div>
+                        <div className="prescription-row-desc">
+                          {rx.issued_at ? formatDateTime(rx.issued_at) : formatDateTime(rx.created_at)}
+                          {rx.cie10 ? ` · CIE-10 ${rx.cie10}` : ''}
+                          {rx.diagnosis ? ` · ${rx.diagnosis}` : ''}
+                        </div>
                       </div>
                       {rx.status === 'draft' ? (
-                        <div style={{ marginTop: 8 }}>
-                          <Link className="btn-ghost" href={`/patients/${patient.id}/prescriptions/${rx.id}`}>
-                            Continuar borrador
+                        <div className="prescription-row-actions">
+                          <Link className="btn secondary btn-compact" href={`/patients/${patient.id}/prescriptions/${rx.id}`}>
+                            Completar borrador
                           </Link>
                         </div>
                       ) : null}
