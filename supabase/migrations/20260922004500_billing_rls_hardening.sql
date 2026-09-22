@@ -77,8 +77,8 @@ create policy billing_invoice_lines_insert_draft
     and exists (
       select 1
       from public.billing_invoices bi
-      where bi.id = invoice_id
-        and bi.tenant_id = tenant_id
+      where bi.id = billing_invoice_lines.invoice_id
+        and bi.tenant_id = billing_invoice_lines.tenant_id
         and bi.professional_id = auth.uid()
         and bi.status = 'draft'
     )
@@ -93,8 +93,8 @@ create policy billing_invoice_lines_delete_draft
     and exists (
       select 1
       from public.billing_invoices bi
-      where bi.id = invoice_id
-        and bi.tenant_id = tenant_id
+      where bi.id = billing_invoice_lines.invoice_id
+        and bi.tenant_id = billing_invoice_lines.tenant_id
         and bi.professional_id = auth.uid()
         and bi.status = 'draft'
     )
@@ -126,8 +126,8 @@ create policy billing_invoice_appointments_insert_draft
     and exists (
       select 1
       from public.billing_invoices bi
-      where bi.id = invoice_id
-        and bi.tenant_id = tenant_id
+      where bi.id = billing_invoice_appointments.invoice_id
+        and bi.tenant_id = billing_invoice_appointments.tenant_id
         and bi.professional_id = auth.uid()
         and bi.status = 'draft'
     )
@@ -142,8 +142,8 @@ create policy billing_invoice_appointments_delete_draft
     and exists (
       select 1
       from public.billing_invoices bi
-      where bi.id = invoice_id
-        and bi.tenant_id = tenant_id
+      where bi.id = billing_invoice_appointments.invoice_id
+        and bi.tenant_id = billing_invoice_appointments.tenant_id
         and bi.professional_id = auth.uid()
         and bi.status = 'draft'
     )
