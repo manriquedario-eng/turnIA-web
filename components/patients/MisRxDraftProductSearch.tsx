@@ -1,13 +1,8 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { addPrescriptionItem } from '@/app/(protected)/patients/prescription-actions';
 import { getMisRxMaxProducts } from '@/lib/misrx/convention-rules';
-
-type Convention = {
-  convenio_id: number;
-  nombre: string;
-};
 
 type Product = {
   code?: string;
@@ -33,8 +28,7 @@ export function MisRxDraftProductSearch({
   initialConventionId?: number | null;
   currentItemCount: number;
 }) {
-  const [conventions, setConventions] = useState<Convention[]>([]);
-  const [conventionId, setConventionId] = useState(initialConventionId ? String(initialConventionId) : '');
+  const conventionId = initialConventionId ? String(initialConventionId) : '';
   const [query, setQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Product | null>(null);
@@ -43,28 +37,6 @@ export function MisRxDraftProductSearch({
   const selectedConventionId = conventionId ? Number(conventionId) : null;
   const maxProducts = getMisRxMaxProducts(selectedConventionId);
   const atProductLimit = Boolean(maxProducts && currentItemCount >= maxProducts);
-
-  useEffect(() => {
-    if (!connected) return;
-    let cancelled = false;
-
-    fetch('/api/integrations/misrx/conventions', { cache: 'no-store' })
-      .then(async (response) => {
-        const body = await response.json();
-        if (!response.ok) throw new Error(body?.error || 'No se pudieron cargar los convenios');
-        return body;
-      })
-      .then((body) => {
-        if (!cancelled) setConventions(Array.isArray(body?.data) ? body.data : []);
-      })
-      .catch((error) => {
-        if (!cancelled) setMessage(error instanceof Error ? error.message : 'No se pudieron cargar los convenios');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [connected]);
 
   async function search(event: FormEvent) {
     event.preventDefault();
@@ -78,9 +50,10 @@ export function MisRxDraftProductSearch({
     }
 
     if (!conventionId) {
-      setMessage('Seleccioná primero un convenio.');
+      setMessage('Primero elegí el convenio en el paso anterior y guardá los datos de la receta.');
       return;
     }
+
     if (query.trim().length < 2) {
       setMessage('Escribí al menos 2 caracteres.');
       return;
@@ -112,13 +85,27 @@ export function MisRxDraftProductSearch({
   if (!connected) {
     return (
       <p className="alert">
-        Conectá primero la cuenta MisRX del profesional desde Configuración para consultar convenios y medicamentos.
+        Conectá primero la cuenta MisRX del profesional desde Configuración para consultar medicamentos.
+      </p>
+    );
+  }
+
+  if (!conventionId) {
+    return (
+      <p className="alert" style={{ marginBottom: 0 }}>
+        Elegí y guardá el convenio en el paso 2 antes de buscar medicamentos.
       </p>
     );
   }
 
   return (
     <div className="stack">
+      <div className="misrx-search-context">
+        <span className="field-hint">Convenio guardado</span>
+        <strong>ID {conventionId}</strong>
+        {maxProducts ? <span className="badge badge-neutral">Máximo {maxProducts} medicamentos</span> : null}
+      </div>
+
       {atProductLimit ? (
         <p className="alert" style={{ marginBottom: 0 }}>
           Este convenio admite como máximo {maxProducts} medicamentos por receta. Quitá uno del borrador para agregar otro.
@@ -126,16 +113,7 @@ export function MisRxDraftProductSearch({
       ) : null}
 
       <form onSubmit={search} className="form-grid">
-        <label>
-          Convenio
-          <select value={conventionId} onChange={(event) => setConventionId(event.target.value)} required>
-            <option value="">Seleccionar convenio</option>
-            {conventions.map((item) => (
-              <option key={item.convenio_id} value={item.convenio_id}>{item.nombre}</option>
-            ))}
-          </select>
-        </label>
-        <label>
+        <label style={{ gridColumn: '1 / -1' }}>
           Buscar medicamento
           <input
             value={query}
@@ -174,7 +152,7 @@ export function MisRxDraftProductSearch({
       ) : null}
 
       {!atProductLimit && selected?.producto_id ? (
-        <form action={addPrescriptionItem} className="form-grid">
+        <form action={addPrescriptionItem} className="form-grid misrx-selected-product">
           <input type="hidden" name="patientId" value={patientId} />
           <input type="hidden" name="prescriptionId" value={prescriptionId} />
           <input type="hidden" name="conventionId" value={conventionId} />
