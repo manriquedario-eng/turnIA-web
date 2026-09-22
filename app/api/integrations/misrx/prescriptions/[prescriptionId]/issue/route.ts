@@ -7,7 +7,12 @@ import { getMisRxMaxProducts } from '@/lib/misrx/convention-rules';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
 }
 
 function providerStatusOk(value: string | undefined) {
@@ -264,8 +269,8 @@ export async function POST(
     providerStatus: result.data.status ?? null,
     message: result.data.msg ?? null,
     prescriptionNumber:
-      result.data.nrorecetario_receta ??
       result.data.nrorecetario ??
+      result.data.nrorecetario_receta ??
       result.data.nrorecetario_os ??
       null,
     tokenPresent: Boolean(result.data.token),
