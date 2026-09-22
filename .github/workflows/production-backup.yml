@@ -63,5 +63,4 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' || env.BACKUP_ENABLED == 'true' }}
         env:
           GDRIVE_ACCESS_TOKEN: ${{ steps.google-auth.outputs.access_token }}
-        if: ${{ github.event_name == 'workflow_dispatch' || env.BACKUP_ENABLED == 'true' }}
         run: bash scripts/backup-production.sh
