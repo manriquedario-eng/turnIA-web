@@ -4392,3 +4392,251 @@ table tbody tr:hover {
     width: 100%;
   }
 }
+
+
+/* =========================================================================
+   MisRX / Recetas — workspace y editor por etapas
+   ========================================================================= */
+.prescriptions-workspace,
+.prescription-editor {
+  max-width: 1120px;
+  width: 100%;
+}
+
+.prescriptions-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.prescriptions-stat {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.prescriptions-stat-label {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.prescriptions-stat strong {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.prescriptions-create-card {
+  border-top: 3px solid var(--turnia-green-soft);
+}
+
+.prescriptions-summary {
+  list-style: none;
+  width: fit-content;
+  cursor: pointer;
+}
+
+.prescriptions-summary::-webkit-details-marker {
+  display: none;
+}
+
+.prescriptions-create-form {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.prescription-editor-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.prescription-editor-breadcrumbs a:hover {
+  color: var(--color-primary-strong);
+}
+
+.prescription-editor-hero {
+  background:
+    radial-gradient(circle at 92% 15%, var(--turnia-lilac-soft) 0, transparent 28%),
+    var(--color-surface);
+}
+
+.misrx-step-card {
+  position: relative;
+}
+
+.misrx-step-heading {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 18px;
+}
+
+.misrx-step-heading h2 {
+  margin: 1px 0 3px;
+}
+
+.misrx-step-heading .text-helper {
+  margin: 0;
+}
+
+.misrx-step-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+  font-weight: 800;
+}
+
+.misrx-data-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.misrx-data-item {
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-surface-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  min-width: 0;
+}
+
+.misrx-data-item > span {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.misrx-data-item > strong {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.misrx-data-item > small {
+  display: inline-block;
+  margin-top: 6px;
+  font-weight: 700;
+}
+
+.misrx-data-item > small.is-ready {
+  color: var(--color-success);
+}
+
+.misrx-data-item > small.is-missing {
+  color: var(--color-warning);
+}
+
+.misrx-product-search-block {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.misrx-readiness-card {
+  border-top: 3px solid var(--turnia-lilac);
+}
+
+.patient-data-disclosure {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+  overflow: hidden;
+}
+
+.patient-data-disclosure > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 15px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.patient-data-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.patient-data-disclosure > summary > span:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.patient-data-disclosure > summary small {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.patient-data-disclosure-action {
+  color: var(--color-primary-strong);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.patient-data-disclosure[open] .patient-data-disclosure-action {
+  font-size: 0;
+}
+
+.patient-data-disclosure[open] .patient-data-disclosure-action::after {
+  content: 'Ocultar';
+  font-size: 13px;
+}
+
+.patient-data-disclosure-grid {
+  padding: 16px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+@media (max-width: 820px) {
+  .prescriptions-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .misrx-data-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .misrx-step-heading {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .misrx-step-heading > .btn,
+  .misrx-step-heading > .btn-ghost {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 520px) {
+  .misrx-data-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-data-disclosure > summary {
+    align-items: flex-start;
+  }
+}
