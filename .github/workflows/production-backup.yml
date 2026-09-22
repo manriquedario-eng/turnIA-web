@@ -21,7 +21,7 @@ jobs:
     env:
       BACKUP_ENABLED: ${{ secrets.BACKUP_ENABLED }}
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+      BACKUP_AGE_RECIPIENT: age1sqg03gy4amnm3ngg4c5u4mzztjr4sqxs9wuda9lllqdu77sq4pzs5nsvx9
       GDRIVE_DAILY_FOLDER_ID: 1cFZvLZTMDxre9Q8QgYzDZu_mfUkSMLkh
       GDRIVE_WEEKLY_FOLDER_ID: 1G-I3xxodOw2RhsQi4rw22GB8m0n54TZD
       GDRIVE_MONTHLY_FOLDER_ID: 1rG42ubpeKA0UdZ9ORswiqiFBMf56qQ5t
