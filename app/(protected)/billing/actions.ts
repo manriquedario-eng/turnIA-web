@@ -112,7 +112,6 @@ export async function createBillingInvoiceDraft(formData: FormData) {
   }
 
   const { supabase, user, tenantId } = await requireTenant();
-  const serviceClient = createSupabaseServiceClient();
 
   const { data: fiscalSettings } = await supabase
     .from('settings')
@@ -313,6 +312,7 @@ export async function authorizeBillingInvoice(formData: FormData) {
   const input = parsed.data;
 
   const { supabase, user, tenantId } = await requireTenant();
+  const serviceClient = createSupabaseServiceClient();
 
   const { data: fiscalSettings } = await supabase
     .from('settings')
