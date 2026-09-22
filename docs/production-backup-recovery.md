@@ -51,9 +51,7 @@ Configure these repository secrets before enabling the schedule:
 
 - `SUPABASE_DB_URL`: production database connection string. Prefer the
   Supabase Session Pooler connection string so GitHub's IPv4 runner can connect.
-- `BACKUP_AGE_RECIPIENT`: age public recipient. The private recovery identity
-  must be kept offline and must never be committed to GitHub or stored beside
-  the Drive backups.
+Backup encryption uses the public age recipient `age1sqg03gy4amnm3ngg4c5u4mzztjr4sqxs9wuda9lllqdu77sq4pzs5nsvx9`, which is safe to store in the workflow. The matching private recovery identity must remain offline and must never be committed to GitHub or stored beside the Drive backups.
 Google Drive authentication is keyless: GitHub Actions uses OIDC Workload Identity
 Federation to impersonate `turnia-backup@turnia-backups.iam.gserviceaccount.com`.
 No service-account JSON key is created or stored.
@@ -65,7 +63,7 @@ No service-account JSON key is created or stored.
 1. Create a TurnIA-owned Shared Drive or restricted Workspace folder.
 2. Grant the backup service account access to that location only.
 3. Generate an age identity offline and record only the public recipient in GitHub.
-4. Configure the Supabase connection secret and the age public recipient.
+4. Configure the Supabase production database connection secret.
 5. Run `TurnIA Production Backup` manually.
 6. Confirm the encrypted file exists under `Daily/`.
 7. Download that encrypted file to a controlled machine, decrypt it and verify
