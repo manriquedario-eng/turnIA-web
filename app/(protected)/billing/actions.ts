@@ -7,6 +7,7 @@ import { requireTenant } from '@/lib/auth/require-user';
 import { authorizeWsfeInvoiceC, getWsfeActivities } from '@/lib/arca/wsfe';
 import { vatConditionLabel } from '@/lib/billing/constants';
 import { isFiscalProfileEnabled } from '@/lib/billing/fiscal-profile';
+import { createSupabaseServiceClient } from '@/lib/supabase/service';
 
 const saleConditionSchema = z.enum([
   'contado',
@@ -311,6 +312,7 @@ export async function authorizeBillingInvoice(formData: FormData) {
   const input = parsed.data;
 
   const { supabase, user, tenantId } = await requireTenant();
+  const serviceClient = createSupabaseServiceClient();
 
   const { data: fiscalSettings } = await supabase
     .from('settings')
@@ -388,7 +390,7 @@ export async function authorizeBillingInvoice(formData: FormData) {
   }
   // Claim atómico del borrador: sólo una solicitud puede cambiar draft ->
   // authorizing. Evita doble CAE por doble click o dos pestañas concurrentes.
-  const { data: claimedInvoice, error: claimError } = await supabase
+  const { data: claimedInvoice, error: claimError } = await serviceClient
     .from('billing_invoices')
     .update({
       status: 'authorizing',
@@ -425,7 +427,7 @@ export async function authorizeBillingInvoice(formData: FormData) {
   });
 
   if (!result.ok) {
-    await supabase
+    await serviceClient
       .from('billing_invoices')
       .update({
         status: 'draft',
@@ -452,7 +454,7 @@ export async function authorizeBillingInvoice(formData: FormData) {
         ? `${expiresRaw.slice(0, 4)}-${expiresRaw.slice(4, 6)}-${expiresRaw.slice(6, 8)}`
         : null;
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceClient
       .from('billing_invoices')
       .update({
         status: 'authorized',
@@ -485,7 +487,7 @@ export async function authorizeBillingInvoice(formData: FormData) {
     redirect(`/billing/${currentInvoice.id}?success=authorized`);
   }
 
-  await supabase
+  await serviceClient
     .from('billing_invoices')
     .update({
       status: 'rejected',
