@@ -23,6 +23,8 @@ export type MisRxApiResult<T> =
       status?: number;
     };
 
+export type MisRxSessionTestResponse = { data: string };
+
 export type MisRxProfessionalProfile = {
   nrodoc: number;
   sexo: string;
