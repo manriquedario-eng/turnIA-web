@@ -63,6 +63,8 @@ export function MisRxDraftClinicalData({
   const [diagnosisQuery, setDiagnosisQuery] = useState('');
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
   const [message, setMessage] = useState('');
+  const [affiliateLoading, setAffiliateLoading] = useState(false);
+  const [diagnosisLoading, setDiagnosisLoading] = useState(false);
 
   useEffect(() => {
     if (!connected) return;
@@ -94,6 +96,7 @@ export function MisRxDraftClinicalData({
       return;
     }
 
+    setAffiliateLoading(true);
     try {
       const params = new URLSearchParams({
         patient_id: patientId,
@@ -110,6 +113,8 @@ export function MisRxDraftClinicalData({
       if (rows.length === 0) setMessage('MisRX no encontró afiliados con los datos actuales del paciente.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo consultar el afiliado');
+    } finally {
+      setAffiliateLoading(false);
     }
   }
 
@@ -123,6 +128,7 @@ export function MisRxDraftClinicalData({
       return;
     }
 
+    setDiagnosisLoading(true);
     try {
       const params = new URLSearchParams({ q: diagnosisQuery.trim() });
       const response = await fetch(`/api/integrations/misrx/diagnoses?${params.toString()}`, {
@@ -135,6 +141,8 @@ export function MisRxDraftClinicalData({
       if (rows.length === 0) setMessage('No se encontraron diagnósticos para esa búsqueda.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo buscar CIE-10');
+    } finally {
+      setDiagnosisLoading(false);
     }
   }
 
@@ -166,10 +174,11 @@ export function MisRxDraftClinicalData({
             </label>
             <div>
               <span className="field-label">Afiliado</span>
-              <div className="form-actions">
-                <button className="btn secondary" type="button" onClick={lookupAffiliate} disabled={!conventionId}>
-                  Buscar afiliado
+              <div className="misrx-inline-action">
+                <button className="btn secondary" type="button" onClick={lookupAffiliate} disabled={!conventionId || affiliateLoading}>
+                  {affiliateLoading ? 'Buscando…' : 'Buscar afiliado'}
                 </button>
+                {!conventionId ? <span className="field-hint">Elegí primero el convenio.</span> : null}
               </div>
             </div>
           </div>
@@ -199,8 +208,10 @@ export function MisRxDraftClinicalData({
                 placeholder="Código o descripción"
               />
             </label>
-            <div className="form-actions" style={{ alignSelf: 'end' }}>
-              <button className="btn secondary" type="submit">Buscar CIE-10</button>
+            <div className="misrx-inline-action" style={{ alignSelf: 'end' }}>
+              <button className="btn secondary" type="submit" disabled={diagnosisLoading}>
+                {diagnosisLoading ? 'Buscando…' : 'Buscar CIE-10'}
+              </button>
             </div>
           </form>
 
@@ -213,8 +224,7 @@ export function MisRxDraftClinicalData({
                   <button
                     key={String(item.cie10_id ?? code ?? index)}
                     type="button"
-                    className="integration-row"
-                    style={{ textAlign: 'left', cursor: 'pointer' }}
+                    className="misrx-choice-button"
                     onClick={() => {
                       setCie10(code);
                       setDiagnosis(label);
