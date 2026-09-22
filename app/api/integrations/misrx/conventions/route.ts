@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/auth/require-user';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { getMisRxAdapterForUser } from '@/lib/misrx/service';
+import { getMisRxHomologationConfig } from '@/lib/misrx/homologation';
 
 export async function GET(request: NextRequest) {
   const { tenantId, user } = await requireTenant();
@@ -30,6 +31,26 @@ export async function GET(request: NextRequest) {
 
   if (!result.ok) {
     return NextResponse.json({ error: result.errorMessage }, { status: result.status ?? 502 });
+  }
+
+  const homologation = getMisRxHomologationConfig();
+  if (homologation.enabled && homologation.conventionId) {
+    const rows = Array.isArray(result.data.data) ? [...result.data.data] : [];
+    if (!rows.some((item) => item.convenio_id === homologation.conventionId)) {
+      rows.unshift({
+        convenio_id: homologation.conventionId,
+        nombre: `Homologación MisRX (ID ${homologation.conventionId})`,
+        autorizado: 1,
+      });
+    }
+
+    return NextResponse.json({
+      ...result.data,
+      total: Math.max(result.data.total ?? 0, rows.length),
+      data: rows,
+    }, {
+      headers: { 'Cache-Control': 'private, no-store' },
+    });
   }
 
   return NextResponse.json(result.data, {
