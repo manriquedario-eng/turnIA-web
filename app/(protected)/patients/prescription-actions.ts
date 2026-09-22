@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
 import { createSupabaseServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
+import { getMisRxMaxProducts } from '@/lib/misrx/convention-rules';
 
 const optionalText = (max: number) =>
   z.preprocess(
@@ -155,6 +156,31 @@ export async function addPrescriptionItem(formData: FormData) {
     redirect(
       `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?error=${encodeURIComponent('Configuración del servidor incompleta')}`,
     );
+  }
+
+  const maxProducts = getMisRxMaxProducts(parsed.data.conventionId);
+  if (maxProducts) {
+    const service = createSupabaseServiceClient();
+    const { count, error: countError } = await service
+      .from('prescription_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('prescription_id', prescription.id);
+
+    if (countError) {
+      console.error('[misrx] count prescription items failed', {
+        code: countError.code,
+        message: countError.message,
+      });
+      redirect(
+        `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?error=${encodeURIComponent('No se pudo validar el límite de medicamentos')}`,
+      );
+    }
+
+    if ((count ?? 0) >= maxProducts) {
+      redirect(
+        `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?error=${encodeURIComponent(`Este convenio admite como máximo ${maxProducts} medicamentos por receta`)}`,
+      );
+    }
   }
 
   const { error: conventionError } = await supabase
@@ -319,6 +345,31 @@ export async function updatePrescriptionDraftMetadata(formData: FormData) {
     redirect(
       `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?error=${encodeURIComponent('El borrador no está disponible para editar')}`,
     );
+  }
+
+  const maxProducts = getMisRxMaxProducts(parsed.data.conventionId ?? null);
+  if (maxProducts && isServiceRoleConfigured()) {
+    const service = createSupabaseServiceClient();
+    const { count, error: countError } = await service
+      .from('prescription_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('prescription_id', prescription.id);
+
+    if (countError) {
+      console.error('[misrx] validate convention item limit failed', {
+        code: countError.code,
+        message: countError.message,
+      });
+      redirect(
+        `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?error=${encodeURIComponent('No se pudo validar el convenio')}`,
+      );
+    }
+
+    if ((count ?? 0) > maxProducts) {
+      redirect(
+        `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?error=${encodeURIComponent(`Este convenio admite como máximo ${maxProducts} medicamentos por receta`)}`,
+      );
+    }
   }
 
   const { error } = await supabase
