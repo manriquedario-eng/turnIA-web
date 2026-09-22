@@ -76,6 +76,27 @@ check('Payments use atomic registration RPC', /rpc\(['\"]register_payment_with_c
 check('Payments action does not directly insert payment before cash', !/from\(['\"]payments['\"]\)\.insert/.test(paymentActions));
 check('Payments validate input with Zod', paymentActions.includes("from 'zod'") || paymentActions.includes('from "zod"'));
 
+
+const billingActions = read('app/(protected)/billing/actions.ts');
+check(
+  'Billing fiscal transitions use service role',
+  billingActions.includes("createSupabaseServiceClient") &&
+    /const\s+serviceClient\s*=\s*createSupabaseServiceClient\(\)/.test(billingActions) &&
+    /serviceClient[\s\S]*from\(['"]billing_invoices['"]\)[\s\S]*status:\s*['"]authorizing['"]/.test(billingActions) &&
+    /serviceClient[\s\S]*from\(['"]billing_invoices['"]\)[\s\S]*arca_cae/.test(billingActions),
+);
+const billingRlsMigration = read('supabase/migrations/20260922004500_billing_rls_hardening.sql');
+check(
+  'Billing authenticated role cannot UPDATE invoices directly',
+  /revoke\s+update\s+on\s+table\s+public\.billing_invoices\s+from\s+authenticated/i.test(billingRlsMigration) &&
+    !/create\s+policy\s+\w+[\s\S]{0,160}on\s+public\.billing_invoices[\s\S]{0,120}for\s+update/i.test(billingRlsMigration),
+);
+check(
+  'Billing invoice detail is immutable after draft',
+  /revoke\s+update\s+on\s+table\s+public\.billing_invoice_lines\s+from\s+authenticated/i.test(billingRlsMigration) &&
+    /revoke\s+update\s+on\s+table\s+public\.billing_invoice_appointments\s+from\s+authenticated/i.test(billingRlsMigration),
+);
+
 const patientDetail = read('app/(protected)/patients/[id]/page.tsx');
 check('Patient detail requires tenant context', patientDetail.includes('requireTenant'));
 check('Patient detail filters patient by tenant', /from\(['\"]patients['\"]\)[\s\S]*?eq\(['\"]tenant_id['\"],\s*tenantId\)/.test(patientDetail));
