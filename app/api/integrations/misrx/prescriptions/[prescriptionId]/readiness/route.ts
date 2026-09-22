@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/auth/require-user';
 import { getMisRxAdapterForUser, isMisRxProviderConfigured } from '@/lib/misrx/service';
+import { getMisRxConventionRules, getMisRxMaxProducts } from '@/lib/misrx/convention-rules';
+import { getMisRxHomologationConfig } from '@/lib/misrx/homologation';
 
 type Check = {
   key: string;
@@ -9,28 +11,12 @@ type Check = {
   detail: string;
 };
 
-function hasProfessionalProfile(profile: {
-  nrodoc?: number;
-  sexo?: string;
-  apellido?: string;
-  nombres?: string;
-  tipo_matricula?: string;
-  matricula?: number;
-  especialidad_id?: number;
-}) {
-  return Boolean(
-    profile.nrodoc &&
-    profile.sexo &&
-    profile.apellido?.trim() &&
-    profile.nombres?.trim() &&
-    profile.tipo_matricula?.trim() &&
-    profile.matricula &&
-    profile.especialidad_id
-  );
-}
-
 function patientSexCanMap(value: string | null | undefined) {
   return value === 'masculino' || value === 'femenino' || value === 'otro';
+}
+
+function digits(value: string | null | undefined) {
+  return value?.replace(/\D/g, '') ?? '';
 }
 
 export async function GET(
@@ -58,7 +44,7 @@ export async function GET(
   const [{ data: patient }, { data: items }] = await Promise.all([
     supabase
       .from('patients')
-      .select('id,dni,birth_date,sex')
+      .select('id,dni,birth_date,sex,insurance_member_number')
       .eq('id', prescription.patient_id)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
@@ -68,6 +54,15 @@ export async function GET(
       .select('id,provider_product_id,quantity')
       .eq('prescription_id', prescription.id),
   ]);
+
+  const rules = getMisRxConventionRules(prescription.convention_id);
+  const maxProducts = getMisRxMaxProducts(prescription.convention_id);
+  const homologation = getMisRxHomologationConfig();
+  const homologationActive = Boolean(
+    homologation.enabled &&
+    homologation.conventionId &&
+    prescription.convention_id === homologation.conventionId
+  );
 
   const checks: Check[] = [
     {
@@ -91,7 +86,7 @@ export async function GET(
       ok: Boolean(prescription.convention_id),
       label: 'Convenio',
       detail: prescription.convention_id
-        ? 'El borrador tiene un convenio seleccionado.'
+        ? `Convenio ${prescription.convention_id} seleccionado.`
         : 'Falta seleccionar el convenio de la receta.',
     },
     {
@@ -105,6 +100,26 @@ export async function GET(
         : 'Falta agregar al menos un medicamento.',
     },
   ];
+
+  if (maxProducts) {
+    checks.push({
+      key: 'item-limit',
+      ok: (items?.length ?? 0) <= maxProducts,
+      label: 'Límite de medicamentos',
+      detail: (items?.length ?? 0) <= maxProducts
+        ? `Este convenio admite hasta ${maxProducts} medicamentos y el borrador cumple el límite.`
+        : `Este convenio admite como máximo ${maxProducts} medicamentos por receta.`,
+    });
+  }
+
+  if (rules?.validityDays) {
+    checks.push({
+      key: 'validity',
+      ok: true,
+      label: 'Vigencia informativa',
+      detail: `MisRX informó una vigencia de ${rules.validityDays} días para este convenio. TurnIA no envía un campo de vigencia adicional.`,
+    });
+  }
 
   const affiliateReady = Boolean(prescription.affiliate_id);
   const manualPatientReady = Boolean(
@@ -124,38 +139,56 @@ export async function GET(
         : 'Falta seleccionar afiliado MisRX o completar DNI, fecha de nacimiento y sexo del paciente.',
   });
 
+  if (homologationActive) {
+    const expectedDni = digits(homologation.patientDni);
+    const currentDni = digits(patient?.dni);
+    const expectedCredential = homologation.patientCredential?.trim() ?? '';
+    const currentCredential = patient?.insurance_member_number?.trim() ?? '';
+
+    checks.push({
+      key: 'homologation-doctor',
+      ok: Boolean(homologation.doctorId),
+      label: 'Médico de homologación',
+      detail: homologation.doctorId
+        ? `Se usará medico_id ${homologation.doctorId} sólo en modo homologación.`
+        : 'Falta configurar el medico_id entregado por MisRX para homologación.',
+    });
+
+    checks.push({
+      key: 'homologation-patient',
+      ok: Boolean(
+        expectedDni &&
+        expectedCredential &&
+        currentDni === expectedDni &&
+        currentCredential === expectedCredential
+      ),
+      label: 'Paciente de homologación',
+      detail: !expectedDni || !expectedCredential
+        ? 'Faltan configurar los datos del paciente de prueba de MisRX.'
+        : currentDni === expectedDni && currentCredential === expectedCredential
+          ? 'El paciente del borrador coincide con los datos de prueba configurados para homologación.'
+          : 'El paciente del borrador no coincide con el DNI/credencial configurados para homologación.',
+    });
+  }
+
   const adapterResult = await getMisRxAdapterForUser({ tenantId, userId: user.id });
 
   if (!adapterResult.ok) {
     checks.push({
       key: 'connection',
       ok: false,
-      label: 'Conexión del profesional',
+      label: 'Conexión MisRX',
       detail: adapterResult.errorMessage,
     });
-    checks.push({
-      key: 'professional-profile',
-      ok: false,
-      label: 'Perfil profesional MisRX',
-      detail: 'No se puede validar el perfil hasta conectar la cuenta MisRX del profesional.',
-    });
   } else {
-    const profileResult = await adapterResult.data.testConnection();
+    const sessionResult = await adapterResult.data.testSession();
     checks.push({
       key: 'connection',
-      ok: profileResult.ok,
-      label: 'Conexión del profesional',
-      detail: profileResult.ok
-        ? 'La cuenta MisRX responde correctamente.'
-        : 'No se pudo validar la cuenta MisRX conectada.',
-    });
-    checks.push({
-      key: 'professional-profile',
-      ok: profileResult.ok && hasProfessionalProfile(profileResult.data),
-      label: 'Perfil profesional MisRX',
-      detail: profileResult.ok && hasProfessionalProfile(profileResult.data)
-        ? 'MisRX devuelve DNI, sexo, nombre, matrícula y especialidad suficientes para identificar al profesional.'
-        : 'El perfil conectado no devuelve todos los datos profesionales necesarios.',
+      ok: sessionResult.ok,
+      label: 'Conexión MisRX',
+      detail: sessionResult.ok
+        ? 'Login y sesión Bearer validados contra el endpoint oficial /test.'
+        : 'No se pudo validar la sesión de la cuenta MisRX conectada.',
     });
   }
 
@@ -164,6 +197,10 @@ export async function GET(
   return NextResponse.json({
     ready,
     liveIssuingEnabled: false,
+    homologation: {
+      enabled: homologation.enabled,
+      activeForConvention: homologationActive,
+    },
     checks,
   }, {
     headers: { 'Cache-Control': 'private, no-store' },
