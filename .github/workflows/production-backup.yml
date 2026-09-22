@@ -1,0 +1,52 @@
+name: TurnIA Production Backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 03:00 Argentina (UTC-3)
+    - cron: '0 6 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: turnia-production-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BACKUP_ENABLED: ${{ secrets.BACKUP_ENABLED }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+      GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
+      GDRIVE_ROOT_FOLDER_ID: ${{ secrets.GDRIVE_ROOT_FOLDER_ID }}
+      SUPABASE_PROJECT_REF: nnbpefxvpmegngqopcvw
+      BACKUP_TIMEZONE: America/Argentina/Mendoza
+
+    steps:
+      - name: Skip scheduled backups until explicitly enabled
+        if: ${{ github.event_name == 'schedule' && env.BACKUP_ENABLED != 'true' }}
+        run: echo "Scheduled production backup is not enabled yet."
+
+      - name: Checkout
+        if: ${{ github.event_name == 'workflow_dispatch' || env.BACKUP_ENABLED == 'true' }}
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        if: ${{ github.event_name == 'workflow_dispatch' || env.BACKUP_ENABLED == 'true' }}
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Install backup tools
+        if: ${{ github.event_name == 'workflow_dispatch' || env.BACKUP_ENABLED == 'true' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y age rclone jq
+
+      - name: Build, encrypt and upload production backup
+        if: ${{ github.event_name == 'workflow_dispatch' || env.BACKUP_ENABLED == 'true' }}
+        run: bash scripts/backup-production.sh
