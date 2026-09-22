@@ -655,7 +655,11 @@ export default async function PatientDetailPage({
                 </label>
                 <PhoneInput defaultValue={patient.phone ?? ''} defaultE164={patient.phone_e164 ?? null} />
                 <label>Email<input name="email" type="email" defaultValue={patient.email ?? ''} maxLength={200} /></label>
-                <label>DNI<input name="dni" defaultValue={patient.dni ?? ''} maxLength={160} /></label>
+                <label>
+                  DNI / documento del afiliado
+                  <input name="dni" defaultValue={patient.dni ?? ''} maxLength={160} />
+                  <span className="text-helper">MisRX usa este dato como documento del afiliado al consultar cobertura.</span>
+                </label>
                 <label>Fecha de nacimiento<input name="birth_date" type="date" defaultValue={(patient as any).birth_date ?? ''} /></label>
                 <label>
                   Sexo
@@ -688,7 +692,11 @@ export default async function PatientDetailPage({
                   <h3>Obra social</h3>
                 </div>
                 <label>Obra social<input name="insurance_name" defaultValue={patient.insurance_name ?? ''} maxLength={160} /></label>
-                <label>Nº afiliado<input name="insurance_member_number" defaultValue={patient.insurance_member_number ?? ''} maxLength={160} /></label>
+                <label>
+                  Nº afiliado / credencial
+                  <input name="insurance_member_number" defaultValue={patient.insurance_member_number ?? ''} maxLength={160} />
+                  <span className="text-helper">MisRX usa este valor como número de credencial o afiliado.</span>
+                </label>
                 <label>Plan<input name="insurance_plan" defaultValue={patient.insurance_plan ?? ''} maxLength={160} /></label>
 
                 <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
