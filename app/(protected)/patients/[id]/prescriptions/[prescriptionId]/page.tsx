@@ -7,6 +7,10 @@ import { MisRxDraftClinicalData } from '@/components/patients/MisRxDraftClinical
 import { MisRxReadinessPanel } from '@/components/patients/MisRxReadinessPanel';
 import { removePrescriptionItem } from '../../../prescription-actions';
 
+function patientDataState(value: unknown) {
+  return value ? 'Listo' : 'Falta';
+}
+
 export default async function PrescriptionDraftPage({
   params,
   searchParams,
@@ -21,7 +25,7 @@ export default async function PrescriptionDraftPage({
   const [{ data: patient }, { data: prescription }, { data: misRxStatus }] = await Promise.all([
     supabase
       .from('patients')
-      .select('id,name,dni,birth_date,sex,insurance_member_number')
+      .select('id,name,dni,birth_date,sex,insurance_name,insurance_member_number,insurance_plan')
       .eq('id', patientId)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
@@ -53,40 +57,89 @@ export default async function PrescriptionDraftPage({
   const editable = prescription.status === 'draft' && prescription.professional_id === user.id;
   const misRxConnected = misRxStatus?.status === 'connected';
   const patientDataComplete = Boolean(patient.dni && patient.birth_date && patient.sex);
+  const dataChecks = [
+    { label: 'DNI / documento', value: patient.dni },
+    { label: 'Fecha de nacimiento', value: patient.birth_date },
+    { label: 'Sexo', value: patient.sex },
+    { label: 'Nº afiliado / credencial', value: patient.insurance_member_number },
+  ];
 
   return (
-    <section className="stack">
-      <p><Link href={`/patients/${patient.id}#recetas`}>← Volver a recetas de {patient.name}</Link></p>
+    <section className="stack prescription-editor">
+      <div className="prescription-editor-breadcrumbs">
+        <Link href="/prescriptions">← Recetas</Link>
+        <span>·</span>
+        <Link href={`/patients/${patient.id}`}>{patient.name}</Link>
+      </div>
 
       {query.error ? <p className="alert error">{query.error}</p> : null}
       {query.success === 'item-added' ? <p className="alert success">Medicamento agregado al borrador.</p> : null}
       {query.success === 'item-removed' ? <p className="alert success">Medicamento quitado del borrador.</p> : null}
       {query.success === 'metadata-updated' ? <p className="alert success">Datos del borrador actualizados.</p> : null}
 
-      <div className="card">
+      <div className="card prescription-editor-hero">
         <div className="page-header">
           <div>
-            <p className="text-helper" style={{ marginBottom: 4 }}>Receta electrónica · borrador</p>
+            <p className="page-eyebrow">Receta electrónica · MisRX</p>
             <h1 style={{ margin: 0 }}>{patient.name}</h1>
+            <p className="text-helper" style={{ margin: '6px 0 0' }}>
+              Prepará el borrador por etapas. La emisión permanece separada y protegida por una verificación final.
+            </p>
           </div>
-          <span className="badge badge-neutral">Borrador</span>
+          <span className={`badge ${prescription.status === 'draft' ? 'badge-neutral' : 'badge-confirmado'}`}>
+            {prescription.status === 'draft' ? 'Borrador' : prescription.status}
+          </span>
         </div>
-        <p className="text-helper">
-          Este borrador permanece dentro de TurnIA. Ninguna acción de esta pantalla emite una receta en MisRX.
-        </p>
+      </div>
+
+      <div className="card misrx-step-card">
+        <div className="misrx-step-heading">
+          <span className="misrx-step-number">1</span>
+          <div>
+            <h2>Paciente y cobertura</h2>
+            <p className="text-helper">
+              Datos que TurnIA usa para buscar y validar al afiliado en MisRX.
+            </p>
+          </div>
+          <Link className="btn secondary btn-compact" href={`/patients/${patient.id}#datos`}>
+            Editar datos
+          </Link>
+        </div>
+
+        <div className="misrx-data-grid">
+          {dataChecks.map((check) => (
+            <div key={check.label} className="misrx-data-item">
+              <span>{check.label}</span>
+              <strong>{check.value || 'Sin cargar'}</strong>
+              <small className={check.value ? 'is-ready' : 'is-missing'}>{patientDataState(check.value)}</small>
+            </div>
+          ))}
+        </div>
+
         {!patientDataComplete ? (
-          <p className="alert">
-            Para una futura emisión faltan datos del paciente. Revisá DNI, fecha de nacimiento y sexo en la pestaña Datos.
+          <p className="alert" style={{ marginBottom: 0 }}>
+            Para identificar manualmente al paciente faltan datos básicos. Completá al menos DNI, fecha de nacimiento y sexo.
           </p>
         ) : null}
-        {prescription.diagnosis ? <p><strong>Diagnóstico:</strong> {prescription.diagnosis}</p> : null}
-        {prescription.cie10 ? <p><strong>CIE-10:</strong> {prescription.cie10}</p> : null}
-        {prescription.observations ? <p><strong>Indicaciones:</strong> {prescription.observations}</p> : null}
+
+        {(patient.insurance_name || patient.insurance_plan) ? (
+          <p className="field-hint" style={{ marginBottom: 0 }}>
+            Cobertura en TurnIA: {[patient.insurance_name, patient.insurance_plan].filter(Boolean).join(' · ')}.
+          </p>
+        ) : null}
       </div>
 
       {editable ? (
-        <div className="card">
-          <h2>Datos de la receta</h2>
+        <div className="card misrx-step-card">
+          <div className="misrx-step-heading">
+            <span className="misrx-step-number">2</span>
+            <div>
+              <h2>Convenio y datos clínicos</h2>
+              <p className="text-helper">
+                Elegí el convenio, buscá el afiliado y completá diagnóstico e indicaciones.
+              </p>
+            </div>
+          </div>
           <MisRxDraftClinicalData
             patientId={patient.id}
             prescriptionId={prescription.id}
@@ -103,54 +156,74 @@ export default async function PrescriptionDraftPage({
         </div>
       ) : null}
 
-      <div className="card">
-        <h2>Medicamentos</h2>
+      <div className="card misrx-step-card">
+        <div className="misrx-step-heading">
+          <span className="misrx-step-number">3</span>
+          <div>
+            <h2>Medicamentos</h2>
+            <p className="text-helper">
+              Revisá lo agregado y buscá nuevos productos directamente en MisRX.
+            </p>
+          </div>
+        </div>
+
         {!items || items.length === 0 ? (
           <EmptyState title="Todavía no hay medicamentos en este borrador" />
         ) : (
           <div className="stack" style={{ gap: 10 }}>
             {items.map((item: any) => (
-              <div key={item.id} className="integration-row">
-                <div className="integration-row-name">
-                  {item.brand || item.generic_name || 'Medicamento'}
-                </div>
-                <div className="integration-row-desc">
-                  {[item.generic_name, item.presentation, item.potency, item.laboratory].filter(Boolean).join(' · ')}
-                  {item.quantity ? ` · Cantidad ${item.quantity}` : ''}
-                  {item.coverage_percentage != null ? ` · Cobertura ${item.coverage_percentage}%` : ''}
+              <div key={item.id} className="prescription-row prescription-item-row">
+                <div className="prescription-row-main">
+                  <div className="prescription-row-title">
+                    <span>{item.brand || item.generic_name || 'Medicamento'}</span>
+                    <span className="badge badge-neutral">Cantidad {item.quantity || 1}</span>
+                  </div>
+                  <div className="prescription-row-desc">
+                    {[item.generic_name, item.presentation, item.potency, item.laboratory].filter(Boolean).join(' · ')}
+                    {item.coverage_percentage != null ? ` · Cobertura ${item.coverage_percentage}%` : ''}
+                  </div>
                 </div>
                 {editable ? (
-                  <form action={removePrescriptionItem} style={{ marginTop: 8 }}>
-                    <input type="hidden" name="patientId" value={patient.id} />
-                    <input type="hidden" name="prescriptionId" value={prescription.id} />
-                    <input type="hidden" name="itemId" value={item.id} />
-                    <button className="btn-ghost" type="submit">Quitar</button>
-                  </form>
+                  <div className="prescription-row-actions">
+                    <form action={removePrescriptionItem}>
+                      <input type="hidden" name="patientId" value={patient.id} />
+                      <input type="hidden" name="prescriptionId" value={prescription.id} />
+                      <input type="hidden" name="itemId" value={item.id} />
+                      <button className="btn-ghost" type="submit">Quitar</button>
+                    </form>
+                  </div>
                 ) : null}
               </div>
             ))}
           </div>
         )}
+
+        {editable ? (
+          <div className="misrx-product-search-block">
+            <MisRxDraftProductSearch
+              patientId={patient.id}
+              prescriptionId={prescription.id}
+              connected={misRxConnected}
+              initialConventionId={prescription.convention_id}
+              currentItemCount={items?.length ?? 0}
+            />
+          </div>
+        ) : null}
       </div>
 
-      {editable ? (
-        <div className="card">
-          <h2>Agregar medicamento</h2>
-          <MisRxDraftProductSearch
-            patientId={patient.id}
-            prescriptionId={prescription.id}
-            connected={misRxConnected}
-            initialConventionId={prescription.convention_id}
-            currentItemCount={items?.length ?? 0}
-          />
+      <div className="card misrx-step-card misrx-readiness-card">
+        <div className="misrx-step-heading">
+          <span className="misrx-step-number">4</span>
+          <div>
+            <h2>Verificación final</h2>
+            <p className="text-helper">
+              TurnIA controla la receta antes de permitir cualquier envío de homologación.
+            </p>
+          </div>
         </div>
-      ) : null}
-
-      <div className="card">
-        <h2>Preparación para emisión</h2>
         <MisRxReadinessPanel prescriptionId={prescription.id} />
         <p className="field-hint" style={{ marginBottom: 0 }}>
-          La emisión productiva permanece bloqueada. En preview sólo se habilita la prueba de homologación cuando todas las protecciones del servidor están configuradas.
+          Producción sigue bloqueada. En Preview la emisión de prueba sólo se habilita cuando la configuración de homologación lo permite explícitamente.
         </p>
       </div>
     </section>
