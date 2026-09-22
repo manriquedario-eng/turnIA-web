@@ -214,7 +214,6 @@ export class MisRxAdapter {
         path: '/api/anular_prescripcion',
         method: 'DELETE',
         accessToken,
-        appId: this.provider.appId,
         body: {
           ...payload,
           soft_id: softId,
