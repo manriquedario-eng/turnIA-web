@@ -4640,3 +4640,36 @@ table tbody tr:hover {
     align-items: flex-start;
   }
 }
+
+
+.misrx-rule-strip,
+.misrx-search-context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.misrx-rule-strip {
+  margin: -2px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-soft);
+}
+
+.misrx-search-context {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-soft);
+}
+
+.misrx-search-context .field-hint {
+  margin: 0;
+}
+
+.misrx-selected-product {
+  border-top: 1px solid var(--color-border-soft);
+  padding-top: 16px;
+}
