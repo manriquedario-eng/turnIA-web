@@ -12,6 +12,7 @@ export type MisRxHomologationConfig = {
   doctorId?: number;
   patientDni?: string;
   patientCredential?: string;
+  issuingEnabled: boolean;
 };
 
 export function getMisRxHomologationConfig(): MisRxHomologationConfig {
@@ -19,6 +20,7 @@ export function getMisRxHomologationConfig(): MisRxHomologationConfig {
 
   return {
     enabled,
+    issuingEnabled: process.env.MISRX_HOMOLOGATION_ISSUING_ENABLED?.trim().toLowerCase() === 'true',
     conventionId: positiveInteger(process.env.MISRX_HOMOLOGATION_CONVENTION_ID),
     doctorId: positiveInteger(process.env.MISRX_HOMOLOGATION_DOCTOR_ID),
     patientDni: process.env.MISRX_HOMOLOGATION_PATIENT_DNI?.trim() || undefined,
