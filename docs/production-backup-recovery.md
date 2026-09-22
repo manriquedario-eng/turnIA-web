@@ -51,7 +51,7 @@ Configure these repository secrets before enabling the schedule:
 
 - `SUPABASE_DB_URL`: production database connection string. Prefer the
   Supabase Session Pooler connection string so GitHub's IPv4 runner can connect.
-Backup encryption uses the public age recipient `age1sqg03gy4amnm3ngg4c5u4mzztjr4sqxs9wuda9lllqdu77sq4pzs5nsvx9`, which is safe to store in the workflow. The matching private recovery identity must remain offline and must never be committed to GitHub or stored beside the Drive backups.
+Backup encryption uses the public age recipient `age1jqzzvehzp7wjrm8reyz2x6nx0rpr38e3yunrn60pxzmysyakk47stn5xcj`, which is safe to store in the workflow. The matching private recovery identity must remain offline and must never be committed to GitHub or stored beside the Drive backups.
 Google Drive authentication is keyless: GitHub Actions uses OIDC Workload Identity
 Federation to impersonate `turnia-backup@turnia-backups.iam.gserviceaccount.com`.
 No service-account JSON key is created or stored.
