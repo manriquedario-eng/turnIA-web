@@ -84,14 +84,14 @@ export function MisRxReadinessPanel({ prescriptionId }: { prescriptionId: string
       {checks.length > 0 ? (
         <div className="stack" style={{ gap: 8 }}>
           {checks.map((check) => (
-            <div key={check.key} className="integration-row">
-              <div className="integration-row-name">
+            <div key={check.key} className="misrx-check-row">
+              <div className="misrx-check-title">
                 {check.label}
                 <span className={`badge ${check.ok ? 'badge-confirmado' : 'badge-neutral'}`}>
                   {check.ok ? 'Listo' : 'Pendiente'}
                 </span>
               </div>
-              <div className="integration-row-desc">{check.detail}</div>
+              <div className="misrx-check-detail">{check.detail}</div>
             </div>
           ))}
         </div>
