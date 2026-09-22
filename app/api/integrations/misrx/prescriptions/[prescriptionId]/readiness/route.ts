@@ -122,7 +122,7 @@ export async function GET(
   }
 
   const affiliateReady = Boolean(prescription.affiliate_id);
-  const manualPatientReady = Boolean(
+  const manualPatientDataAvailable = Boolean(
     patient?.dni &&
     patient?.birth_date &&
     patientSexCanMap(patient?.sex)
@@ -130,13 +130,13 @@ export async function GET(
 
   checks.push({
     key: 'patient',
-    ok: Boolean(patient) && (affiliateReady || manualPatientReady),
-    label: 'Identificación del paciente',
+    ok: Boolean(patient) && affiliateReady,
+    label: 'Afiliado MisRX',
     detail: affiliateReady
-      ? 'El borrador tiene un afiliado MisRX seleccionado.'
-      : manualPatientReady
-        ? 'El paciente tiene DNI, fecha de nacimiento y sexo mapeable para identificación manual.'
-        : 'Falta seleccionar afiliado MisRX o completar DNI, fecha de nacimiento y sexo del paciente.',
+      ? 'El borrador tiene un afiliado MisRX seleccionado y puede usar afiliado_id en la emisión.'
+      : manualPatientDataAvailable
+        ? 'Los datos básicos del paciente están completos, pero el flujo de homologación actual exige seleccionar la coincidencia devuelta por MisRX.'
+        : 'Buscá y seleccioná el afiliado en MisRX. Si no aparece, revisá DNI, fecha de nacimiento, sexo y credencial del paciente.',
   });
 
   if (homologationActive) {
