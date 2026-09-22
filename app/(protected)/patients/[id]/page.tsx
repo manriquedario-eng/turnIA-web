@@ -13,7 +13,6 @@ import { ExportMenu, type ExportMenuItem } from '@/components/export/ExportMenu'
 import { statusLabel, modalityLabel, paymentMethodLabel } from '@/lib/labels';
 import { SALE_CONDITIONS, VAT_CONDITIONS } from '@/lib/billing/constants';
 import { generateMercadoPagoCheckout } from '@/app/(protected)/agenda/actions';
-import { createPrescriptionDraft } from '../prescription-actions';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -68,7 +67,7 @@ export default async function PatientDetailPage({
   const query = await searchParams;
   const { supabase, tenantId, user } = await requireTenant();
 
-  const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult, mercadoPagoResult, misRxResult, prescriptionsResult] = await Promise.all([
+  const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult, mercadoPagoResult] = await Promise.all([
     supabase
       .from('patients')
       .select('id,name,alias,use_alias_for_communications,phone,email,dni,birth_date,sex,institution_name,home_address,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at,phone_e164,whatsapp_consent,whatsapp_consent_at,appointment_reminders_opt_in,billing_entity_id,fiscal_cuit,fiscal_vat_condition_id,fiscal_address,fiscal_email')
@@ -108,19 +107,6 @@ export default async function PatientDetailPage({
       .eq('user_id', user.id)
       .eq('provider', 'mercadopago')
       .maybeSingle(),
-    supabase
-      .from('integration_status')
-      .select('status')
-      .eq('tenant_id', tenantId)
-      .eq('user_id', user.id)
-      .eq('provider', 'misrx')
-      .maybeSingle(),
-    supabase
-      .from('prescriptions')
-      .select('id,provider,provider_prescription_number,status,provider_status,diagnosis,cie10,issued_at,cancelled_at,created_at')
-      .eq('tenant_id', tenantId)
-      .eq('patient_id', id)
-      .order('created_at', { ascending: false }),
   ]);
 
   const patient = patientResult.data;
@@ -129,8 +115,6 @@ export default async function PatientDetailPage({
   const payments = paymentResult.data ?? [];
   const record = recordResult.data;
   const mercadoPagoConnected = mercadoPagoResult.data?.status === 'connected';
-  const misRxConnected = misRxResult.data?.status === 'connected';
-  const prescriptions = prescriptionsResult.data ?? [];
 
   if (!patient) notFound();
 
@@ -331,6 +315,7 @@ export default async function PatientDetailPage({
             </Link>
             <Link className="btn secondary" href="/payments">Registrar pago</Link>
             <Link className="btn secondary" href={`/billing/new?patient=${patient.id}`}>Facturar</Link>
+            <Link className="btn secondary" href={`/prescriptions?patient=${patient.id}`}>Nueva receta</Link>
             <ExportMenu items={exportItems} />
           </div>
         </div>
@@ -392,7 +377,6 @@ export default async function PatientDetailPage({
           { id: 'sesiones', label: 'Sesiones' },
           { id: 'actividad', label: 'Actividad' },
           { id: 'seguimientos', label: 'Seguimientos' },
-          { id: 'recetas', label: 'Recetas' },
           { id: 'datos', label: 'Datos' },
         ]}
       >
@@ -545,93 +529,17 @@ export default async function PatientDetailPage({
           </div>
         </div>
 
-        <div data-tab="recetas">
-          <div className="stack">
-            <div className="card">
-              <div className="page-header" style={{ marginBottom: 12 }}>
-                <div>
-                  <h2 style={{ margin: 0 }}>Recetas electrónicas</h2>
-                  <p className="text-helper" style={{ margin: '6px 0 0' }}>
-                    Las recetas emitidas desde TurnIA quedarán vinculadas a este paciente y sincronizadas con MisRX.
-                  </p>
-                </div>
-                <span className={`badge ${misRxConnected ? 'badge-confirmado' : 'badge-neutral'}`}>
-                  {misRxConnected ? 'MisRX conectado' : 'MisRX no conectado'}
-                </span>
-              </div>
-
-              <details>
-                <summary className="btn" style={{ display: 'inline-flex', cursor: 'pointer' }}>
-                  Nueva receta
-                </summary>
-                <form action={createPrescriptionDraft} className="form-grid" style={{ marginTop: 16 }}>
-                  <input type="hidden" name="patientId" value={patient.id} />
-                  <label>
-                    Diagnóstico
-                    <input name="diagnosis" maxLength={500} placeholder="Opcional" />
-                  </label>
-                  <label>
-                    CIE-10
-                    <input name="cie10" maxLength={20} placeholder="Opcional" />
-                  </label>
-                  <label style={{ gridColumn: '1 / -1' }}>
-                    Observaciones / indicaciones
-                    <textarea name="observations" maxLength={4000} rows={4} placeholder="Opcional" />
-                  </label>
-                  <label className="checkbox-field" style={{ gridColumn: '1 / -1' }}>
-                    <input type="checkbox" name="longTermTreatment" />
-                    Tratamiento prolongado
-                  </label>
-                  <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
-                    <button className="btn" type="submit">Crear borrador y continuar</button>
-                  </div>
-                </form>
-              </details>
-              <p className="field-hint" style={{ marginBottom: 0 }}>
-                Este paso sólo guarda un borrador dentro de TurnIA. No emite ni envía nada a MisRX.
-              </p>
-            </div>
-
-            <div className="card">
-              <h2>Historial de recetas</h2>
-              {prescriptions.length === 0 ? (
-                <EmptyState title="Todavía no hay recetas registradas" description="Cuando se habilite MisRX, las recetas emitidas aparecerán acá." />
-              ) : (
-                <div className="stack" style={{ gap: 10 }}>
-                  {prescriptions.map((rx: any) => (
-                    <div key={rx.id} className="prescription-row">
-                      <div className="prescription-row-main">
-                        <div className="prescription-row-title">
-                          <span>{rx.provider_prescription_number ? `Receta ${rx.provider_prescription_number}` : 'Receta'}</span>
-                          <span className={`badge ${rx.status === 'issued' ? 'badge-confirmado' : rx.status === 'cancelled' ? 'badge-cancelado' : 'badge-neutral'}`}>
-                            {rx.status === 'issued' ? 'Emitida' : rx.status === 'cancelled' ? 'Anulada' : rx.status === 'draft' ? 'Borrador' : rx.status}
-                          </span>
-                        </div>
-                        <div className="prescription-row-desc">
-                          {rx.issued_at ? formatDateTime(rx.issued_at) : formatDateTime(rx.created_at)}
-                          {rx.cie10 ? ` · CIE-10 ${rx.cie10}` : ''}
-                          {rx.diagnosis ? ` · ${rx.diagnosis}` : ''}
-                        </div>
-                      </div>
-                      {rx.status === 'draft' ? (
-                        <div className="prescription-row-actions">
-                          <Link className="btn secondary btn-compact" href={`/patients/${patient.id}/prescriptions/${rx.id}`}>
-                            Completar borrador
-                          </Link>
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
         <div data-tab="datos">
           <div className="stack">
             <div className="card">
-              <h2>Datos del paciente</h2>
+              <div className="page-header" style={{ marginBottom: 10 }}>
+                <div>
+                  <h2 style={{ margin: 0 }}>Datos del paciente</h2>
+                  <p className="text-helper" style={{ margin: '6px 0 0' }}>
+                    Datos clínicos y administrativos de uso frecuente. Las recetas se gestionan desde Consultorio → Recetas.
+                  </p>
+                </div>
+              </div>
               {/* Mismos 3 grupos que "Nuevo paciente" en el listado — nombre
                   de campo y server action intactos, sólo se agrupa. */}
               <form action={updatePatient} className="form-grid">
@@ -701,6 +609,15 @@ export default async function PatientDetailPage({
                 </label>
                 <label>Plan<input name="insurance_plan" defaultValue={patient.insurance_plan ?? ''} maxLength={160} /></label>
 
+                <details className="patient-data-disclosure" style={{ gridColumn: '1 / -1' }}>
+                  <summary>
+                    <span>
+                      <strong>Datos fiscales y facturación institucional</strong>
+                      <small>Opcional · mostrar sólo cuando sea necesario</small>
+                    </span>
+                    <span className="patient-data-disclosure-action">Ver datos</span>
+                  </summary>
+                  <div className="form-grid patient-data-disclosure-grid">
                 <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
                   <h3>Datos fiscales del paciente</h3>
                   <p className="text-helper" style={{ marginTop: 4 }}>
@@ -760,6 +677,9 @@ export default async function PatientDetailPage({
                     ))}
                   </select>
                 </label>
+
+                  </div>
+                </details>
 
                 <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
                   <h3>Comunicación y recordatorios</h3>
