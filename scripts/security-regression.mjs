@@ -50,6 +50,14 @@ check('Transcription API key remains server-side', transcriptionRoute.includes('
 check('Transcription validates audio size', transcriptionRoute.includes('MAX_AUDIO_BYTES') && transcriptionRoute.includes('audio.size'));
 check('Transcription does not cache responses', transcriptionRoute.includes("cache: 'no-store'") || transcriptionRoute.includes("Cache-Control"));
 
+const transcriptionCreditHardening = read('supabase/migrations/20260922010000_ai_transcription_credit_hardening.sql');
+check(
+  'Transcription balance columns are not directly updatable by authenticated',
+  /revoke\s+update\s+on\s+table\s+public\.ai_transcription_accounts\s+from\s+authenticated/i.test(transcriptionCreditHardening) &&
+    /grant\s+update\s*\(\s*enabled\s*,\s*updated_at\s*\)/i.test(transcriptionCreditHardening) &&
+    !/grant\s+update\s*\([^)]*(balance_seconds|lifetime_used_seconds)/i.test(transcriptionCreditHardening),
+);
+
 const protectedActions = [
   'app/(protected)/patients/actions.ts',
   'app/(protected)/agenda/actions.ts',
