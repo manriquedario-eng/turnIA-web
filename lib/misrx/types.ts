@@ -210,7 +210,12 @@ export type MisRxPlan = {
   convenio_id?: number;
   plan_id?: number;
   descripcion?: string;
-  cobertura?: number;
+  porc_cobertura?: number;
+  vdm_por_afiliado?: number;
+  afiliados_global?: number;
+  autorizaciones_recetas_por_afiliado?: number;
+  regla_items_por_receta?: number;
+  regla_unidades_por_receta?: number;
   convenio_plan_cod?: number;
   afiliado_id?: number;
   [key: string]: unknown;
