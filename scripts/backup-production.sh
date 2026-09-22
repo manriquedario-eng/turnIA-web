@@ -56,19 +56,50 @@ supabase db dump --db-url "$SUPABASE_DB_URL" -f "$WORK_DIR/history_data.sql" --d
 gzip -9 "$WORK_DIR/history_data.sql"
 
 # Preserve durable authentication identity data without restoring active sessions
-# or refresh tokens. A recovered environment should issue fresh sessions.
-docker run --rm \
-  -e DATABASE_URL="$SUPABASE_DB_URL" \
-  -v "$WORK_DIR:/backup" \
-  postgres:17-alpine \
-  sh -ec 'pg_dump "$DATABASE_URL" \
-    --data-only --no-owner --no-privileges \
-    --table=auth.users \
-    --table=auth.identities \
-    --table=auth.mfa_factors \
-    --table=auth.mfa_recovery_code_sets \
-    --table=auth.mfa_recovery_codes \
-    -f /backup/auth_identity_data.sql'
+# or refresh tokens. Parse the connection string ourselves and pass libpq fields
+# separately so special characters in the DB password cannot be misread as URI syntax.
+python3 - "$SUPABASE_DB_URL" "$WORK_DIR" <<'PY'
+import os
+import subprocess
+import sys
+
+url = sys.argv[1]
+work_dir = sys.argv[2]
+
+if "://" not in url:
+    raise SystemExit("SUPABASE_DB_URL is not a PostgreSQL connection URL")
+
+scheme, rest = url.split("://", 1)
+if scheme not in {"postgres", "postgresql"}:
+    raise SystemExit("SUPABASE_DB_URL must use postgres:// or postgresql://")
+
+authority, database = rest.rsplit("/", 1)
+userinfo, hostport = authority.rsplit("@", 1)
+user, password = userinfo.split(":", 1)
+host, port = hostport.rsplit(":", 1)
+database = database.split("?", 1)[0]
+
+cmd = [
+    "docker", "run", "--rm",
+    "-e", f"PGHOST={host}",
+    "-e", f"PGPORT={port}",
+    "-e", f"PGUSER={user}",
+    "-e", f"PGPASSWORD={password}",
+    "-e", f"PGDATABASE={database}",
+    "-v", f"{work_dir}:/backup",
+    "postgres:17-alpine",
+    "pg_dump",
+    "--data-only", "--no-owner", "--no-privileges",
+    "--table=auth.users",
+    "--table=auth.identities",
+    "--table=auth.mfa_factors",
+    "--table=auth.mfa_recovery_code_sets",
+    "--table=auth.mfa_recovery_codes",
+    "-f", "/backup/auth_identity_data.sql",
+]
+
+subprocess.run(cmd, check=True)
+PY
 gzip -9 "$WORK_DIR/auth_identity_data.sql"
 
 cat > "$WORK_DIR/RESTORE.md" <<'EOF'
