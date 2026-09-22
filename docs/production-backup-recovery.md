@@ -30,7 +30,7 @@ separate backup process.
 
 ## Google Workspace Drive layout
 
-The workflow is pinned to the TurnIA Workspace `Database` folder (`1mx1xU9pYe76jsqmxkkye1ZfKOj7s4rvs`). It must contain (or allow rclone to create):
+The workflow is pinned to the existing TurnIA Workspace backup folders under `Database` (`1mx1xU9pYe76jsqmxkkye1ZfKOj7s4rvs`). Uploads and retention use the Google Drive API directly:
 
 - `Daily/`
 - `Weekly/`
@@ -42,8 +42,8 @@ Retention:
 - Weekly: 4
 - Monthly: 3
 
-The runner only prunes old files after the new Daily backup is uploaded and its
-MD5 checksum matches the local encrypted file.
+The runner only prunes old files after the new Daily backup is uploaded and the
+Google Drive MD5 checksum matches the local encrypted file.
 
 ## One-time GitHub Actions secrets
 
@@ -54,8 +54,9 @@ Configure these repository secrets before enabling the schedule:
 - `BACKUP_AGE_RECIPIENT`: age public recipient. The private recovery identity
   must be kept offline and must never be committed to GitHub or stored beside
   the Drive backups.
-- `GDRIVE_SERVICE_ACCOUNT_JSON`: Google Cloud service-account JSON with access
-  only to the backup folder / Shared Drive.
+Google Drive authentication is keyless: GitHub Actions uses OIDC Workload Identity
+Federation to impersonate `turnia-backup@turnia-backups.iam.gserviceaccount.com`.
+No service-account JSON key is created or stored.
 - `BACKUP_ENABLED`: set exactly to `true` only after a manual backup and
   restore test have succeeded.
 
@@ -64,7 +65,7 @@ Configure these repository secrets before enabling the schedule:
 1. Create a TurnIA-owned Shared Drive or restricted Workspace folder.
 2. Grant the backup service account access to that location only.
 3. Generate an age identity offline and record only the public recipient in GitHub.
-4. Configure the four connection/encryption secrets above.
+4. Configure the Supabase connection secret and the age public recipient.
 5. Run `TurnIA Production Backup` manually.
 6. Confirm the encrypted file exists under `Daily/`.
 7. Download that encrypted file to a controlled machine, decrypt it and verify
@@ -83,3 +84,17 @@ This workflow does not back up:
 - active Supabase Auth sessions/refresh tokens
 
 Those require their own recovery inventory or backup procedure.
+
+
+## Keyless Google authentication
+
+GitHub Actions receives a short-lived Google access token through:
+
+- project number: `225705196055`
+- pool: `turnia-github-backups`
+- provider: `github-actions`
+- service account: `turnia-backup@turnia-backups.iam.gserviceaccount.com`
+
+The provider itself restricts authentication to repository
+`manriquedario-eng/turnIA-web` on `refs/heads/main`. The service account has
+Drive access only to the TurnIA backup Database folder shared with it.
