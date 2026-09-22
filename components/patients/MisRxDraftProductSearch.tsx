@@ -161,8 +161,7 @@ export function MisRxDraftProductSearch({
             <button
               key={String(product.producto_id ?? product.code ?? index)}
               type="button"
-              className="integration-row"
-              style={{ textAlign: 'left', cursor: 'pointer' }}
+              className="misrx-choice-button"
               onClick={() => setSelected(product)}
             >
               <strong>{product.nombre || product.descripcion || product.monodroga || 'Medicamento'}</strong>
