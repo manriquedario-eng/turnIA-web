@@ -1,8 +1,13 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { addPrescriptionItem } from '@/app/(protected)/patients/prescription-actions';
 import { getMisRxMaxProducts } from '@/lib/misrx/convention-rules';
+
+type Convention = {
+  convenio_id: number;
+  permite_sustitucion?: boolean;
+};
 
 type Product = {
   code?: string;
@@ -34,9 +39,35 @@ export function MisRxDraftProductSearch({
   const [selected, setSelected] = useState<Product | null>(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [allowSubstitution, setAllowSubstitution] = useState(true);
   const selectedConventionId = conventionId ? Number(conventionId) : null;
   const maxProducts = getMisRxMaxProducts(selectedConventionId);
   const atProductLimit = Boolean(maxProducts && currentItemCount >= maxProducts);
+
+  useEffect(() => {
+    if (!connected || !conventionId) return;
+    let cancelled = false;
+
+    fetch('/api/integrations/misrx/conventions', { cache: 'no-store' })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error('No se pudieron cargar las reglas del convenio');
+        return body;
+      })
+      .then((body) => {
+        if (cancelled) return;
+        const rows = Array.isArray(body?.data) ? body.data as Convention[] : [];
+        const convention = rows.find((item) => String(item.convenio_id) === conventionId);
+        setAllowSubstitution(convention?.permite_sustitucion !== false);
+      })
+      .catch(() => {
+        if (!cancelled) setAllowSubstitution(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, conventionId]);
 
   async function search(event: FormEvent) {
     event.preventDefault();
@@ -183,8 +214,16 @@ export function MisRxDraftProductSearch({
             Imprimir marca
           </label>
           <label className="checkbox-field">
-            <input type="checkbox" name="substitutable" defaultChecked />
+            <input
+              type="checkbox"
+              name="substitutable"
+              defaultChecked={allowSubstitution}
+              disabled={!allowSubstitution}
+            />
             Sustituible
+            {!allowSubstitution ? (
+              <span className="field-hint">Este convenio no permite sustitución.</span>
+            ) : null}
           </label>
           <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
             <button className="btn" type="submit">Agregar al borrador</button>
