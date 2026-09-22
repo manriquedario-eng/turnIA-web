@@ -211,7 +211,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 <div>
                   <h2 style={{ margin: 0 }}>Transcripción con IA</h2>
                   <p className="text-helper" style={{ margin: '6px 0 0' }}>
-                    Módulo opcional. TurnIA usa el audio sólo para convertirlo a texto y no conserva el archivo de audio.
+                    Módulo opcional para dictados breves del profesional, de hasta 5 minutos. No está pensado para grabar sesiones ni conversaciones. TurnIA usa el audio sólo para convertirlo a texto y no conserva el archivo de audio.
                   </p>
                 </div>
                 <span className={`badge ${transcriptionEnabled ? 'badge-confirmado' : 'badge-neutral'}`}>
