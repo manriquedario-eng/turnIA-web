@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { requireTenant } from '@/lib/auth/require-user';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { MisRxDraftProductSearch } from '@/components/patients/MisRxDraftProductSearch';
+import { MisRxDraftClinicalData } from '@/components/patients/MisRxDraftClinicalData';
 import { removePrescriptionItem } from '../../../prescription-actions';
 
 export default async function PrescriptionDraftPage({
@@ -26,7 +27,7 @@ export default async function PrescriptionDraftPage({
       .maybeSingle(),
     supabase
       .from('prescriptions')
-      .select('id,patient_id,professional_id,status,convention_id,diagnosis,cie10,observations,long_term_treatment,created_at')
+      .select('id,patient_id,professional_id,status,convention_id,affiliate_id,diagnosis,cie10,observations,long_term_treatment,created_at')
       .eq('id', prescriptionId)
       .eq('patient_id', patientId)
       .eq('tenant_id', tenantId)
@@ -59,6 +60,7 @@ export default async function PrescriptionDraftPage({
       {query.error ? <p className="alert error">{query.error}</p> : null}
       {query.success === 'item-added' ? <p className="alert success">Medicamento agregado al borrador.</p> : null}
       {query.success === 'item-removed' ? <p className="alert success">Medicamento quitado del borrador.</p> : null}
+      {query.success === 'metadata-updated' ? <p className="alert success">Datos del borrador actualizados.</p> : null}
 
       <div className="card">
         <div className="page-header">
@@ -80,6 +82,23 @@ export default async function PrescriptionDraftPage({
         {prescription.cie10 ? <p><strong>CIE-10:</strong> {prescription.cie10}</p> : null}
         {prescription.observations ? <p><strong>Indicaciones:</strong> {prescription.observations}</p> : null}
       </div>
+
+      {editable ? (
+        <div className="card">
+          <h2>Datos de la receta</h2>
+          <MisRxDraftClinicalData
+            patientId={patient.id}
+            prescriptionId={prescription.id}
+            connected={misRxConnected}
+            initialConventionId={prescription.convention_id}
+            initialAffiliateId={(prescription as any).affiliate_id}
+            initialDiagnosis={prescription.diagnosis}
+            initialCie10={prescription.cie10}
+            initialObservations={prescription.observations}
+            initialLongTermTreatment={prescription.long_term_treatment}
+          />
+        </div>
+      ) : null}
 
       <div className="card">
         <h2>Medicamentos</h2>

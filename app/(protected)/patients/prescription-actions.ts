@@ -264,3 +264,92 @@ export async function removePrescriptionItem(formData: FormData) {
     `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?success=item-removed`,
   );
 }
+
+
+const metadataSchema = z.object({
+  patientId: z.string().uuid(),
+  prescriptionId: z.string().uuid(),
+  conventionId: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+    z.coerce.number().int().positive().nullable().optional(),
+  ),
+  affiliateId: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+    z.coerce.number().int().positive().nullable().optional(),
+  ),
+  diagnosis: optionalText(500),
+  cie10: optionalText(20),
+  observations: optionalText(4000),
+  longTermTreatment: z.preprocess(
+    (value) => value === 'on' || value === 'true' || value === true,
+    z.boolean(),
+  ),
+});
+
+export async function updatePrescriptionDraftMetadata(formData: FormData) {
+  const parsed = metadataSchema.safeParse({
+    patientId: formData.get('patientId'),
+    prescriptionId: formData.get('prescriptionId'),
+    conventionId: formData.get('conventionId'),
+    affiliateId: formData.get('affiliateId'),
+    diagnosis: formData.get('diagnosis'),
+    cie10: formData.get('cie10'),
+    observations: formData.get('observations'),
+    longTermTreatment: formData.get('longTermTreatment'),
+  });
+
+  if (!parsed.success) {
+    redirect('/patients?error=Datos%20de%20receta%20inv%C3%A1lidos');
+  }
+
+  const { supabase, tenantId, user } = await requireTenant();
+  const { data: prescription } = await supabase
+    .from('prescriptions')
+    .select('id,status,professional_id')
+    .eq('id', parsed.data.prescriptionId)
+    .eq('tenant_id', tenantId)
+    .eq('patient_id', parsed.data.patientId)
+    .maybeSingle();
+
+  if (
+    !prescription ||
+    prescription.status !== 'draft' ||
+    prescription.professional_id !== user.id
+  ) {
+    redirect(
+      `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?error=${encodeURIComponent('El borrador no está disponible para editar')}`,
+    );
+  }
+
+  const { error } = await supabase
+    .from('prescriptions')
+    .update({
+      convention_id: parsed.data.conventionId ?? null,
+      affiliate_id: parsed.data.affiliateId ?? null,
+      diagnosis: parsed.data.diagnosis ?? null,
+      cie10: parsed.data.cie10 ?? null,
+      observations: parsed.data.observations ?? null,
+      long_term_treatment: parsed.data.longTermTreatment,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', prescription.id)
+    .eq('tenant_id', tenantId)
+    .eq('professional_id', user.id)
+    .eq('status', 'draft');
+
+  if (error) {
+    console.error('[misrx] update draft metadata failed', {
+      code: error.code,
+      message: error.message,
+    });
+    redirect(
+      `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?error=${encodeURIComponent('No se pudo actualizar el borrador')}`,
+    );
+  }
+
+  revalidatePath(`/patients/${parsed.data.patientId}`);
+  revalidatePath(`/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}`);
+  redirect(
+    `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?success=metadata-updated`,
+  );
+}
