@@ -49,6 +49,19 @@ check('Transcription endpoint requires tenant auth', transcriptionRoute.includes
 check('Transcription API key remains server-side', transcriptionRoute.includes('process.env.OPENAI_API_KEY') && !runtimeText.includes('NEXT_PUBLIC_OPENAI_API_KEY'));
 check('Transcription validates audio size', transcriptionRoute.includes('MAX_AUDIO_BYTES') && transcriptionRoute.includes('audio.size'));
 check('Transcription does not cache responses', transcriptionRoute.includes("cache: 'no-store'") || transcriptionRoute.includes("Cache-Control"));
+check(
+  'Transcription enforces five-minute dictation limit server-side',
+  transcriptionRoute.includes('MAX_DICTATION_SECONDS = 5 * 60') &&
+    transcriptionRoute.includes('durationSeconds > MAX_DICTATION_SECONDS') &&
+    transcriptionRoute.includes('Math.min(MAX_DICTATION_SECONDS'),
+);
+const voiceTranscriptionUi = read('components/patients/VoiceTranscriptionTextarea.tsx');
+check(
+  'Voice dictation UI auto-stops at five minutes and explains intended use',
+  voiceTranscriptionUi.includes('MAX_DICTATION_SECONDS = 5 * 60') &&
+    voiceTranscriptionUi.includes('next >= MAX_DICTATION_SECONDS') &&
+    voiceTranscriptionUi.includes('No está pensado para grabar sesiones ni conversaciones'),
+);
 
 const transcriptionCreditHardening = read('supabase/migrations/20260922010000_ai_transcription_credit_hardening.sql');
 check(
