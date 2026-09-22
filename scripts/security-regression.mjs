@@ -52,8 +52,12 @@ check('Transcription does not cache responses', transcriptionRoute.includes("cac
 check(
   'Transcription enforces five-minute dictation limit server-side',
   transcriptionRoute.includes('MAX_DICTATION_SECONDS = 5 * 60') &&
-    transcriptionRoute.includes('durationSeconds > MAX_DICTATION_SECONDS') &&
-    transcriptionRoute.includes('Math.min(MAX_DICTATION_SECONDS'),
+    transcriptionRoute.includes('durationSeconds > MAX_DICTATION_SECONDS'),
+);
+check(
+  'Five-minute cap applies per recording, not to account consumption',
+  transcriptionRoute.includes('normalizeDictationSeconds') &&
+    !/Math\.min\(MAX_DICTATION_SECONDS/.test(transcriptionRoute),
 );
 const voiceTranscriptionUi = read('components/patients/VoiceTranscriptionTextarea.tsx');
 check(
