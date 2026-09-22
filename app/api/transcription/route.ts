@@ -9,6 +9,7 @@ export const maxDuration = 60;
 
 const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
 const MIN_RESERVATION_SECONDS = 30;
+const MAX_DICTATION_SECONDS = 5 * 60;
 const TRANSCRIPTION_WINDOW_SECONDS = 15 * 60;
 const TRANSCRIPTION_USER_MAX = 20;
 const TRANSCRIPTION_TENANT_MAX = 30;
@@ -34,7 +35,7 @@ type OpenAiTranscriptionResponse = {
 };
 
 function clampSeconds(value: number): number {
-  return Math.max(1, Math.min(900, Math.ceil(value)));
+  return Math.max(1, Math.min(MAX_DICTATION_SECONDS, Math.ceil(value)));
 }
 
 export async function POST(request: Request) {
@@ -97,8 +98,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Falta el archivo de audio.' }, { status: 400 });
   }
 
-  if (!Number.isFinite(durationSeconds) || durationSeconds < 1 || durationSeconds > 900) {
-    return NextResponse.json({ error: 'Duración de audio inválida.' }, { status: 400 });
+  if (!Number.isFinite(durationSeconds) || durationSeconds < 1 || durationSeconds > MAX_DICTATION_SECONDS) {
+    return NextResponse.json(
+      { error: 'El dictado puede durar como máximo 5 minutos.' },
+      { status: 400 },
+    );
   }
 
   if (patientIdParsed && !patientIdParsed.success) {
