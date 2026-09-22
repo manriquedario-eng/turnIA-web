@@ -4,6 +4,7 @@ import { createSupabaseServiceClient, isServiceRoleConfigured } from '@/lib/supa
 import { getMisRxAdapterForUser, isMisRxProviderConfigured } from '@/lib/misrx/service';
 import { getMisRxHomologationConfig } from '@/lib/misrx/homologation';
 import { getMisRxMaxProducts } from '@/lib/misrx/convention-rules';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
@@ -24,6 +25,20 @@ export async function POST(
     return NextResponse.json(
       { error: 'La integración MisRX no está completamente configurada.' },
       { status: 503 },
+    );
+  }
+
+  const limit = await checkRateLimit({
+    scope: 'misrx-issue-user',
+    key: user.id,
+    windowSeconds: 60,
+    maxCount: 5,
+  });
+
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiados intentos de emisión. Esperá unos segundos y volvé a intentar.' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } },
     );
   }
 
