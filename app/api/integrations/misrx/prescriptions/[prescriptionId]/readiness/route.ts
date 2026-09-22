@@ -196,7 +196,7 @@ export async function GET(
 
   return NextResponse.json({
     ready,
-    liveIssuingEnabled: false,
+    liveIssuingEnabled: Boolean(homologationActive && homologation.issuingEnabled),
     homologation: {
       enabled: homologation.enabled,
       activeForConvention: homologationActive,
