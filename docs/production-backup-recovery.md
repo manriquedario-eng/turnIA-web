@@ -30,7 +30,7 @@ separate backup process.
 
 ## Google Workspace Drive layout
 
-The configured Drive root folder must contain (or allow rclone to create):
+The workflow is pinned to the TurnIA Workspace `Database` folder (`1mx1xU9pYe76jsqmxkkye1ZfKOj7s4rvs`). It must contain (or allow rclone to create):
 
 - `Daily/`
 - `Weekly/`
@@ -56,7 +56,6 @@ Configure these repository secrets before enabling the schedule:
   the Drive backups.
 - `GDRIVE_SERVICE_ACCOUNT_JSON`: Google Cloud service-account JSON with access
   only to the backup folder / Shared Drive.
-- `GDRIVE_ROOT_FOLDER_ID`: Drive folder ID used as the rclone root.
 - `BACKUP_ENABLED`: set exactly to `true` only after a manual backup and
   restore test have succeeded.
 
