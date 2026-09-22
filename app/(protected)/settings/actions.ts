@@ -228,12 +228,12 @@ export async function updateAiTranscriptionSetting(formData: FormData) {
   const { supabase, tenantId } = await requireTenant();
   const enabled = formData.get('enabled') === 'true';
 
-  const { error } = await supabase
-    .from('ai_transcription_accounts')
-    .update({ enabled, updated_at: new Date().toISOString() })
-    .eq('tenant_id', tenantId);
+  const { data: updated, error } = await supabase.rpc('set_ai_transcription_enabled', {
+    p_tenant_id: tenantId,
+    p_enabled: enabled,
+  });
 
-  if (error) {
+  if (error || updated !== true) {
     redirect(`/settings?error=${encodeURIComponent('No se pudo actualizar Transcripción IA.')}`);
   }
 
