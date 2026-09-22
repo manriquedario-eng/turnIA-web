@@ -146,9 +146,8 @@ export default async function PrescriptionDraftPage({
       <div className="card">
         <h2>Preparación para emisión</h2>
         <MisRxReadinessPanel prescriptionId={prescription.id} />
-        <button className="btn" type="button" disabled style={{ marginTop: 12 }}>Emitir receta</button>
         <p className="field-hint" style={{ marginBottom: 0 }}>
-          La emisión real permanece bloqueada hasta validar el circuito de homologación de MisRX/Preserfar.
+          La emisión productiva permanece bloqueada. En preview sólo se habilita la prueba de homologación cuando todas las protecciones del servidor están configuradas.
         </p>
       </div>
     </section>
