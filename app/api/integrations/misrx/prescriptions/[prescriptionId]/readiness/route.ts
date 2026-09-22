@@ -28,7 +28,7 @@ export async function GET(
 
   const { data: prescription } = await supabase
     .from('prescriptions')
-    .select('id,patient_id,professional_id,status,convention_id,affiliate_id')
+    .select('id,patient_id,professional_id,status,convention_id,plan_id,affiliate_id,diagnosis,cie10,observations')
     .eq('id', prescriptionId)
     .eq('tenant_id', tenantId)
     .maybeSingle();
@@ -51,7 +51,7 @@ export async function GET(
       .maybeSingle(),
     supabase
       .from('prescription_items')
-      .select('id,provider_product_id,quantity')
+      .select('id,provider_product_id,quantity,substitutable')
       .eq('prescription_id', prescription.id),
   ]);
 
@@ -190,6 +190,60 @@ export async function GET(
         ? 'Login y sesión Bearer validados contra el endpoint oficial /test.'
         : 'No se pudo validar la sesión de la cuenta MisRX conectada.',
     });
+
+    if (sessionResult.ok && prescription.convention_id) {
+      const conventionsResult = await adapterResult.data.getEnabledConventions('');
+      const convention = conventionsResult.ok
+        ? conventionsResult.data.data.find((item) => item.convenio_id === prescription.convention_id)
+        : undefined;
+
+      if (convention?.diagnostico_requerido) {
+        const hasDiagnosis = Boolean(prescription.diagnosis?.trim() || prescription.cie10?.trim());
+        checks.push({
+          key: 'diagnosis-required',
+          ok: hasDiagnosis,
+          label: 'Diagnóstico requerido por convenio',
+          detail: hasDiagnosis
+            ? 'El borrador tiene diagnóstico o código CIE-10.'
+            : 'Este convenio exige diagnóstico. Completá diagnóstico o CIE-10.',
+        });
+      }
+
+      if (convention?.digital_elige_plan) {
+        checks.push({
+          key: 'plan-required',
+          ok: Boolean(prescription.plan_id),
+          label: 'Plan del afiliado',
+          detail: prescription.plan_id
+            ? 'Hay un plan seleccionado para este convenio.'
+            : 'Este convenio requiere seleccionar un plan antes de emitir.',
+        });
+      }
+
+      if (convention?.posologia_requierida) {
+        const hasDirections = Boolean(prescription.observations?.trim());
+        checks.push({
+          key: 'posology-required',
+          ok: hasDirections,
+          label: 'Indicaciones / posología',
+          detail: hasDirections
+            ? 'La receta tiene indicaciones u observaciones cargadas.'
+            : 'Este convenio requiere posología. Completala en Observaciones / indicaciones / posología.',
+        });
+      }
+
+      if (convention?.permite_sustitucion === false) {
+        const substitutionsDisabled = Boolean(items?.every((item) => item.substitutable !== true));
+        checks.push({
+          key: 'substitution-rule',
+          ok: substitutionsDisabled,
+          label: 'Sustitución de medicamentos',
+          detail: substitutionsDisabled
+            ? 'Los medicamentos respetan la regla de no sustitución del convenio.'
+            : 'Este convenio no permite sustitución. Revisá los medicamentos del borrador.',
+        });
+      }
+    }
   }
 
   const ready = checks.every((check) => check.ok);
