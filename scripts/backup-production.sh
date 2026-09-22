@@ -5,8 +5,10 @@ umask 077
 required_env=(
   SUPABASE_DB_URL
   BACKUP_AGE_RECIPIENT
-  GDRIVE_SERVICE_ACCOUNT_JSON
-  GDRIVE_ROOT_FOLDER_ID
+  GDRIVE_ACCESS_TOKEN
+  GDRIVE_DAILY_FOLDER_ID
+  GDRIVE_WEEKLY_FOLDER_ID
+  GDRIVE_MONTHLY_FOLDER_ID
 )
 
 for name in "${required_env[@]}"; do
@@ -16,7 +18,7 @@ for name in "${required_env[@]}"; do
   fi
 done
 
-for cmd in supabase docker age rclone jq sha256sum gzip tar; do
+for cmd in supabase docker age curl jq sha256sum md5sum gzip tar; do
   command -v "$cmd" >/dev/null 2>&1 || {
     echo "Required command not found: $cmd" >&2
     exit 2
@@ -31,11 +33,8 @@ WORK_ROOT="${RUNNER_TEMP:-/tmp}/turnia-backup"
 WORK_DIR="${WORK_ROOT}/${BACKUP_ID}"
 ARCHIVE="${WORK_ROOT}/${BACKUP_ID}.tar.gz"
 ENCRYPTED="${ARCHIVE}.age"
-SA_FILE="${WORK_ROOT}/google-drive-service-account.json"
-
 rm -rf "$WORK_ROOT"
 mkdir -p "$WORK_DIR"
-printf '%s' "$GDRIVE_SERVICE_ACCOUNT_JSON" > "$SA_FILE"
 
 cleanup() {
   rm -rf "$WORK_ROOT"
@@ -128,60 +127,77 @@ age -r "$BACKUP_AGE_RECIPIENT" -o "$ENCRYPTED" "$ARCHIVE"
 
 test -s "$ENCRYPTED"
 
-export RCLONE_CONFIG_DRIVE_TYPE=drive
-export RCLONE_CONFIG_DRIVE_SCOPE=drive
-export RCLONE_CONFIG_DRIVE_SERVICE_ACCOUNT_FILE="$SA_FILE"
-export RCLONE_CONFIG_DRIVE_ROOT_FOLDER_ID="$GDRIVE_ROOT_FOLDER_ID"
-
 FILE_NAME="$(basename "$ENCRYPTED")"
 
+drive_api() {
+  curl --fail-with-body --silent --show-error \
+    -H "Authorization: Bearer $GDRIVE_ACCESS_TOKEN" \
+    "$@"
+}
+
 upload_and_verify() {
-  local folder="$1"
-  local target="drive:${folder}/${FILE_NAME}"
+  local folder_id="$1"
+  local label="$2"
+  local metadata response file_id remote_md5 local_md5
 
-  rclone copyto "$ENCRYPTED" "$target" --drive-chunk-size 32M
+  metadata="$(jq -nc --arg name "$FILE_NAME" --arg parent "$folder_id" '{name:$name,parents:[$parent]}')"
 
-  local local_md5 remote_md5
+  response="$(drive_api \
+    -X POST \
+    -F "metadata=$metadata;type=application/json;charset=UTF-8" \
+    -F "file=@$ENCRYPTED;type=application/octet-stream" \
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,md5Checksum,parents")"
+
+  file_id="$(jq -r '.id // empty' <<<"$response")"
+  remote_md5="$(jq -r '.md5Checksum // empty' <<<"$response")"
   local_md5="$(md5sum "$ENCRYPTED" | awk '{print $1}')"
-  remote_md5="$(rclone md5sum "$target" | awk '{print $1}')"
 
-  if [[ -z "$remote_md5" || "$local_md5" != "$remote_md5" ]]; then
-    echo "Remote verification failed for $target" >&2
+  if [[ -z "$file_id" || -z "$remote_md5" || "$local_md5" != "$remote_md5" ]]; then
+    echo "Remote verification failed for $label" >&2
     exit 1
   fi
 
-  echo "Verified upload: $target"
+  echo "Verified upload to $label: $FILE_NAME ($file_id)"
 }
 
 prune_folder() {
-  local folder="$1"
+  local folder_id="$1"
   local keep="$2"
+  local label="$3"
+  local query response
 
-  mapfile -t stale < <(
-    rclone lsjson "drive:${folder}" --files-only |
-      jq -r --argjson keep "$keep" 'sort_by(.ModTime) | reverse | .[$keep:] | .[].Path'
-  )
+  query="'$folder_id' in parents and trashed = false and name contains 'turnia-prod-'"
 
-  for path in "${stale[@]:-}"; do
-    [[ -z "$path" ]] && continue
-    rclone deletefile "drive:${folder}/${path}"
-    echo "Pruned old backup: ${folder}/${path}"
+  response="$(drive_api --get \
+    --data-urlencode "q=$query" \
+    --data-urlencode "orderBy=createdTime desc" \
+    --data-urlencode "pageSize=100" \
+    --data-urlencode "fields=files(id,name,createdTime)" \
+    "https://www.googleapis.com/drive/v3/files")"
+
+  mapfile -t stale_ids < <(jq -r --argjson keep "$keep" '.files[$keep:][]?.id' <<<"$response")
+  mapfile -t stale_names < <(jq -r --argjson keep "$keep" '.files[$keep:][]?.name' <<<"$response")
+
+  for i in "${!stale_ids[@]}"; do
+    [[ -z "${stale_ids[$i]:-}" ]] && continue
+    drive_api -X DELETE "https://www.googleapis.com/drive/v3/files/${stale_ids[$i]}" >/dev/null
+    echo "Pruned old backup from $label: ${stale_names[$i]}"
   done
 }
 
-upload_and_verify "Daily"
+upload_and_verify "$GDRIVE_DAILY_FOLDER_ID" "Daily"
 
 if [[ "$(date '+%u')" == "7" ]]; then
-  upload_and_verify "Weekly"
+  upload_and_verify "$GDRIVE_WEEKLY_FOLDER_ID" "Weekly"
 fi
 
 if [[ "$(date '+%d')" == "01" ]]; then
-  upload_and_verify "Monthly"
+  upload_and_verify "$GDRIVE_MONTHLY_FOLDER_ID" "Monthly"
 fi
 
 # Retention runs only after a new Daily backup has been uploaded and verified.
-prune_folder "Daily" 7
-prune_folder "Weekly" 4
-prune_folder "Monthly" 3
+prune_folder "$GDRIVE_DAILY_FOLDER_ID" 7 "Daily"
+prune_folder "$GDRIVE_WEEKLY_FOLDER_ID" 4 "Weekly"
+prune_folder "$GDRIVE_MONTHLY_FOLDER_ID" 3 "Monthly"
 
 echo "TurnIA production backup completed successfully: $FILE_NAME"
