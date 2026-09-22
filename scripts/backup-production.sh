@@ -177,7 +177,7 @@ upload_and_verify() {
     -X POST \
     -F "metadata=$metadata;type=application/json;charset=UTF-8" \
     -F "file=@$ENCRYPTED;type=application/octet-stream" \
-    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,md5Checksum,parents")"
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,md5Checksum,parents")"
 
   file_id="$(jq -r '.id // empty' <<<"$response")"
   remote_md5="$(jq -r '.md5Checksum // empty' <<<"$response")"
@@ -204,6 +204,8 @@ prune_folder() {
     --data-urlencode "orderBy=createdTime desc" \
     --data-urlencode "pageSize=100" \
     --data-urlencode "fields=files(id,name,createdTime)" \
+    --data-urlencode "supportsAllDrives=true" \
+    --data-urlencode "includeItemsFromAllDrives=true" \
     "https://www.googleapis.com/drive/v3/files")"
 
   mapfile -t stale_ids < <(jq -r --argjson keep "$keep" '.files[$keep:][]?.id' <<<"$response")
@@ -211,7 +213,7 @@ prune_folder() {
 
   for i in "${!stale_ids[@]}"; do
     [[ -z "${stale_ids[$i]:-}" ]] && continue
-    drive_api -X DELETE "https://www.googleapis.com/drive/v3/files/${stale_ids[$i]}" >/dev/null
+    drive_api -X DELETE "https://www.googleapis.com/drive/v3/files/${stale_ids[$i]}?supportsAllDrives=true" >/dev/null
     echo "Pruned old backup from $label: ${stale_names[$i]}"
   done
 }
