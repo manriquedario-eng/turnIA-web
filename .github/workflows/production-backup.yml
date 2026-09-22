@@ -22,7 +22,7 @@ jobs:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
       GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
-      GDRIVE_ROOT_FOLDER_ID: ${{ secrets.GDRIVE_ROOT_FOLDER_ID }}
+      GDRIVE_ROOT_FOLDER_ID: 1mx1xU9pYe76jsqmxkkye1ZfKOj7s4rvs
       SUPABASE_PROJECT_REF: nnbpefxvpmegngqopcvw
       BACKUP_TIMEZONE: America/Argentina/Mendoza
 
