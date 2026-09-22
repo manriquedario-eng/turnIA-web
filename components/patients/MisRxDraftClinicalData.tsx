@@ -39,6 +39,8 @@ export function MisRxDraftClinicalData({
   initialCie10,
   initialObservations,
   initialLongTermTreatment,
+  patientDni,
+  patientCredential,
 }: {
   patientId: string;
   prescriptionId: string;
@@ -49,6 +51,8 @@ export function MisRxDraftClinicalData({
   initialCie10?: string | null;
   initialObservations?: string | null;
   initialLongTermTreatment?: boolean | null;
+  patientDni?: string | null;
+  patientCredential?: string | null;
 }) {
   const [conventions, setConventions] = useState<Convention[]>([]);
   const [conventionId, setConventionId] = useState(initialConventionId ? String(initialConventionId) : '');
@@ -138,6 +142,11 @@ export function MisRxDraftClinicalData({
     <div className="stack">
       {connected ? (
         <>
+          <div className="alert" style={{ marginBottom: 0 }}>
+            <strong>Datos usados para buscar al afiliado en MisRX:</strong>{' '}
+            DNI/documento: {patientDni || 'sin cargar'} · Nº afiliado/credencial: {patientCredential || 'sin cargar'}.
+            {!patientDni || !patientCredential ? ' Completalos en Paciente → Datos antes de consultar.' : ''}
+          </div>
           <div className="form-grid">
             <label>
               Convenio
