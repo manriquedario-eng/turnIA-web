@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+const MAX_DICTATION_SECONDS = 5 * 60;
+
 type Props = {
   name: string;
   label: string;
@@ -81,7 +83,7 @@ export function VoiceTranscriptionTextarea({
       });
       const form = new FormData();
       form.append('audio', file);
-      form.append('duration_seconds', String(Math.max(1, Math.min(900, Math.ceil(durationSeconds)))));
+      form.append('duration_seconds', String(Math.max(1, Math.min(MAX_DICTATION_SECONDS, Math.ceil(durationSeconds)))));
       form.append('usage_context', usageContext);
       if (patientId) form.append('patient_id', patientId);
 
@@ -162,7 +164,7 @@ export function VoiceTranscriptionTextarea({
       timerRef.current = window.setInterval(() => {
         setSeconds((current) => {
           const next = current + 1;
-          if (next >= 900 && recorder.state !== 'inactive') {
+          if (next >= MAX_DICTATION_SECONDS && recorder.state !== 'inactive') {
             recorder.stop();
           }
           return next;
@@ -229,7 +231,7 @@ export function VoiceTranscriptionTextarea({
         ) : transcribing ? (
           <span>Procesando la nota y convirtiéndola a texto…</span>
         ) : supported ? (
-          <span>TurnIA usa el audio sólo para transcribir esta nota y conserva únicamente el texto.</span>
+          <span>Dictado breve del profesional, máximo 5 minutos. No está pensado para grabar sesiones ni conversaciones. TurnIA usa el audio sólo para transcribir la nota y conserva únicamente el texto.</span>
         ) : (
           <span>La grabación de voz no está disponible en este navegador.</span>
         )}
