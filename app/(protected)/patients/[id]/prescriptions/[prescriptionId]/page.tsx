@@ -4,6 +4,7 @@ import { requireTenant } from '@/lib/auth/require-user';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { MisRxDraftProductSearch } from '@/components/patients/MisRxDraftProductSearch';
 import { MisRxDraftClinicalData } from '@/components/patients/MisRxDraftClinicalData';
+import { MisRxReadinessPanel } from '@/components/patients/MisRxReadinessPanel';
 import { removePrescriptionItem } from '../../../prescription-actions';
 
 export default async function PrescriptionDraftPage({
@@ -143,10 +144,11 @@ export default async function PrescriptionDraftPage({
       ) : null}
 
       <div className="card">
-        <h2>Emisión</h2>
-        <button className="btn" type="button" disabled>Emitir receta</button>
+        <h2>Preparación para emisión</h2>
+        <MisRxReadinessPanel prescriptionId={prescription.id} />
+        <button className="btn" type="button" disabled style={{ marginTop: 12 }}>Emitir receta</button>
         <p className="field-hint" style={{ marginBottom: 0 }}>
-          La emisión permanecerá bloqueada hasta contar con soft_id oficial, credenciales habilitadas y homologación de MisRX/Preserfar.
+          La emisión real permanece bloqueada hasta validar el circuito de homologación de MisRX/Preserfar.
         </p>
       </div>
     </section>
