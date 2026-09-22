@@ -12,6 +12,7 @@ import type {
   MisRxPrescriptionResponse,
   MisRxProduct,
   MisRxProfessionalProfile,
+  MisRxSessionTestResponse,
   MisRxCancelPrescriptionPayload,
   MisRxPlan,
   MisRxCancelPrescriptionResponse,
@@ -30,6 +31,15 @@ export class MisRxAdapter {
     const login = await loginToMisRx(this.credentials);
     if (!login.ok) return login;
     return operation(login.data.access_token);
+  }
+
+  async testSession(): Promise<MisRxApiResult<MisRxSessionTestResponse>> {
+    return this.withToken((accessToken) =>
+      misRxRequest<MisRxSessionTestResponse>({
+        path: '/test',
+        accessToken,
+      }),
+    );
   }
 
   async testConnection(): Promise<MisRxApiResult<MisRxProfessionalProfile>> {
