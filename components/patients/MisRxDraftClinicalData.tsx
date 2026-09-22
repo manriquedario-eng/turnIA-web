@@ -6,6 +6,11 @@ import { updatePrescriptionDraftMetadata } from '@/app/(protected)/patients/pres
 type Convention = {
   convenio_id: number;
   nombre: string;
+  digital_elige_plan?: boolean;
+  permite_sustitucion?: boolean;
+  diagnostico_requerido?: number;
+  posologia_requierida?: number;
+  digital_tratamiento_prolongado?: number;
 };
 
 type Affiliate = {
@@ -80,6 +85,7 @@ export function MisRxDraftClinicalData({
   const [message, setMessage] = useState('');
   const [affiliateLoading, setAffiliateLoading] = useState(false);
   const [diagnosisLoading, setDiagnosisLoading] = useState(false);
+  const selectedConvention = conventions.find((item) => String(item.convenio_id) === conventionId);
 
   useEffect(() => {
     if (!connected) return;
@@ -238,6 +244,15 @@ export function MisRxDraftClinicalData({
             </div>
           </div>
 
+          {selectedConvention ? (
+            <div className="misrx-rule-strip" aria-label="Reglas del convenio seleccionado">
+              {selectedConvention.diagnostico_requerido ? <span className="badge badge-pendiente">Diagnóstico requerido</span> : null}
+              {selectedConvention.digital_elige_plan ? <span className="badge badge-pendiente">Plan requerido</span> : null}
+              {selectedConvention.posologia_requierida ? <span className="badge badge-pendiente">Posología requerida</span> : null}
+              {selectedConvention.permite_sustitucion === false ? <span className="badge badge-neutral">Sin sustitución</span> : null}
+            </div>
+          ) : null}
+
           {affiliates.length > 0 ? (
             <label>
               Coincidencia en MisRX
@@ -347,8 +362,14 @@ export function MisRxDraftClinicalData({
           />
         </label>
         <label style={{ gridColumn: '1 / -1' }}>
-          Observaciones / indicaciones
-          <textarea name="observations" rows={4} maxLength={4000} defaultValue={initialObservations ?? ''} />
+          Observaciones / indicaciones / posología
+          <textarea
+            name="observations"
+            rows={4}
+            maxLength={4000}
+            defaultValue={initialObservations ?? ''}
+            placeholder={selectedConvention?.posologia_requierida ? 'Completá la posología requerida por el convenio' : 'Opcional'}
+          />
         </label>
         <label className="checkbox-field" style={{ gridColumn: '1 / -1' }}>
           <input type="checkbox" name="longTermTreatment" defaultChecked={Boolean(initialLongTermTreatment)} />
