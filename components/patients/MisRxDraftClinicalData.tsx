@@ -15,6 +15,16 @@ type Affiliate = {
   nrodoc?: number;
 };
 
+type Plan = {
+  convenio_id?: number;
+  plan_id: number;
+  descripcion?: string;
+  porc_cobertura?: number;
+  convenio_plan_cod?: number;
+  regla_items_por_receta?: number;
+  regla_unidades_por_receta?: number;
+};
+
 type Diagnosis = {
   cie10_id?: number;
   codigo_3c?: string;
@@ -35,6 +45,7 @@ export function MisRxDraftClinicalData({
   connected,
   initialConventionId,
   initialAffiliateId,
+  initialPlanId,
   initialDiagnosis,
   initialCie10,
   initialObservations,
@@ -47,6 +58,7 @@ export function MisRxDraftClinicalData({
   connected: boolean;
   initialConventionId?: number | null;
   initialAffiliateId?: number | null;
+  initialPlanId?: number | null;
   initialDiagnosis?: string | null;
   initialCie10?: string | null;
   initialObservations?: string | null;
@@ -58,6 +70,9 @@ export function MisRxDraftClinicalData({
   const [conventionId, setConventionId] = useState(initialConventionId ? String(initialConventionId) : '');
   const [affiliateId, setAffiliateId] = useState(initialAffiliateId ? String(initialAffiliateId) : '');
   const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
+  const [planId, setPlanId] = useState(initialPlanId ? String(initialPlanId) : '');
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
   const [diagnosis, setDiagnosis] = useState(initialDiagnosis ?? '');
   const [cie10, setCie10] = useState(initialCie10 ?? '');
   const [diagnosisQuery, setDiagnosisQuery] = useState('');
@@ -87,6 +102,44 @@ export function MisRxDraftClinicalData({
       cancelled = true;
     };
   }, [connected]);
+
+  useEffect(() => {
+    if (!connected || !conventionId) {
+      setPlans([]);
+      return;
+    }
+
+    let cancelled = false;
+    setPlansLoading(true);
+
+    const params = new URLSearchParams({ convenio_id: conventionId });
+    if (affiliateId) params.set('afiliado_id', affiliateId);
+
+    fetch(`/api/integrations/misrx/plans?${params.toString()}`, { cache: 'no-store' })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body?.error || 'No se pudieron cargar los planes');
+        return body;
+      })
+      .then((body) => {
+        if (cancelled) return;
+        const rows = resultRows<Plan>(body);
+        setPlans(rows);
+        if (planId && !rows.some((item) => String(item.plan_id) === planId)) {
+          setPlanId('');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPlans([]);
+      })
+      .finally(() => {
+        if (!cancelled) setPlansLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, conventionId, affiliateId]);
 
   async function lookupAffiliate() {
     setMessage('');
@@ -164,6 +217,8 @@ export function MisRxDraftClinicalData({
                   setConventionId(event.target.value);
                   setAffiliateId('');
                   setAffiliates([]);
+                  setPlanId('');
+                  setPlans([]);
                 }}
               >
                 <option value="">Seleccionar convenio</option>
@@ -186,7 +241,10 @@ export function MisRxDraftClinicalData({
           {affiliates.length > 0 ? (
             <label>
               Coincidencia en MisRX
-              <select value={affiliateId} onChange={(event) => setAffiliateId(event.target.value)}>
+              <select value={affiliateId} onChange={(event) => {
+                setAffiliateId(event.target.value);
+                setPlanId('');
+              }}>
                 <option value="">Sin seleccionar</option>
                 {affiliates.map((item) => (
                   <option key={item.afiliado_id} value={item.afiliado_id}>
@@ -194,6 +252,24 @@ export function MisRxDraftClinicalData({
                   </option>
                 ))}
               </select>
+            </label>
+          ) : null}
+
+          {plans.length > 0 || plansLoading ? (
+            <label>
+              Plan
+              <select value={planId} onChange={(event) => setPlanId(event.target.value)} disabled={plansLoading}>
+                <option value="">{plansLoading ? 'Cargando planes…' : 'Seleccionar plan (si corresponde)'}</option>
+                {plans.map((plan) => (
+                  <option key={plan.plan_id} value={plan.plan_id}>
+                    {plan.descripcion || `Plan ${plan.plan_id}`}
+                    {plan.porc_cobertura != null ? ` · Cobertura ${plan.porc_cobertura}%` : ''}
+                  </option>
+                ))}
+              </select>
+              <span className="field-hint">
+                MisRX puede exigir un plan según el convenio. Si aparecen opciones, elegí la que corresponda al afiliado.
+              </span>
             </label>
           ) : null}
 
@@ -251,6 +327,7 @@ export function MisRxDraftClinicalData({
         <input type="hidden" name="prescriptionId" value={prescriptionId} />
         <input type="hidden" name="conventionId" value={conventionId} />
         <input type="hidden" name="affiliateId" value={affiliateId} />
+        <input type="hidden" name="planId" value={planId} />
         <label>
           Diagnóstico
           <input
