@@ -212,9 +212,11 @@ export async function POST(
     .from('prescriptions')
     .update({
       status: finalStatus,
+      // Guardamos primero el nrorecetario canónico devuelto por MisRX porque
+      // es el identificador que exige el endpoint oficial de anulación.
       provider_prescription_number:
-        result.data.nrorecetario_receta ??
         result.data.nrorecetario ??
+        result.data.nrorecetario_receta ??
         result.data.nrorecetario_os ??
         null,
       provider_token: result.data.token ?? null,
