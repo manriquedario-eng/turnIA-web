@@ -34,8 +34,8 @@ type OpenAiTranscriptionResponse = {
   };
 };
 
-function clampSeconds(value: number): number {
-  return Math.max(1, Math.min(MAX_DICTATION_SECONDS, Math.ceil(value)));
+function normalizeDictationSeconds(value: number): number {
+  return Math.max(1, Math.ceil(value));
 }
 
 export async function POST(request: Request) {
@@ -158,7 +158,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const reservationSeconds = clampSeconds(Math.max(durationSeconds, MIN_RESERVATION_SECONDS));
+  const reservationSeconds = normalizeDictationSeconds(Math.max(durationSeconds, MIN_RESERVATION_SECONDS));
 
   if (Number(account.balance_seconds ?? 0) < reservationSeconds) {
     return NextResponse.json(
@@ -230,7 +230,7 @@ export async function POST(request: Request) {
           ? result.duration
           : durationSeconds;
 
-    const actualSeconds = clampSeconds(providerSecondsRaw);
+    const actualSeconds = normalizeDictationSeconds(providerSecondsRaw);
 
     const { data: settled, error: settleError } = await supabase.rpc(
       'settle_ai_transcription_reservation',
