@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: turnia-production-backup
@@ -21,8 +22,9 @@ jobs:
       BACKUP_ENABLED: ${{ secrets.BACKUP_ENABLED }}
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
-      GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
-      GDRIVE_ROOT_FOLDER_ID: 1mx1xU9pYe76jsqmxkkye1ZfKOj7s4rvs
+      GDRIVE_DAILY_FOLDER_ID: 1cFZvLZTMDxre9Q8QgYzDZu_mfUkSMLkh
+      GDRIVE_WEEKLY_FOLDER_ID: 1G-I3xxodOw2RhsQi4rw22GB8m0n54TZD
+      GDRIVE_MONTHLY_FOLDER_ID: 1rG42ubpeKA0UdZ9ORswiqiFBMf56qQ5t
       SUPABASE_PROJECT_REF: nnbpefxvpmegngqopcvw
       BACKUP_TIMEZONE: America/Argentina/Mendoza
 
@@ -41,12 +43,25 @@ jobs:
         with:
           version: latest
 
+      - name: Authenticate to Google Cloud without a service-account key
+        if: ${{ github.event_name == 'workflow_dispatch' || env.BACKUP_ENABLED == 'true' }}
+        id: google-auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/225705196055/locations/global/workloadIdentityPools/turnia-github-backups/providers/github-actions
+          service_account: turnia-backup@turnia-backups.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/drive
+
       - name: Install backup tools
         if: ${{ github.event_name == 'workflow_dispatch' || env.BACKUP_ENABLED == 'true' }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y age rclone jq
+          sudo apt-get install -y age jq
 
       - name: Build, encrypt and upload production backup
+        if: ${{ github.event_name == 'workflow_dispatch' || env.BACKUP_ENABLED == 'true' }}
+        env:
+          GDRIVE_ACCESS_TOKEN: ${{ steps.google-auth.outputs.access_token }}
         if: ${{ github.event_name == 'workflow_dispatch' || env.BACKUP_ENABLED == 'true' }}
         run: bash scripts/backup-production.sh
