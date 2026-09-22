@@ -71,6 +71,48 @@ No service-account JSON key is created or stored.
 8. Restore into a separate Supabase test project and validate data/integrity.
 9. Only after the restore test succeeds, set `BACKUP_ENABLED=true`.
 
+
+
+## Restore validation — 2026-09-22
+
+A real restore test was completed successfully against the isolated Supabase project
+`turnia-restore-test` (`muxuflfdniwenlfteffm`). Production
+(`nnbpefxvpmegngqopcvw`) was not used as a restore target.
+
+Validated results:
+
+- encrypted backup downloaded and decrypted successfully;
+- every file in `SHA256SUMS.txt` matched;
+- `schema.sql` restored without errors;
+- `data.sql.gz` restored without errors;
+- migration history restored successfully;
+- the restore contained the same 48 public tables as production;
+- exact row counts matched production across all 48 public tables;
+- Auth counts matched production: 5 users, 5 identities, 0 MFA factors;
+- migration history matched production: 45 migrations with latest version `20260922010623`;
+- structural counts matched production: 58 RLS policies, 162 indexes, 13 triggers,
+  18 public functions, and 272 constraints;
+- all 108 public foreign keys were validated;
+- an automated orphan check across all 108 public foreign keys found no orphaned rows;
+- the `patient_documents.supersedes_document_id` self-referencing foreign key was
+  identified as the source of the circular-FK dump warning and was restored as a
+  valid, enforced constraint.
+
+Restore-specific notes:
+
+- `roles.sql` attempted to grant `SET` on the managed PostgreSQL parameter
+  `log_min_messages` to `supabase_realtime_admin`. Managed Supabase rejected that
+  statement with `permission denied for parameter log_min_messages`. The preceding
+  role settings applied, and this managed-role limitation did not prevent schema or
+  data recovery.
+- Durable Auth data in the backup was verified against the isolated restore project.
+  The five restored/target user UUIDs matched exactly. Active sessions and refresh
+  tokens are intentionally not part of the backup and users must authenticate again
+  after a disaster recovery event.
+
+Conclusion: the logical database backup and restore path is validated for disaster
+recovery. Scheduled backups may now be enabled with `BACKUP_ENABLED=true`.
+
 ## Recovery boundaries
 
 This workflow does not back up:
