@@ -79,7 +79,7 @@ export async function createPrescriptionDraft(formData: FormData) {
   }
 
   revalidatePath(`/patients/${parsed.data.patientId}`);
-  redirect(`/patients/${parsed.data.patientId}?success=prescription-draft#recetas`);
+  redirect(`/patients/${parsed.data.patientId}/prescriptions/${prescription.id}`);
 }
 
 
