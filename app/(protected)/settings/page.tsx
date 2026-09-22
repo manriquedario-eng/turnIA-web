@@ -332,7 +332,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 <div className="integration-row-desc">
                   Conecta TurnIA con MisRX para preparar la emisión, consulta y anulación de recetas electrónicas.
                   {misRxConnected && misRxIntegration?.account_label ? ` Cuenta: ${misRxIntegration.account_label}.` : ''}
-                  {' '}La emisión real seguirá deshabilitada hasta completar el alta de TurnIA como software integrador y configurar el AppID oficial.
+                  {' '}La emisión productiva seguirá deshabilitada hasta completar la homologación de TurnIA y validar las credenciales externas con el soft_id oficial.
                 </div>
                 <div className="integration-row-action" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {misRxConnected ? (
