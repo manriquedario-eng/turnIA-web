@@ -27,8 +27,10 @@ alter table public.whatsapp_inbound_events enable row level security;
 -- No authenticated/anon policy on purpose: webhook processing is service-role only.
 revoke all on table public.whatsapp_inbound_events from anon, authenticated;
 
--- Prevent duplicate outbound messages of the same semantic type/channel for one appointment.
--- Current data was checked before preparing this migration and had no duplicates.
-create unique index if not exists appointment_messages_once_per_type_channel
+-- Only the flows that are semantically one-shot are unique. Appointment
+-- creation/update confirmations are deliberately NOT included because TurnIA
+-- resends them when a professional changes the appointment.
+create unique index if not exists appointment_messages_once_for_reminders_and_reschedule_alerts
   on public.appointment_messages (appointment_id, message_type, channel)
-  where appointment_id is not null;
+  where appointment_id is not null
+    and message_type in ('appointment_reminder_24h', 'professional_reschedule_requested');
