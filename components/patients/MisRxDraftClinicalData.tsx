@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { updatePrescriptionDraftMetadata } from '@/app/(protected)/patients/prescription-actions';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { autosavePrescriptionDraftMetadata } from '@/app/(protected)/patients/prescription-actions';
 
 type Convention = {
   convenio_id: number;
@@ -26,8 +26,6 @@ type Plan = {
   descripcion?: string;
   porc_cobertura?: number;
   convenio_plan_cod?: number;
-  regla_items_por_receta?: number;
-  regla_unidades_por_receta?: number;
 };
 
 type Diagnosis = {
@@ -53,6 +51,11 @@ function resultRows<T>(body: unknown): T[] {
   return Array.isArray(data) ? data as T[] : [];
 }
 
+function positiveNumber(value: string) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 export function MisRxDraftClinicalData({
   patientId,
   prescriptionId,
@@ -62,8 +65,6 @@ export function MisRxDraftClinicalData({
   initialPlanId,
   initialDiagnosis,
   initialCie10,
-  initialObservations,
-  initialLongTermTreatment,
   patientName,
   patientDni,
   patientCredential,
@@ -78,8 +79,6 @@ export function MisRxDraftClinicalData({
   initialPlanId?: number | null;
   initialDiagnosis?: string | null;
   initialCie10?: string | null;
-  initialObservations?: string | null;
-  initialLongTermTreatment?: boolean | null;
   patientName: string;
   patientDni?: string | null;
   patientCredential?: string | null;
@@ -100,7 +99,16 @@ export function MisRxDraftClinicalData({
   const [message, setMessage] = useState('');
   const [affiliateLoading, setAffiliateLoading] = useState(false);
   const [diagnosisLoading, setDiagnosisLoading] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [showDiagnosisTools, setShowDiagnosisTools] = useState(Boolean(initialDiagnosis || initialCie10));
+  const lastSavedRef = useRef(JSON.stringify({
+    conventionId: initialConventionId ?? null,
+    affiliateId: initialAffiliateId ?? null,
+    planId: initialPlanId ?? null,
+    diagnosis: initialDiagnosis ?? null,
+    cie10: initialCie10 ?? null,
+  }));
+
   const selectedConvention = conventions.find((item) => String(item.convenio_id) === conventionId);
   const diagnosisRequired = Boolean(selectedConvention?.diagnostico_requerido);
 
@@ -163,6 +171,7 @@ export function MisRxDraftClinicalData({
         if (cancelled) return;
         const rows = resultRows<Plan>(body);
         setPlans(rows);
+
         if (planId && !rows.some((item) => String(item.plan_id) === planId)) {
           setPlanId('');
         } else if (!planId && patientInsurancePlan) {
@@ -186,15 +195,59 @@ export function MisRxDraftClinicalData({
     };
   }, [connected, conventionId, affiliateId]);
 
+  const autosavePayload = useMemo(() => ({
+    conventionId: positiveNumber(conventionId),
+    affiliateId: positiveNumber(affiliateId),
+    planId: positiveNumber(planId),
+    diagnosis: diagnosis.trim() || null,
+    cie10: cie10.trim() || null,
+  }), [conventionId, affiliateId, planId, diagnosis, cie10]);
+
+  useEffect(() => {
+    const serialized = JSON.stringify(autosavePayload);
+    if (serialized === lastSavedRef.current) return;
+
+    const timeout = window.setTimeout(async () => {
+      setSaveState('saving');
+      const result = await autosavePrescriptionDraftMetadata({
+        patientId,
+        prescriptionId,
+        ...autosavePayload,
+      });
+
+      if (!result.ok) {
+        setSaveState('error');
+        setMessage(result.error);
+        return;
+      }
+
+      lastSavedRef.current = serialized;
+      setSaveState('saved');
+      window.dispatchEvent(new CustomEvent('misrx-draft-context', {
+        detail: {
+          prescriptionId,
+          conventionId: autosavePayload.conventionId,
+          affiliateId: autosavePayload.affiliateId,
+          planId: autosavePayload.planId,
+        },
+      }));
+      window.setTimeout(() => setSaveState('idle'), 1800);
+    }, 450);
+
+    return () => window.clearTimeout(timeout);
+  }, [autosavePayload, patientId, prescriptionId]);
+
   async function lookupAffiliate() {
     setMessage('');
     setAffiliates([]);
+
     if (!conventionId) {
       setMessage('Seleccioná primero un convenio.');
       return;
     }
 
     setAffiliateLoading(true);
+
     try {
       const params = new URLSearchParams({
         patient_id: patientId,
@@ -205,6 +258,7 @@ export function MisRxDraftClinicalData({
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error || 'No se pudo consultar el afiliado');
+
       const rows = resultRows<Affiliate>(body);
       setAffiliates(rows);
       if (rows.length === 1) setAffiliateId(String(rows[0].afiliado_id));
@@ -227,6 +281,7 @@ export function MisRxDraftClinicalData({
     }
 
     setDiagnosisLoading(true);
+
     try {
       const params = new URLSearchParams({ q: term });
       const response = await fetch(`/api/integrations/misrx/diagnoses?${params.toString()}`, {
@@ -234,6 +289,7 @@ export function MisRxDraftClinicalData({
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error || 'No se pudo buscar CIE-10');
+
       const rows = resultRows<Diagnosis>(body);
       setDiagnoses(rows);
       if (rows.length === 0) setMessage('No se encontraron diagnósticos para esa búsqueda.');
@@ -254,7 +310,7 @@ export function MisRxDraftClinicalData({
 
     const timeout = window.setTimeout(() => {
       void searchDiagnosis(term);
-    }, 450);
+    }, 500);
 
     return () => window.clearTimeout(timeout);
   }, [connected, showDiagnosisTools, diagnosisQuery]);
@@ -268,6 +324,7 @@ export function MisRxDraftClinicalData({
             TurnIA valida su afiliación en MisRX usando DNI/documento {patientDni || 'sin cargar'} y Nº afiliado/credencial {patientCredential || 'sin cargar'}.
             {!patientDni || !patientCredential ? ' Completalos en Paciente → Datos antes de consultar.' : ''}
           </div>
+
           {(patientInsuranceName || patientInsurancePlan) ? (
             <div className="misrx-search-context">
               <span className="field-hint">Cobertura cargada en el paciente</span>
@@ -275,6 +332,7 @@ export function MisRxDraftClinicalData({
               <span className="field-hint">TurnIA intenta vincularla automáticamente con el convenio y plan devueltos por MisRX.</span>
             </div>
           ) : null}
+
           <div className="form-grid">
             <label>
               Convenio
@@ -294,6 +352,7 @@ export function MisRxDraftClinicalData({
                 ))}
               </select>
             </label>
+
             <div>
               <span className="field-label">Afiliado</span>
               <div className="misrx-inline-action">
@@ -337,9 +396,6 @@ export function MisRxDraftClinicalData({
                     </option>
                   ))}
                 </select>
-                <span className="field-hint">
-                  El nombre del padrón de homologación puede ser genérico. La receta sigue asociada a {patientName} dentro de TurnIA.
-                </span>
               </label>
             </div>
           ) : null}
@@ -356,9 +412,6 @@ export function MisRxDraftClinicalData({
                   </option>
                 ))}
               </select>
-              <span className="field-hint">
-                MisRX puede exigir un plan según el convenio. Si aparecen opciones, elegí la que corresponda al afiliado.
-              </span>
             </label>
           ) : null}
 
@@ -383,31 +436,29 @@ export function MisRxDraftClinicalData({
 
             {showDiagnosisTools ? (
               <>
-                {connected ? (
-                  <div className="form-grid">
-                    <label>
-                      Buscar diagnóstico CIE-10
-                      <input
-                        value={diagnosisQuery}
-                        onChange={(event) => setDiagnosisQuery(event.target.value)}
-                        minLength={2}
-                        maxLength={100}
-                        placeholder="Ej.: hipertensión, diabetes, F32"
-                        autoComplete="off"
-                      />
-                    </label>
-                    <div className="misrx-inline-action" style={{ alignSelf: 'end' }}>
-                      <button
-                        className="btn secondary"
-                        type="button"
-                        onClick={() => void searchDiagnosis()}
-                        disabled={diagnosisLoading}
-                      >
-                        {diagnosisLoading ? 'Buscando…' : 'Buscar CIE-10'}
-                      </button>
-                    </div>
+                <div className="form-grid">
+                  <label>
+                    Buscar diagnóstico CIE-10
+                    <input
+                      value={diagnosisQuery}
+                      onChange={(event) => setDiagnosisQuery(event.target.value)}
+                      minLength={2}
+                      maxLength={100}
+                      placeholder="Ej.: hipertensión, diabetes, F32"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <div className="misrx-inline-action" style={{ alignSelf: 'end' }}>
+                    <button
+                      className="btn secondary"
+                      type="button"
+                      onClick={() => void searchDiagnosis()}
+                      disabled={diagnosisLoading}
+                    >
+                      {diagnosisLoading ? 'Buscando…' : 'Buscar CIE-10'}
+                    </button>
                   </div>
-                ) : null}
+                </div>
 
                 {diagnoses.length > 0 ? (
                   <div className="stack" style={{ gap: 8 }}>
@@ -431,69 +482,31 @@ export function MisRxDraftClinicalData({
                     })}
                   </div>
                 ) : null}
+
+                <div className="form-grid">
+                  <label>
+                    Diagnóstico
+                    <input value={diagnosis} onChange={(event) => setDiagnosis(event.target.value)} maxLength={500} />
+                  </label>
+                  <label>
+                    CIE-10
+                    <input value={cie10} onChange={(event) => setCie10(event.target.value)} maxLength={20} />
+                  </label>
+                </div>
               </>
             ) : null}
           </div>
         </>
       ) : (
         <p className="field-hint">
-          Podés guardar los datos clínicos manualmente. Las búsquedas de convenio, afiliado y CIE-10 se habilitan al conectar MisRX.
+          Conectá MisRX para validar convenio, afiliado y diagnóstico.
         </p>
       )}
 
       {message ? <p className="field-hint">{message}</p> : null}
-
-      <form action={updatePrescriptionDraftMetadata} className="form-grid">
-        <input type="hidden" name="patientId" value={patientId} />
-        <input type="hidden" name="prescriptionId" value={prescriptionId} />
-        <input type="hidden" name="conventionId" value={conventionId} />
-        <input type="hidden" name="affiliateId" value={affiliateId} />
-        <input type="hidden" name="planId" value={planId} />
-        {showDiagnosisTools ? (
-          <>
-            <label>
-              Diagnóstico
-              <input
-                name="diagnosis"
-                value={diagnosis}
-                onChange={(event) => setDiagnosis(event.target.value)}
-                maxLength={500}
-              />
-            </label>
-            <label>
-              CIE-10
-              <input
-                name="cie10"
-                value={cie10}
-                onChange={(event) => setCie10(event.target.value)}
-                maxLength={20}
-              />
-            </label>
-          </>
-        ) : (
-          <>
-            <input type="hidden" name="diagnosis" value={diagnosis} />
-            <input type="hidden" name="cie10" value={cie10} />
-          </>
-        )}
-        <label style={{ gridColumn: '1 / -1' }}>
-          Observaciones / indicaciones / posología
-          <textarea
-            name="observations"
-            rows={4}
-            maxLength={4000}
-            defaultValue={initialObservations ?? ''}
-            placeholder={selectedConvention?.posologia_requierida ? 'Completá la posología requerida por el convenio' : 'Opcional'}
-          />
-        </label>
-        <label className="checkbox-field" style={{ gridColumn: '1 / -1' }}>
-          <input type="checkbox" name="longTermTreatment" defaultChecked={Boolean(initialLongTermTreatment)} />
-          Tratamiento prolongado
-        </label>
-        <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
-          <button className="btn" type="submit">Guardar datos de receta</button>
-        </div>
-      </form>
+      {saveState === 'saving' ? <p className="field-hint">Guardando automáticamente…</p> : null}
+      {saveState === 'saved' ? <p className="field-hint is-ready">Datos guardados.</p> : null}
+      {saveState === 'error' ? <p className="alert error">No se pudo guardar automáticamente.</p> : null}
     </div>
   );
 }
