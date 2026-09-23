@@ -35,22 +35,18 @@ export type WhatsAppSendResult =
   | { ok: true; providerMessageId: string }
   | { ok: false, reason: 'not_configured' | 'invalid_phone' | 'provider_error' | 'network_error'; errorMessage: string };
 
-function getConfig() {
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const templateName = process.env.WHATSAPP_TEMPLATE_NAME;
-  const templateLang = process.env.WHATSAPP_TEMPLATE_LANG || 'es_AR';
-  const apiVersion = process.env.WHATSAPP_GRAPH_API_VERSION || 'v20.0';
+function getBaseConfig() {
+  const config = getBaseConfig();
 
-  if (!accessToken || !phoneNumberId || !templateName) {
+  if (!config) {
     return null;
   }
-  return { accessToken, phoneNumberId, templateName, templateLang, apiVersion };
+  return { accessToken, phoneNumberId, apiVersion };
 }
 
-/** true si hay credenciales suficientes para intentar un envío real. */
+/** true si hay credenciales + plantilla principal suficientes para enviar el mensaje inicial. */
 export function isWhatsAppConfigured(): boolean {
-  return getConfig() !== null;
+  return Boolean(getBaseConfig() && process.env.WHATSAPP_TEMPLATE_NAME);
 }
 
 /**
@@ -63,10 +59,15 @@ export async function sendWhatsAppTemplate(params: {
   toE164: string;
   bodyParams: string[];
   quickReplyPayloads?: string[];
+  templateName?: string;
+  templateLang?: string;
 }): Promise<WhatsAppSendResult> {
-  const config = getConfig();
-  if (!config) {
-    return { ok: false, reason: 'not_configured', errorMessage: 'Credenciales de WhatsApp no configuradas.' };
+  const config = getBaseConfig();
+  const templateName = params.templateName || process.env.WHATSAPP_TEMPLATE_NAME;
+  const templateLang = params.templateLang || process.env.WHATSAPP_TEMPLATE_LANG || 'es_AR';
+
+  if (!config || !templateName) {
+    return { ok: false, reason: 'not_configured', errorMessage: 'Credenciales o plantilla de WhatsApp no configuradas.' };
   }
 
   const to = params.toE164.replace(/^\+/, '');
@@ -105,8 +106,8 @@ export async function sendWhatsAppTemplate(params: {
         to,
         type: 'template',
         template: {
-          name: config.templateName,
-          language: { code: config.templateLang },
+          name: templateName,
+          language: { code: templateLang },
           components,
         },
       }),
@@ -161,13 +162,13 @@ export async function sendWhatsAppTextMessage(params: {
     return { ok: false, reason: 'provider_error', errorMessage: 'Respuesta de WhatsApp vacía.' };
   }
 
-  const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
+  const url = `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}/messages`;
 
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${config.accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
