@@ -156,17 +156,32 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
       ? professionalContactResult.data
       : null;
 
+  const professionalContactError =
+    professionalContactResult &&
+    'error' in professionalContactResult
+      ? professionalContactResult.error
+      : null;
+
+  const professionalContactTableUnavailable =
+    professionalContactError?.code === '42P01' ||
+    professionalContactError?.code === 'PGRST205';
+
+  // Legacy fallback only while the new per-professional table does not exist.
+  // Once the table exists, "no row for this professional" means "no external
+  // contact configured" — never send to a tenant-wide contact by guess.
   const professionalEmail =
     typeof professionalContact?.email === 'string'
       ? professionalContact.email.trim()
-      : typeof profile.professional_email === 'string'
+      : professionalContactTableUnavailable &&
+          typeof profile.professional_email === 'string'
         ? profile.professional_email.trim()
         : '';
 
   const professionalPhone =
     typeof professionalContact?.phone_e164 === 'string'
       ? professionalContact.phone_e164.trim()
-      : typeof profile.professional_phone === 'string'
+      : professionalContactTableUnavailable &&
+          typeof profile.professional_phone === 'string'
         ? profile.professional_phone.trim()
         : '';
 
