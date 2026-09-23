@@ -301,6 +301,7 @@ export default async function AgendaPage({
       .eq('tenant_id', tenantId)
       .in('appointment_id', appointmentIds)
       .in('channel', ['whatsapp', 'email'])
+      .in('message_type', ['appointment_created', 'appointment_reminder_24h'])
       .order('created_at', { ascending: false });
 
     if (messageError) throw new Error(messageError.message);
