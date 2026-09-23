@@ -41,3 +41,7 @@ create unique index if not exists appointment_messages_dedupe_key_unique
   where appointment_id is not null
     and dedupe_key is not null
     and message_type in ('appointment_reminder_24h', 'professional_reschedule_requested');
+
+create unique index if not exists appointment_messages_provider_message_id_unique
+  on public.appointment_messages (provider_message_id)
+  where provider_message_id is not null;
