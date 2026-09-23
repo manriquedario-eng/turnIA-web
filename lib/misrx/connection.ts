@@ -2,6 +2,8 @@ import 'server-only';
 
 import { createSupabaseServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { loginToMisRx } from './auth';
+import { misRxRequest } from './client';
+import type { MisRxProfessionalProfile } from './types';
 import {
   decryptMisRxCredential,
   encryptMisRxCredential,
@@ -80,6 +82,48 @@ export async function connectMisRx(params: {
   // contraseña ni dejamos una conexión local que parezca válida.
   const login = await loginToMisRx({ username, password });
   if (!login.ok) return login;
+
+
+  if (login.data.tipo !== 3) {
+    return {
+      ok: false,
+      reason: 'unauthorized',
+      status: 403,
+      errorMessage: 'La cuenta MisRX ingresada no corresponde a un prestador externo habilitable para prescribir.',
+    };
+  }
+
+  const profileResult = await misRxRequest<MisRxProfessionalProfile>({
+    path: '/usuario/perfil',
+    accessToken: login.data.access_token,
+    query: { verify_exp: false },
+  });
+
+  if (!profileResult.ok) {
+    return {
+      ok: false,
+      reason: profileResult.reason,
+      status: profileResult.status,
+      errorMessage: 'MisRX autenticó la cuenta, pero no pudimos validar su perfil profesional.',
+    };
+  }
+
+  const professionalProfile = profileResult.data;
+  const validProfessionalIdentity = Boolean(
+    Number(professionalProfile.nrodoc) > 0 &&
+    professionalProfile.tipo_matricula?.trim() &&
+    Number(professionalProfile.matricula) > 0 &&
+    Number(professionalProfile.especialidad_id) > 0
+  );
+
+  if (!validProfessionalIdentity) {
+    return {
+      ok: false,
+      reason: 'unauthorized',
+      status: 403,
+      errorMessage: 'La cuenta MisRX no tiene una identidad profesional completa con DNI, matrícula y especialidad.',
+    };
+  }
 
   const encrypted = encryptMisRxCredential(password);
   if (!encrypted.ok) {
@@ -206,6 +250,41 @@ export async function testStoredMisRxConnection(params: {
   });
 
   const now = new Date().toISOString();
+
+  if (login.ok && login.data.tipo !== 3) {
+    return {
+      ok: false,
+      reason: 'unauthorized',
+      status: 403,
+      errorMessage: 'La cuenta MisRX ya no corresponde a un prestador externo habilitable para prescribir.',
+    };
+  }
+
+  if (login.ok) {
+    const profileResult = await misRxRequest<MisRxProfessionalProfile>({
+      path: '/usuario/perfil',
+      accessToken: login.data.access_token,
+      query: { verify_exp: false },
+    });
+
+    const profile = profileResult.ok ? profileResult.data : null;
+    const validProfessionalIdentity = Boolean(
+      profile &&
+      Number(profile.nrodoc) > 0 &&
+      profile.tipo_matricula?.trim() &&
+      Number(profile.matricula) > 0 &&
+      Number(profile.especialidad_id) > 0
+    );
+
+    if (!profileResult.ok || !validProfessionalIdentity) {
+      return {
+        ok: false,
+        reason: 'unauthorized',
+        status: 403,
+        errorMessage: 'La cuenta MisRX no pudo validarse como profesional habilitable para prescribir.',
+      };
+    }
+  }
 
   if (!login.ok) {
     await service
