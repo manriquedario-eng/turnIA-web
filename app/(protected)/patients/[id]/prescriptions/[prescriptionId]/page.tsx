@@ -6,6 +6,7 @@ import { MisRxDraftProductSearch } from '@/components/patients/MisRxDraftProduct
 import { MisRxDraftClinicalData } from '@/components/patients/MisRxDraftClinicalData';
 import { MisRxDraftInstructions } from '@/components/patients/MisRxDraftInstructions';
 import { MisRxReadinessPanel } from '@/components/patients/MisRxReadinessPanel';
+import { MisRxIssuedActions } from '@/components/patients/MisRxIssuedActions';
 import { TransientNotice } from '@/components/ui/TransientNotice';
 import { removePrescriptionItem } from '../../../prescription-actions';
 
@@ -34,7 +35,7 @@ export default async function PrescriptionDraftPage({
       .maybeSingle(),
     supabase
       .from('prescriptions')
-      .select('id,patient_id,professional_id,status,convention_id,plan_id,affiliate_id,diagnosis,cie10,observations,long_term_treatment,created_at')
+      .select('id,patient_id,professional_id,status,convention_id,plan_id,affiliate_id,diagnosis,cie10,observations,long_term_treatment,provider_prescription_number,provider_status,provider_status_description,issued_at,cancelled_at,created_at')
       .eq('id', prescriptionId)
       .eq('patient_id', patientId)
       .eq('tenant_id', tenantId)
@@ -247,16 +248,68 @@ export default async function PrescriptionDraftPage({
         </div>
       ) : null}
 
-      <div className="card misrx-send-card">
-        <div className="misrx-step-heading" style={{ marginBottom: 12 }}>
-          <span className="misrx-step-number">5</span>
-          <div>
-            <h2>Enviar receta</h2>
-            <p className="text-helper">TurnIA verifica automáticamente los requisitos antes del envío.</p>
+      {editable ? (
+        <div className="card misrx-send-card">
+          <div className="misrx-step-heading" style={{ marginBottom: 12 }}>
+            <span className="misrx-step-number">5</span>
+            <div>
+              <h2>Enviar receta</h2>
+              <p className="text-helper">TurnIA verifica automáticamente los requisitos antes del envío.</p>
+            </div>
           </div>
+          <MisRxReadinessPanel prescriptionId={prescription.id} patientId={patient.id} />
         </div>
-        <MisRxReadinessPanel prescriptionId={prescription.id} patientId={patient.id} />
-      </div>
+      ) : (
+        <div className="card misrx-send-card">
+          <div className="misrx-step-heading" style={{ marginBottom: 12 }}>
+            <div>
+              <h2>Estado de la receta</h2>
+              <p className="text-helper">
+                {prescription.provider_prescription_number
+                  ? `Recetario MisRX: ${prescription.provider_prescription_number}`
+                  : 'Sin número de recetario informado.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="misrx-data-grid">
+            <div className="misrx-data-item">
+              <span>Estado TurnIA</span>
+              <strong>{prescription.status}</strong>
+            </div>
+            <div className="misrx-data-item">
+              <span>Estado MisRX</span>
+              <strong>{prescription.provider_status || 'Sin informar'}</strong>
+            </div>
+            {prescription.cie10 || prescription.diagnosis ? (
+              <div className="misrx-data-item">
+                <span>Diagnóstico</span>
+                <strong>{[prescription.cie10, prescription.diagnosis].filter(Boolean).join(' · ')}</strong>
+              </div>
+            ) : null}
+          </div>
+
+          {prescription.observations ? (
+            <div>
+              <span className="field-label">Posología / Notas</span>
+              <p style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{prescription.observations}</p>
+            </div>
+          ) : null}
+
+          {prescription.provider_status_description ? (
+            <p className="field-hint" style={{ marginBottom: 0 }}>
+              {prescription.provider_status_description}
+            </p>
+          ) : null}
+
+          {prescription.provider_prescription_number && ['issued', 'cancelled'].includes(prescription.status) ? (
+            <MisRxIssuedActions
+              prescriptionId={prescription.id}
+              canCancel={prescription.status === 'issued'}
+            />
+          ) : null}
+        </div>
+      )}
     </section>
   );
 }
