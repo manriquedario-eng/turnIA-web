@@ -85,6 +85,7 @@ export type DigilogixDocumentStateRequest = {
   IdentificadorDocumento: string;
 };
 
+export type DigilogixDocumentStateResultCode = -2 | -1 | 0 | 1 | 2 | 3;
 export type DigilogixDocumentOverallStateCode = 1 | 2 | 3;
 export type DigilogixSignerStateCode = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -105,7 +106,9 @@ export type DigilogixDocumentStateData = {
 };
 
 export type DigilogixDocumentStateResponse =
-  DigilogixEnvelope<DigilogixDocumentStateData>;
+  Omit<DigilogixEnvelope<DigilogixDocumentStateData>, 'CodigoResultado'> & {
+    CodigoResultado: DigilogixDocumentStateResultCode;
+  };
 
 export type DigilogixCertificateRequest = {
   CodigoUnicoIdentificacion: string;
