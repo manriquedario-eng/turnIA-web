@@ -4,6 +4,7 @@ import { requireTenant } from '@/lib/auth/require-user';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { MisRxDraftProductSearch } from '@/components/patients/MisRxDraftProductSearch';
 import { MisRxDraftClinicalData } from '@/components/patients/MisRxDraftClinicalData';
+import { MisRxDraftInstructions } from '@/components/patients/MisRxDraftInstructions';
 import { MisRxReadinessPanel } from '@/components/patients/MisRxReadinessPanel';
 import { TransientNotice } from '@/components/ui/TransientNotice';
 import { removePrescriptionItem } from '../../../prescription-actions';
@@ -132,15 +133,12 @@ export default async function PrescriptionDraftPage({
           <div className="misrx-step-heading">
             <span className="misrx-step-number">2</span>
             <div>
-              <h2>Convenio y datos clínicos</h2>
+              <h2>Cobertura y diagnóstico</h2>
               <p className="text-helper">
-                Elegí el convenio, buscá el afiliado y completá diagnóstico e indicaciones.
+                Validá convenio y afiliado. Si corresponde, completá diagnóstico/CIE-10. TurnIA guarda estos datos automáticamente.
               </p>
             </div>
           </div>
-          {query.success === 'metadata-updated' ? (
-            <TransientNotice message="Datos de receta guardados." />
-          ) : null}
           {query.error && query.area === 'clinical' ? (
             <TransientNotice message={query.error} kind="error" />
           ) : null}
@@ -153,8 +151,6 @@ export default async function PrescriptionDraftPage({
             initialPlanId={(prescription as any).plan_id}
             initialDiagnosis={prescription.diagnosis}
             initialCie10={prescription.cie10}
-            initialObservations={prescription.observations}
-            initialLongTermTreatment={prescription.long_term_treatment}
             patientName={patient.name}
             patientDni={patient.dni}
             patientCredential={patient.insurance_member_number}
@@ -231,7 +227,34 @@ export default async function PrescriptionDraftPage({
         ) : null}
       </div>
 
+      {editable ? (
+        <div className="card misrx-step-card" id="posology">
+          <div className="misrx-step-heading">
+            <span className="misrx-step-number">4</span>
+            <div>
+              <h2>Posología / Notas</h2>
+              <p className="text-helper">
+                Indicá cómo debe tomar la medicación. Este contenido se envía dentro de la misma receta MisRX.
+              </p>
+            </div>
+          </div>
+          <MisRxDraftInstructions
+            patientId={patient.id}
+            prescriptionId={prescription.id}
+            initialObservations={prescription.observations}
+            initialLongTermTreatment={prescription.long_term_treatment}
+          />
+        </div>
+      ) : null}
+
       <div className="card misrx-send-card">
+        <div className="misrx-step-heading" style={{ marginBottom: 12 }}>
+          <span className="misrx-step-number">5</span>
+          <div>
+            <h2>Enviar receta</h2>
+            <p className="text-helper">TurnIA verifica automáticamente los requisitos antes del envío.</p>
+          </div>
+        </div>
         <MisRxReadinessPanel prescriptionId={prescription.id} patientId={patient.id} />
       </div>
     </section>
