@@ -256,6 +256,15 @@ export async function GET(
     }
 
     if (convention) {
+      if (Number(convention.digital_indica_prestador ?? 0) !== 0) {
+        checks.push({
+          key: 'provider-required',
+          ok: false,
+          label: 'Prestador requerido por convenio',
+          detail: 'Este convenio exige seleccionar una institución prestadora. TurnIA bloquea la emisión hasta incorporar ese selector específico.',
+        });
+      }
+
       const hasDiagnosis = Boolean(prescription.diagnosis?.trim() || prescription.cie10?.trim());
       const hasCie10 = Boolean(prescription.cie10?.trim());
 
