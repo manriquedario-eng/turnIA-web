@@ -3,13 +3,11 @@ import {
   confirmAppointmentByToken,
   requestRescheduleByToken,
 } from '@/lib/appointments/public-token';
-import { sendTransactionalEmail, isPlausibleEmail } from '@/lib/email/provider';
-import { normalizePhone } from '@/lib/phone';
 import {
   createSupabaseServiceClient,
   isServiceRoleConfigured,
 } from '@/lib/supabase/service';
-import { sendWhatsAppTemplate } from './provider';
+import { notifyProfessionalAboutRescheduleByToken } from '@/lib/appointments/reschedule-notifications';
 
 export type AppointmentWhatsAppAction = 'confirm' | 'cancel' | 'reschedule';
 
@@ -38,183 +36,6 @@ const SUCCESS_TEXT: Record<AppointmentWhatsAppAction, string> = {
 
 function digits(value: string | null | undefined): string {
   return (value ?? '').replace(/\D/g, '');
-}
-
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('es-AR', {
-    timeZone: 'America/Argentina/Buenos_Aires',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(new Date(iso));
-}
-
-function formatTime(iso: string): string {
-  return new Intl.DateTimeFormat('es-AR', {
-    timeZone: 'America/Argentina/Buenos_Aires',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(new Date(iso));
-}
-
-async function registerProfessionalAlert(params: {
-  appointmentId: string;
-  tenantId: string;
-  patientId: string;
-  channel: 'email' | 'whatsapp';
-  payload: Record<string, unknown>;
-}) {
-  const supabase = createSupabaseServiceClient();
-
-  const { data, error } = await supabase
-    .from('appointment_messages')
-    .insert({
-      tenant_id: params.tenantId,
-      patient_id: params.patientId,
-      appointment_id: params.appointmentId,
-      message_type: 'professional_reschedule_requested',
-      channel: params.channel,
-      status: 'pending',
-      payload: params.payload,
-    })
-    .select('id')
-    .maybeSingle();
-
-  if (error || !data) {
-    // Unique violation means this semantic notification was already created.
-    if (error?.code === '23505') return null;
-    return null;
-  }
-  return data.id as string;
-}
-
-async function finishProfessionalAlert(params: {
-  messageRowId: string;
-  ok: boolean;
-  providerMessageId?: string;
-  errorMessage?: string;
-}) {
-  const supabase = createSupabaseServiceClient();
-  await supabase
-    .from('appointment_messages')
-    .update({
-      status: params.ok ? 'sent' : 'failed',
-      sent_at: params.ok ? new Date().toISOString() : null,
-      provider_message_id: params.providerMessageId ?? null,
-      error_message: params.ok ? null : params.errorMessage?.slice(0, 500) ?? 'No se pudo enviar el aviso.',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', params.messageRowId);
-}
-
-async function notifyProfessionalAboutReschedule(params: {
-  tenantId: string;
-  appointmentId: string;
-  patientId: string;
-  patientName: string;
-  startsAt: string;
-}) {
-  const supabase = createSupabaseServiceClient();
-  const { data: settings } = await supabase
-    .from('settings')
-    .select('profile')
-    .eq('tenant_id', params.tenantId)
-    .maybeSingle();
-
-  const profile =
-    settings?.profile && typeof settings.profile === 'object'
-      ? (settings.profile as Record<string, unknown>)
-      : {};
-
-  const professionalEmail =
-    typeof profile.professional_email === 'string' ? profile.professional_email.trim() : '';
-  const professionalPhone =
-    typeof profile.professional_phone === 'string' ? profile.professional_phone.trim() : '';
-
-  const dateLabel = formatDate(params.startsAt);
-  const timeLabel = formatTime(params.startsAt);
-  const subject = `Solicitud de reprogramación — ${params.patientName} — ${dateLabel}`;
-  const text = [
-    'TurnIA',
-    '',
-    `${params.patientName} solicitó reprogramar su turno.`,
-    `Fecha actual: ${dateLabel}`,
-    `Hora actual: ${timeLabel}`,
-    '',
-    'El turno no fue movido ni cancelado. Ingresá a TurnIA para coordinar un nuevo horario con el paciente.',
-  ].join('\n');
-  const html = `
-    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:0 auto;color:#111827;">
-      <p style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">TurnIA</p>
-      <h1 style="font-size:20px;">Solicitud de reprogramación</h1>
-      <p><strong>${params.patientName.replace(/[<>&"']/g, '')}</strong> solicitó reprogramar su turno.</p>
-      <p>Fecha actual: <strong>${dateLabel}</strong><br/>Hora actual: <strong>${timeLabel}</strong></p>
-      <p>El turno no fue movido ni cancelado. Ingresá a TurnIA para coordinar un nuevo horario con el paciente.</p>
-    </div>
-  `.trim();
-
-  if (professionalEmail && isPlausibleEmail(professionalEmail)) {
-    const messageRowId = await registerProfessionalAlert({
-      appointmentId: params.appointmentId,
-      tenantId: params.tenantId,
-      patientId: params.patientId,
-      channel: 'email',
-      payload: { recipient: 'professional', patientName: params.patientName, dateLabel, timeLabel },
-    });
-
-    if (messageRowId) {
-      const result = await sendTransactionalEmail({
-        to: professionalEmail,
-        subject,
-        html,
-        text,
-      });
-      await finishProfessionalAlert({
-        messageRowId,
-        ok: result.ok,
-        providerMessageId: result.ok ? result.providerMessageId : undefined,
-        errorMessage: result.ok ? undefined : result.errorMessage,
-      });
-    }
-  }
-
-  // A WhatsApp message to the professional is business-initiated and must use
-  // its own approved Utility template. Until that template name is configured,
-  // this branch deliberately skips the phone alert instead of sending free text.
-  const professionalTemplateName = process.env.WHATSAPP_PROFESSIONAL_RESCHEDULE_TEMPLATE_NAME;
-  const professionalTemplateLang =
-    process.env.WHATSAPP_PROFESSIONAL_RESCHEDULE_TEMPLATE_LANG ||
-    process.env.WHATSAPP_TEMPLATE_LANG ||
-    'es_AR';
-
-  if (professionalPhone && professionalTemplateName) {
-    const normalized = normalizePhone(professionalPhone);
-    if (normalized.isValid && normalized.e164) {
-      const messageRowId = await registerProfessionalAlert({
-        appointmentId: params.appointmentId,
-        tenantId: params.tenantId,
-        patientId: params.patientId,
-        channel: 'whatsapp',
-        payload: { recipient: 'professional', patientName: params.patientName, dateLabel, timeLabel },
-      });
-
-      if (messageRowId) {
-        const result = await sendWhatsAppTemplate({
-          toE164: normalized.e164,
-          bodyParams: [params.patientName, dateLabel, timeLabel],
-          templateName: professionalTemplateName,
-          templateLang: professionalTemplateLang,
-        });
-        await finishProfessionalAlert({
-          messageRowId,
-          ok: result.ok,
-          providerMessageId: result.ok ? result.providerMessageId : undefined,
-          errorMessage: result.ok ? undefined : result.errorMessage,
-        });
-      }
-    }
-  }
 }
 
 export async function processWhatsAppAppointmentAction(
@@ -381,13 +202,7 @@ export async function processWhatsAppAppointmentAction(
   }
 
   if (input.action === 'reschedule') {
-    await notifyProfessionalAboutReschedule({
-      tenantId: appointment.tenant_id,
-      appointmentId: appointment.id,
-      patientId: appointment.patient_id,
-      patientName: patient?.name || 'Paciente',
-      startsAt: appointment.starts_at,
-    });
+    await notifyProfessionalAboutRescheduleByToken(input.token);
   }
 
   return {
