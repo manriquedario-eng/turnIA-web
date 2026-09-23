@@ -30,6 +30,23 @@ type AppointmentRow = {
   reschedule_requested_at: string | null;
 };
 
+
+type AppointmentMessageSummary = {
+  appointment_id: string | null;
+  channel: string;
+  status: string;
+  created_at: string;
+};
+
+function communicationStatusLabel(status: string) {
+  if (status === 'read') return 'Leído';
+  if (status === 'delivered') return 'Entregado';
+  if (status === 'sent') return 'Enviado';
+  if (status === 'failed') return 'Error';
+  if (status === 'pending' || status === 'scheduled') return 'Pendiente';
+  return status;
+}
+
 function startOfDayIso(date: string) {
   return new Date(`${date}T00:00:00-03:00`).toISOString();
 }
@@ -265,6 +282,31 @@ export default async function AgendaPage({
 
   if (appointmentError) throw new Error(appointmentError.message);
   const appointments = (appointmentsData ?? []) as AppointmentRow[];
+
+  const appointmentIds = appointments.map((item) => item.id);
+  let communicationRows: AppointmentMessageSummary[] = [];
+
+  if (appointmentIds.length > 0) {
+    const { data: messageData, error: messageError } = await supabase
+      .from('appointment_messages')
+      .select('appointment_id,channel,status,created_at')
+      .eq('tenant_id', tenantId)
+      .in('appointment_id', appointmentIds)
+      .in('channel', ['whatsapp', 'email'])
+      .order('created_at', { ascending: false });
+
+    if (messageError) throw new Error(messageError.message);
+    communicationRows = (messageData ?? []) as AppointmentMessageSummary[];
+  }
+
+  const latestCommunicationByAppointment = new Map<string, { whatsapp?: string; email?: string }>();
+  for (const row of communicationRows) {
+    if (!row.appointment_id) continue;
+    const current = latestCommunicationByAppointment.get(row.appointment_id) ?? {};
+    if (row.channel === 'whatsapp' && !current.whatsapp) current.whatsapp = row.status;
+    if (row.channel === 'email' && !current.email) current.email = row.status;
+    latestCommunicationByAppointment.set(row.appointment_id, current);
+  }
 
   const googleConnected = googleIntegration?.status === 'connected';
   const mercadoPagoConnected = mercadoPagoIntegration?.status === 'connected';
@@ -595,6 +637,24 @@ export default async function AgendaPage({
                             Pidió reprogramar
                           </span>
                         ) : null}
+                        {(() => {
+                          const communication = latestCommunicationByAppointment.get(a.id);
+                          if (!communication) return null;
+                          return (
+                            <div className="nav" style={{ gap: 4, flexWrap: 'wrap' }}>
+                              {communication.whatsapp ? (
+                                <span className={`badge ${communication.whatsapp === 'failed' ? 'badge-pendiente' : 'badge-neutral'}`}>
+                                  WhatsApp: {communicationStatusLabel(communication.whatsapp)}
+                                </span>
+                              ) : null}
+                              {communication.email ? (
+                                <span className={`badge ${communication.email === 'failed' ? 'badge-pendiente' : 'badge-neutral'}`}>
+                                  Email: {communicationStatusLabel(communication.email)}
+                                </span>
+                              ) : null}
+                            </div>
+                          );
+                        })()}
                         {!cancelled ? (
                           <div className="appointment-row-actions">
                             {a.patient_id && patientMap.get(a.patient_id) && !patientMap.get(a.patient_id)?.deleted_at ? (
