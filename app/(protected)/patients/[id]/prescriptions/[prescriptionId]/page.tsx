@@ -151,6 +151,7 @@ export default async function PrescriptionDraftPage({
             initialCie10={prescription.cie10}
             initialObservations={prescription.observations}
             initialLongTermTreatment={prescription.long_term_treatment}
+            patientName={patient.name}
             patientDni={patient.dni}
             patientCredential={patient.insurance_member_number}
           />
