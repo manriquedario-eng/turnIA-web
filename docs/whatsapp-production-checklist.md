@@ -1,0 +1,214 @@
+# TurnIA — Checklist de activación WhatsApp
+
+> Rama de trabajo: `feat/whatsapp-interactions`
+> Regla: no promover a producción hasta completar esta lista y validar Meta.
+
+## 1. Aislamiento
+
+- No tocar ni mezclar MisRX.
+- No tocar ni mezclar Firma Digital / Digilogix.
+- Partir de la versión integrada vigente de `main` al momento del merge final.
+- Revisar conflictos antes de promover.
+
+## 2. Meta / WhatsApp Cloud API
+
+Confirmar en Meta:
+
+- Negocio verificado o en estado aceptado.
+- Número de WhatsApp Business activo y con calidad normal.
+- Webhook suscripto al número correcto.
+- Plantilla de alta de turno aprobada.
+- Plantilla de recordatorio 24 h aprobada.
+- Plantilla de aviso de reprogramación al profesional aprobada.
+
+### Plantilla de alta de turno
+
+Parámetros BODY, en este orden:
+
+1. Paciente
+2. Fecha
+3. Hora
+4. Profesional
+
+Botones, en este orden:
+
+1. Confirmar
+2. Cancelar
+3. Reprogramar
+
+### Plantilla de recordatorio 24 h
+
+Parámetros BODY, en este orden:
+
+1. Paciente
+2. Fecha
+3. Hora
+4. Profesional
+
+Botones, en este orden:
+
+1. Confirmar
+2. Cancelar
+3. Reprogramar
+
+### Plantilla de aviso al profesional por reprogramación
+
+Parámetros BODY, en este orden:
+
+1. Paciente
+2. Fecha actual del turno
+3. Hora actual del turno
+
+Debe ser Utility. Puede incluir un botón/URL estático hacia TurnIA si Meta lo aprueba.
+
+## 3. Variables de entorno
+
+Nunca pegar valores reales en código, documentación, commits o chats.
+
+Variables esperadas:
+
+- `WHATSAPP_ACCESS_TOKEN`
+- `WHATSAPP_PHONE_NUMBER_ID`
+- `WHATSAPP_TEMPLATE_NAME`
+- `WHATSAPP_TEMPLATE_LANG`
+- `WHATSAPP_GRAPH_API_VERSION`
+- `WHATSAPP_VERIFY_TOKEN`
+- `WHATSAPP_APP_SECRET`
+- `WHATSAPP_REMINDER_TEMPLATE_NAME`
+- `WHATSAPP_REMINDER_TEMPLATE_LANG`
+- `WHATSAPP_PROFESSIONAL_RESCHEDULE_TEMPLATE_NAME`
+- `WHATSAPP_PROFESSIONAL_RESCHEDULE_TEMPLATE_LANG`
+- `CRON_SECRET`
+
+Los secretos deben cargarse directamente en Vercel por una persona autorizada.
+
+## 4. Base de datos
+
+Antes de activar el webhook interactivo en producción:
+
+- Aplicar y revisar la migración:
+  `supabase/migrations/20260923174500_whatsapp_interaction_hardening.sql`
+- Confirmar que existe `public.whatsapp_inbound_events`.
+- Confirmar RLS habilitada y sin políticas de acceso para anon/authenticated.
+- Confirmar índice único para:
+  - `appointment_reminder_24h`
+  - `professional_reschedule_requested`
+- Confirmar columnas:
+  - `delivered_at`
+  - `read_at`
+  - `failed_at`
+
+## 5. Seguridad
+
+Validar:
+
+- POST webhook rechaza firma inválida.
+- POST webhook rechaza si falta App Secret.
+- Phone Number ID distinto es ignorado.
+- Sólo el mismo teléfono del paciente puede ejecutar una acción del turno.
+- El contexto del botón, cuando Meta lo envía, debe corresponder al mismo turno y a:
+  - `appointment_created`, o
+  - `appointment_reminder_24h`
+- Reintentos del mismo webhook no duplican acciones.
+- Errores transitorios devuelven respuesta reintentable.
+- Estados no retroceden de `read` a `delivered`/`sent`.
+
+## 6. Consentimientos
+
+Alta de turno por WhatsApp:
+
+- requiere `phone_e164`
+- requiere `whatsapp_consent = true`
+
+Recordatorio 24 h:
+
+- requiere `appointment_reminders_opt_in = true`
+- para WhatsApp además requiere `whatsapp_consent = true`
+
+Nunca asumir consentimiento por defecto.
+
+## 7. Prueba punta a punta
+
+Paciente de prueba con:
+
+- teléfono E.164 válido
+- consentimiento WhatsApp activo
+- recordatorios activos
+- email válido
+
+Crear un turno y comprobar:
+
+1. Email recibido.
+2. WhatsApp recibido.
+3. `appointment_messages` contiene los intentos.
+4. WhatsApp llega a `sent`.
+5. Meta actualiza a `delivered`.
+6. Si se abre, pasa a `read`.
+
+### Confirmar
+
+- tocar Confirmar
+- TurnIA cambia el turno a confirmado
+- respuesta de WhatsApp al paciente
+- no se duplica al reenviar webhook
+
+### Cancelar
+
+- tocar Cancelar
+- TurnIA cambia el turno a cancelado
+- respuesta de WhatsApp al paciente
+- no se duplica al reenviar webhook
+
+### Reprogramar
+
+- tocar Reprogramar
+- NO cambia fecha ni hora
+- marca `reschedule_requested_at`
+- aparece en Agenda
+- aparece en bloque global de solicitudes
+- profesional recibe email
+- profesional recibe WhatsApp cuando la plantilla esté configurada
+- paciente recibe respuesta confirmando la solicitud
+
+Luego el profesional cambia fecha/hora:
+
+- se limpia la solicitud pendiente
+- se reenvían comunicaciones actualizadas según el flujo existente
+
+## 8. Recordatorio 24 h
+
+Con un turno elegible:
+
+- cron ejecuta cada 15 minutos
+- una sola notificación por canal
+- email 24 h enviado
+- WhatsApp 24 h enviado
+- botones funcionan igual que en alta
+- fallos transitorios pueden reintentarse
+- turno cancelado/completado no recibe recordatorio
+
+## 9. UI TurnIA
+
+Revisar:
+
+- Configuración muestra diagnóstico WhatsApp sin secretos.
+- Teléfono profesional normalizado.
+- Consentimientos claros.
+- Agenda muestra estado de email/WhatsApp.
+- Agenda muestra “Pidió reprogramar”.
+- Agenda muestra bloque global de solicitudes pendientes.
+
+## 10. Antes del merge
+
+Ejecutar:
+
+```bash
+npm run typecheck
+npm run security:regression
+npm run whatsapp:regression
+npm run build
+```
+
+Todos deben terminar en PASS.
+
+No hacer merge a `main` ni promover producción sin validación final manual.
