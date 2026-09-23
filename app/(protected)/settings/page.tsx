@@ -2,7 +2,7 @@ import { requireTenant } from '@/lib/auth/require-user';
 import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago, updateAiTranscriptionSetting, saveArcaConnection, testArcaConnection, selectArcaActivity, updateArcaBillingPreferences, saveMisRxConnection, testMisRxConnection, disconnectMisRxIntegration } from './actions';
 import { isGoogleOAuthConfigured } from '@/lib/google/oauth';
 import { isMercadoPagoOAuthConfigured } from '@/lib/mercadopago/oauth';
-import { isWhatsAppConfigured } from '@/lib/whatsapp/provider';
+import { getWhatsAppIntegrationStatus } from '@/lib/whatsapp/provider';
 import { isEmailConfigured } from '@/lib/email/provider';
 import { isArcaWsaaConfigured, getArcaConnectionSummary } from '@/lib/arca/wsaa';
 import { getWsfeActivities } from '@/lib/arca/wsfe';
@@ -99,7 +99,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const misRxConnection = misRxConfigured
     ? await getMisRxConnectionSummary({ tenantId, userId: user.id })
     : null;
-  const whatsappConfigured = isWhatsAppConfigured();
+  const whatsappStatus = getWhatsAppIntegrationStatus();
+  const whatsappConfigured = whatsappStatus.readyForInitialMessages;
   const emailConfigured = isEmailConfigured();
   const declaredProfessionAllowsMisRx = shouldShowMisRxForDeclaredProfession(professionalProfile.profession);
   const showMisRxIntegration = isMisRxUiEnabled() && Boolean(
@@ -279,7 +280,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
           <div className="card">
             <h2>Integraciones</h2>
             <p className="text-helper">
-              Cada profesional conecta sus propias integraciones. Nada de esto se comparte entre consultorios.
+              Algunas integraciones se conectan por profesional. WhatsApp y el email transaccional son servicios centrales de TurnIA; Google, Mercado Pago y otras conexiones personales siguen siendo por profesional.
             </p>
 
             <div className="integration-list" style={{ marginTop: 8 }}>
@@ -398,14 +399,44 @@ export default async function SettingsPage({ searchParams }: PageProps) {
               <div className="integration-row">
                 <div className="integration-row-name">
                   WhatsApp
-                  <span className={`badge ${whatsappConfigured ? 'badge-confirmado' : 'badge-neutral'}`}>
-                    {whatsappConfigured ? 'Activo' : 'No disponible'}
+                  <span className={`badge ${whatsappConfigured ? 'badge-confirmado' : 'badge-pendiente'}`}>
+                    {whatsappConfigured ? 'Base lista' : 'Configuración incompleta'}
                   </span>
                 </div>
                 <div className="integration-row-desc">
-                  {whatsappConfigured
-                    ? 'Los mensajes salen según el consentimiento de cada paciente.'
-                    : 'El envío de WhatsApp todavía no está disponible en este consultorio.'}
+                  Integración central de TurnIA. Los mensajes al paciente respetan su consentimiento.
+                  <div className="stack" style={{ gap: 6, marginTop: 10 }}>
+                    <div>
+                      <span className={`badge ${whatsappStatus.baseConfigured ? 'badge-confirmado' : 'badge-neutral'}`}>
+                        {whatsappStatus.baseConfigured ? 'Credenciales base listas' : 'Faltan credenciales base'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className={`badge ${whatsappStatus.webhookConfigured ? 'badge-confirmado' : 'badge-neutral'}`}>
+                        {whatsappStatus.webhookConfigured ? 'Webhook configurado' : 'Webhook incompleto'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className={`badge ${whatsappStatus.initialTemplateConfigured ? 'badge-confirmado' : 'badge-pendiente'}`}>
+                        {whatsappStatus.initialTemplateConfigured ? 'Plantilla inicial configurada' : 'Plantilla inicial pendiente'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className={`badge ${whatsappStatus.reminderTemplateConfigured ? 'badge-confirmado' : 'badge-pendiente'}`}>
+                        {whatsappStatus.reminderTemplateConfigured ? 'Recordatorio 24 h configurado' : 'Recordatorio 24 h pendiente'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className={`badge ${whatsappStatus.professionalRescheduleTemplateConfigured ? 'badge-confirmado' : 'badge-pendiente'}`}>
+                        {whatsappStatus.professionalRescheduleTemplateConfigured
+                          ? 'Aviso de reprogramación al profesional configurado'
+                          : 'Aviso WhatsApp al profesional pendiente'}
+                      </span>
+                    </div>
+                    <div className="text-helper">
+                      Graph API: <strong>{whatsappStatus.apiVersion}</strong>
+                    </div>
+                  </div>
                 </div>
               </div>
 
