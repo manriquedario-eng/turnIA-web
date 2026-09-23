@@ -36,6 +36,11 @@ begin
     return;
   end if;
 
+  if v_status in ('completed', 'completado') then
+    return query select 'not_available'::text;
+    return;
+  end if;
+
   -- While a request is still pending, repeated clicks are idempotent:
   -- preserve the original timestamp/note and do not create a new cycle.
   if v_reschedule_requested_at is not null then
