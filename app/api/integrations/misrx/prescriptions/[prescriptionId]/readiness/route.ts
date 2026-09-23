@@ -192,16 +192,22 @@ export async function GET(
     });
 
     const prescriberResult = sessionResult.ok
-      ? await adapterResult.data.verifyPrescriber()
+      ? homologationActive
+        ? await adapterResult.data.verifyExternalProvider()
+        : await adapterResult.data.verifyPrescriber()
       : null;
 
     checks.push({
       key: 'prescriber',
-      ok: Boolean(prescriberResult?.ok),
-      label: 'Profesional validado por MisRX',
+      ok: Boolean(prescriberResult?.ok) && (!homologationActive || Boolean(homologation.doctorId)),
+      label: homologationActive ? 'Profesional de homologación MisRX' : 'Profesional validado por MisRX',
       detail: prescriberResult?.ok
-        ? `MisRX identificó DNI ${prescriberResult.data.profile.nrodoc}, matrícula ${prescriberResult.data.profile.tipo_matricula} ${prescriberResult.data.profile.matricula} y especialidad ${prescriberResult.data.profile.especialidad_id}.`
-        : 'La cuenta conectada no pudo validarse como prestador externo con identidad profesional completa.',
+        ? homologationActive
+          ? `Cuenta prestador externo validada. Para esta prueba MisRX indicó medico_id ${homologation.doctorId ?? 'sin configurar'}.`
+          : 'La identidad profesional fue validada por MisRX para prescripción.'
+        : homologationActive
+          ? 'La cuenta conectada no pudo validarse como prestador externo de MisRX.'
+          : 'La cuenta conectada no pudo validarse como prestador externo con identidad profesional completa.',
     });
 
     if (sessionResult.ok && prescriberResult?.ok && prescription.convention_id) {
