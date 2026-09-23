@@ -1,6 +1,11 @@
 import 'server-only';
 
 function getAppUrl(): string {
+  if (process.env.VERCEL_ENV === 'preview') {
+    const vercelUrl = process.env.VERCEL_URL?.trim();
+    if (vercelUrl) return `https://${vercelUrl.replace(/\/+$/, '')}`;
+  }
+
   const configured = process.env.APP_URL?.trim();
   if (!configured) throw new Error('app_url_not_configured');
   return configured.replace(/\/+$/, '');
