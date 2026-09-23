@@ -6,6 +6,7 @@ import {
   getDigilogixConfig,
 } from '@/lib/digilogix/config';
 import { certificateResultMeaning } from '@/lib/digilogix/response';
+import { isValidArgentinianCuitCuil } from '@/lib/digilogix/validation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,8 +14,8 @@ export const dynamic = 'force-dynamic';
 /**
  * Diagnóstico temporal de homologación.
  * - Solo existe funcionalmente en Vercel Preview.
- * - No recibe CUIL del usuario.
- * - Usa un identificador deliberadamente inválido.
+ * - Lee el CUIL de homologación desde DIGILOGIX_TEST_CUIL.
+ * - Nunca recibe el CUIL por URL ni lo devuelve en la respuesta.
  * - Nunca devuelve secretos, token de Authorization ni headers sensibles.
  * - No requiere EmpresaID.
  */
@@ -47,8 +48,32 @@ export async function GET() {
     );
   }
 
+  const testCuil = process.env.DIGILOGIX_TEST_CUIL?.trim();
+
+  if (!testCuil) {
+    return NextResponse.json(
+      {
+        ok: false,
+        stage: 'configuration',
+        reason: 'test_cuil_not_configured',
+      },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+
+  if (!isValidArgentinianCuitCuil(testCuil)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        stage: 'configuration',
+        reason: 'test_cuil_invalid',
+      },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+
   const result = await getDigilogixCertificate({
-    CodigoUnicoIdentificacion: '00000000000',
+    CodigoUnicoIdentificacion: testCuil,
   });
 
   if (!result.ok) {
