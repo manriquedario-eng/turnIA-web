@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     planId: nonNegativeInteger(params.get('plan_id')),
     monodrogaId: nonNegativeInteger(params.get('monodroga_id')),
     formaFarmaId: nonNegativeInteger(params.get('forma_farma_id')),
-    noIncluyeBajas: nonNegativeInteger(params.get('no_incluye_bajas')),
+    noIncluyeBajas: nonNegativeInteger(params.get('no_incluye_bajas')) ?? 1,
     productoId: nonNegativeInteger(params.get('producto_id')),
   });
 
