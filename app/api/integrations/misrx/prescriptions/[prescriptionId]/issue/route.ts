@@ -146,6 +146,14 @@ export async function POST(
     );
   }
 
+  const prescriberResult = await adapterResult.data.verifyPrescriber();
+  if (!prescriberResult.ok) {
+    return NextResponse.json(
+      { error: prescriberResult.errorMessage },
+      { status: prescriberResult.status ?? 403 },
+    );
+  }
+
   let conventionPlanCode: number | undefined;
   if (prescription.plan_id) {
     const plansResult = await adapterResult.data.getPlans({
@@ -202,6 +210,12 @@ export async function POST(
     metadata: {
       convention_id: prescription.convention_id,
       doctor_id: homologation.doctorId,
+      verified_misrx_usuario_id: prescriberResult.data.usuarioId ?? null,
+      verified_misrx_propio_id: prescriberResult.data.propioId ?? null,
+      verified_professional_dni: prescriberResult.data.profile.nrodoc,
+      verified_professional_matricula_tipo: prescriberResult.data.profile.tipo_matricula,
+      verified_professional_matricula: prescriberResult.data.profile.matricula,
+      verified_professional_especialidad_id: prescriberResult.data.profile.especialidad_id,
       item_count: items.length,
       plan_id: prescription.plan_id ?? null,
       convenio_plan_cod: conventionPlanCode ?? null,
