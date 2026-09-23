@@ -377,7 +377,6 @@ const metadataSchema = z.object({
 });
 
 export async function autosavePrescriptionDraftMetadata(input: {
-  if (!isMisRxUiEnabled()) redirect('/patients');
   patientId: string;
   prescriptionId: string;
   conventionId?: number | null;
@@ -388,6 +387,7 @@ export async function autosavePrescriptionDraftMetadata(input: {
   observations?: string | null;
   longTermTreatment?: boolean;
 }) {
+  if (!isMisRxUiEnabled()) redirect('/patients');
   const autosaveSchema = z.object({
     patientId: z.string().uuid(),
     prescriptionId: z.string().uuid(),
