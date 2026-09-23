@@ -110,13 +110,13 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
 
   const { data: appointment } = await supabase
     .from('appointments')
-    .select('id,tenant_id,patient_id,starts_at,reschedule_requested_at')
+    .select('id,tenant_id,patient_id,professional_id,starts_at,reschedule_requested_at')
     .eq('public_token', token)
     .maybeSingle();
 
   if (!appointment?.id || !appointment.tenant_id || !appointment.patient_id) return;
 
-  const [{ data: patient }, { data: settings }] = await Promise.all([
+  const [{ data: patient }, { data: settings }, professionalContactResult] = await Promise.all([
     supabase
       .from('patients')
       .select('name')
@@ -128,6 +128,14 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
       .select('profile')
       .eq('tenant_id', appointment.tenant_id)
       .maybeSingle(),
+    appointment.professional_id
+      ? supabase
+          .from('professional_contacts')
+          .select('phone_e164,email')
+          .eq('tenant_id', appointment.tenant_id)
+          .eq('user_id', appointment.professional_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
 
   const patientName = patient?.name || 'Paciente';
@@ -136,10 +144,25 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
       ? (settings.profile as Record<string, unknown>)
       : {};
 
+  const professionalContact =
+    professionalContactResult &&
+    'data' in professionalContactResult
+      ? professionalContactResult.data
+      : null;
+
   const professionalEmail =
-    typeof profile.professional_email === 'string' ? profile.professional_email.trim() : '';
+    typeof professionalContact?.email === 'string'
+      ? professionalContact.email.trim()
+      : typeof profile.professional_email === 'string'
+        ? profile.professional_email.trim()
+        : '';
+
   const professionalPhone =
-    typeof profile.professional_phone === 'string' ? profile.professional_phone.trim() : '';
+    typeof professionalContact?.phone_e164 === 'string'
+      ? professionalContact.phone_e164.trim()
+      : typeof profile.professional_phone === 'string'
+        ? profile.professional_phone.trim()
+        : '';
 
   const dateLabel = formatDate(appointment.starts_at);
   const timeLabel = formatTime(appointment.starts_at);
