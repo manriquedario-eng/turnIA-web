@@ -4673,3 +4673,27 @@ table tbody tr:hover {
   border-top: 1px solid var(--color-border-soft);
   padding-top: 16px;
 }
+
+
+.misrx-affiliate-match {
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(260px, 1.2fr);
+  gap: 14px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-soft);
+}
+
+.misrx-affiliate-match > div > strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 16px;
+}
+
+@media (max-width: 700px) {
+  .misrx-affiliate-match {
+    grid-template-columns: 1fr;
+  }
+}
