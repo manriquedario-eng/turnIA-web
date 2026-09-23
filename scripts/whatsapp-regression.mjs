@@ -80,6 +80,18 @@ check(
 );
 
 check(
+  'WhatsApp button context is limited to patient appointment messages',
+  actions.includes("new Set(['appointment_created', 'appointment_reminder_24h'])") &&
+    actions.includes('allowedContextTypes.has(contextMessage.message_type)'),
+);
+
+check(
+  'Transient action ledger DB failures are retryable',
+  actions.includes('if (eventInsertError)') &&
+    actions.includes('throw eventInsertError'),
+);
+
+check(
   'Inbound webhook actions are idempotent',
   migration.includes('create table if not exists public.whatsapp_inbound_events') &&
     actions.includes("eventInsertError?.code === '23505'"),
