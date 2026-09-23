@@ -36,11 +36,14 @@ export type WhatsAppSendResult =
   | { ok: false, reason: 'not_configured' | 'invalid_phone' | 'provider_error' | 'network_error'; errorMessage: string };
 
 function getBaseConfig() {
-  const config = getBaseConfig();
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const apiVersion = process.env.WHATSAPP_GRAPH_API_VERSION || 'v20.0';
 
-  if (!config) {
+  if (!accessToken || !phoneNumberId) {
     return null;
   }
+
   return { accessToken, phoneNumberId, apiVersion };
 }
 
@@ -144,11 +147,9 @@ export async function sendWhatsAppTextMessage(params: {
   toWaId: string;
   text: string;
 }): Promise<WhatsAppSendResult> {
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const apiVersion = process.env.WHATSAPP_GRAPH_API_VERSION || 'v20.0';
+  const config = getBaseConfig();
 
-  if (!accessToken || !phoneNumberId) {
+  if (!config) {
     return { ok: false, reason: 'not_configured', errorMessage: 'Credenciales de WhatsApp no configuradas.' };
   }
 
