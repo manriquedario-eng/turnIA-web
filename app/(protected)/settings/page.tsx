@@ -1,5 +1,5 @@
 import { requireTenant } from '@/lib/auth/require-user';
-import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago, updateAiTranscriptionSetting, saveArcaConnection, testArcaConnection, updateArcaBillingPreferences, saveMisRxConnection, testMisRxConnection, disconnectMisRxIntegration } from './actions';
+import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago, updateAiTranscriptionSetting, saveArcaConnection, testArcaConnection, selectArcaActivity, updateArcaBillingPreferences, saveMisRxConnection, testMisRxConnection, disconnectMisRxIntegration } from './actions';
 import { isGoogleOAuthConfigured } from '@/lib/google/oauth';
 import { isMercadoPagoOAuthConfigured } from '@/lib/mercadopago/oauth';
 import { isWhatsAppConfigured } from '@/lib/whatsapp/provider';
@@ -13,7 +13,7 @@ import { isMisRxConnectionConfigured } from '@/lib/misrx/connection';
 import { shouldShowMisRxForDeclaredProfession } from '@/lib/misrx/profession-eligibility';
 
 type PageProps = {
-  searchParams?: Promise<{ ok?: string; error?: string; arca_activities?: string }>;
+  searchParams?: Promise<{ ok?: string; error?: string }>;
 };
 
 function formatDuration(totalSeconds: number) {
@@ -103,12 +103,11 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const arcaConfigured = isArcaWsaaConfigured();
   const arcaConnection = arcaConfigured ? await getArcaConnectionSummary({ tenantId, userId: user.id }) : null;
   const arcaConnected = Boolean(arcaConnection?.connectedAt);
-  const shouldCheckArcaActivities = params?.arca_activities === '1';
   // ARCA es la fuente de verdad para la actividad fiscal. Si la conexión está
   // activa, cargamos las actividades habilitadas para usarlas tanto en el
   // selector de Datos profesionales como en el panel de diagnóstico.
   const arcaActivitiesResult =
-    fiscalEnabled && arcaConnected
+    arcaConnected
       ? await getWsfeActivities({ tenantId, userId: user.id, environment: 'homologacion' })
       : null;
   const arcaActivities = arcaActivitiesResult?.ok ? arcaActivitiesResult.data : [];
@@ -441,45 +440,53 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                             Probar conexión con ARCA
                           </button>
                         </form>
-                        <a
-                          className="btn secondary"
-                          href="/settings?arca_activities=1#facturacion"
-                          style={{ padding: '7px 12px', fontSize: 13 }}
-                        >
-                          Consultar actividades ARCA
-                        </a>
                       </div>
                     ) : null}
                   </div>
 
-                  {shouldCheckArcaActivities ? (
+                  {arcaConnected ? (
                     <div className="card" style={{ marginTop: 16 }}>
-                      <h3 style={{ marginTop: 0 }}>Actividades informadas por ARCA</h3>
-                      {!arcaConnected ? (
-                        <p className="alert error" style={{ marginBottom: 0 }}>
-                          Primero conectá y probá la credencial de ARCA en homologación.
-                        </p>
-                      ) : arcaActivitiesResult?.ok ? (
+                      <h3 style={{ marginTop: 0 }}>Actividad fiscal informada por ARCA</h3>
+                      {arcaActivitiesResult?.ok ? (
                         arcaActivitiesResult.data.length > 0 ? (
-                          <div className="stack" style={{ gap: 8 }}>
-                            {arcaActivitiesResult.data.map((activity) => (
-                              <div key={activity.id} className="integration-row">
-                                <div className="integration-row-name">
-                                  {activity.id}
-                                  {activity.order != null ? <span className="badge badge-neutral">Orden {activity.order}</span> : null}
-                                </div>
-                                <div className="integration-row-desc">{activity.description || 'Sin descripción'}</div>
-                              </div>
-                            ))}
-                          </div>
+                          <form action={selectArcaActivity} className="form-grid">
+                            <label style={{ gridColumn: '1 / -1' }}>
+                              Actividad habilitada
+                              <select
+                                name="activity_code"
+                                defaultValue={
+                                  arcaActivitiesResult.data.some((item) => String(item.id) === text('activity_code'))
+                                    ? text('activity_code')
+                                    : arcaActivitiesResult.data.length === 1
+                                      ? String(arcaActivitiesResult.data[0].id)
+                                      : ''
+                                }
+                                required
+                              >
+                                <option value="" disabled>Seleccioná una actividad habilitada</option>
+                                {arcaActivitiesResult.data.map((activity) => (
+                                  <option key={activity.id} value={String(activity.id)}>
+                                    {activity.id} — {activity.description || 'Sin descripción'}
+                                    {activity.order != null ? ` · Orden ${activity.order}` : ''}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <p className="field-hint" style={{ gridColumn: '1 / -1', margin: 0 }}>
+                              Las opciones vienen directamente de ARCA mediante FEParamGetActividades. No se pueden ingresar códigos manualmente.
+                            </p>
+                            <div className="form-actions">
+                              <button className="btn secondary" type="submit">Guardar actividad</button>
+                            </div>
+                          </form>
                         ) : (
                           <p className="alert" style={{ marginBottom: 0 }}>
-                            ARCA no devolvió actividades habilitadas para este emisor en homologación.
+                            ARCA no devolvió actividades habilitadas para este CUIT.
                           </p>
                         )
                       ) : (
                         <p className="alert error" style={{ marginBottom: 0 }}>
-                          {arcaActivitiesResult?.errorMessage ?? 'No se pudieron consultar las actividades en ARCA.'}
+                          {arcaActivitiesResult?.errorMessage ?? 'No se pudieron consultar las actividades de ARCA.'}
                         </p>
                       )}
                     </div>
@@ -506,7 +513,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                       Certificado y clave de <strong>homologación</strong> emitidos por ARCA. Se guardan cifrados — nunca en texto plano, nunca visibles desde el navegador.
                     </p>
                     <div className="form-actions">
-                      <button className="btn" type="submit">Guardar y conectar</button>
+                      <button className="btn" type="submit">Guardar, validar y traer actividades</button>
                     </div>
                   </form>
 
