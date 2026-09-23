@@ -544,7 +544,7 @@ export async function POST(
   });
 
   if (!result.ok) {
-    await supabase
+    const { error: providerStateError } = await supabase
       .from('prescriptions')
       .update({
         status: 'error',
@@ -554,7 +554,8 @@ export async function POST(
       })
       .eq('id', prescription.id)
       .eq('tenant_id', tenantId)
-      .eq('professional_id', user.id);
+      .eq('professional_id', user.id)
+      .eq('status', 'sending');
 
     await service.from('prescription_events').insert({
       prescription_id: prescription.id,
@@ -563,6 +564,21 @@ export async function POST(
       provider_message: result.errorMessage.slice(0, 1000),
       metadata: { status: result.status ?? null },
     });
+
+    if (providerStateError) {
+      await service.from('prescription_events').insert({
+        prescription_id: prescription.id,
+        event_type: 'misrx_local_reconciliation_required',
+        provider_status: 'ERROR',
+        provider_message: 'No se pudo actualizar el estado local después de un error del proveedor.',
+        metadata: { phase: 'provider_error', provider_http_status: result.status ?? null },
+      });
+
+      return NextResponse.json(
+        { error: 'MisRX respondió con error y TurnIA no pudo actualizar el estado local. La receta quedó bloqueada para evitar duplicados y requiere conciliación.' },
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json(
       { error: result.errorMessage },
@@ -583,7 +599,7 @@ export async function POST(
     result.data.nrorecetario_os ??
     null;
 
-  await supabase
+  const { error: finalStateError } = await supabase
     .from('prescriptions')
     .update({
       status: finalStatus,
@@ -596,7 +612,34 @@ export async function POST(
     })
     .eq('id', prescription.id)
     .eq('tenant_id', tenantId)
-    .eq('professional_id', user.id);
+    .eq('professional_id', user.id)
+    .eq('status', 'sending');
+
+  if (finalStateError) {
+    await service.from('prescription_events').insert({
+      prescription_id: prescription.id,
+      event_type: 'misrx_local_reconciliation_required',
+      provider_status: result.data.status ?? null,
+      provider_message: 'MisRX procesó la receta, pero TurnIA no pudo persistir el estado final.',
+      metadata: {
+        phase: 'final_state',
+        remote_status: finalStatus,
+        prescription_number: providerPrescriptionNumber,
+        token_present: Boolean(result.data.token),
+      },
+    });
+
+    return NextResponse.json(
+      {
+        error: finalStatus === 'issued'
+          ? 'MisRX emitió la receta, pero TurnIA no pudo guardar el estado final. No vuelvas a emitirla; requiere conciliación.'
+          : 'MisRX procesó la receta, pero TurnIA no pudo guardar el estado final. Requiere conciliación.',
+        remoteStatus: finalStatus,
+        prescriptionNumber: providerPrescriptionNumber,
+      },
+      { status: 500 },
+    );
+  }
 
   await service.from('prescription_events').insert({
     prescription_id: prescription.id,
