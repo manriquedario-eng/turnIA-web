@@ -9,7 +9,7 @@ import { getWsfeActivities } from '@/lib/arca/wsfe';
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
 import { FiscalProfileFields } from '@/components/settings/FiscalProfileFields';
 import { isFiscalProfileEnabled } from '@/lib/billing/fiscal-profile';
-import { isMisRxConnectionConfigured } from '@/lib/misrx/connection';
+import { getMisRxConnectionSummary, isMisRxConnectionConfigured } from '@/lib/misrx/connection';
 import { shouldShowMisRxForDeclaredProfession } from '@/lib/misrx/profession-eligibility';
 
 type PageProps = {
@@ -95,9 +95,18 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const misRxConnected = misRxIntegration?.status === 'connected';
   const misRxError = misRxIntegration?.status === 'error';
   const misRxConfigured = isMisRxConnectionConfigured();
+  const misRxConnection = misRxConfigured
+    ? await getMisRxConnectionSummary({ tenantId, userId: user.id })
+    : null;
   const whatsappConfigured = isWhatsAppConfigured();
   const emailConfigured = isEmailConfigured();
-  const showMisRxIntegration = shouldShowMisRxForDeclaredProfession(professionalProfile.profession);
+  const declaredProfessionAllowsMisRx = shouldShowMisRxForDeclaredProfession(professionalProfile.profession);
+  const showMisRxIntegration = Boolean(
+    misRxConnection ||
+    misRxConnected ||
+    misRxError ||
+    declaredProfessionAllowsMisRx
+  );
 
   // ARCA: lectura server-only; nunca expone certificado, clave, token ni sign.
   const arcaConfigured = isArcaWsaaConfigured();
