@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { createPrescriptionDraft } from '@/app/(protected)/patients/prescription-actions';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -33,7 +32,7 @@ function statusClass(status: string) {
 export default async function PrescriptionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ patient?: string; error?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const query = await searchParams;
   const { supabase, tenantId, user } = await requireTenant();
@@ -63,7 +62,6 @@ export default async function PrescriptionsPage({
   const patientRows = patients ?? [];
   const prescriptionRows = prescriptions ?? [];
   const patientById = new Map(patientRows.map((patient: any) => [patient.id, patient]));
-  const selectedPatient = query.patient ? patientById.get(query.patient) : null;
   const connected = misRxStatus?.status === 'connected';
   const drafts = prescriptionRows.filter((item: any) => item.status === 'draft').length;
   const issued = prescriptionRows.filter((item: any) => item.status === 'issued').length;
@@ -101,55 +99,17 @@ export default async function PrescriptionsPage({
       </div>
 
       <div className="card prescriptions-create-card">
-        <div className="page-header" style={{ marginBottom: 12 }}>
+        <div className="page-header" style={{ marginBottom: 0 }}>
           <div>
             <h2 style={{ margin: 0 }}>Nueva receta</h2>
             <p className="text-helper" style={{ margin: '6px 0 0' }}>
-              Elegí el paciente y creá un borrador. Nada se envía a MisRX hasta la etapa de emisión.
+              Abrí directamente el editor de receta y elegí el paciente.
             </p>
           </div>
-          {selectedPatient ? (
-            <Link className="btn-ghost" href={`/patients/${selectedPatient.id}`}>
-              Ver paciente
-            </Link>
-          ) : null}
+          <Link className="btn" href="/prescriptions/new">
+            Nueva receta
+          </Link>
         </div>
-
-        <details open={Boolean(selectedPatient)}>
-          <summary className="btn secondary prescriptions-summary">
-            {selectedPatient ? `Nueva receta para ${selectedPatient.name}` : 'Crear nueva receta'}
-          </summary>
-          <form action={createPrescriptionDraft} className="form-grid prescriptions-create-form">
-            <label style={{ gridColumn: '1 / -1' }}>
-              Paciente
-              <select name="patientId" defaultValue={selectedPatient?.id ?? ''} required>
-                <option value="" disabled>Seleccionar paciente</option>
-                {patientRows.map((patient: any) => (
-                  <option key={patient.id} value={patient.id}>{patient.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Diagnóstico
-              <input name="diagnosis" maxLength={500} placeholder="Opcional" />
-            </label>
-            <label>
-              CIE-10
-              <input name="cie10" maxLength={20} placeholder="Se puede completar después" />
-            </label>
-            <label style={{ gridColumn: '1 / -1' }}>
-              Observaciones / indicaciones
-              <textarea name="observations" maxLength={4000} rows={3} placeholder="Opcional" />
-            </label>
-            <label className="checkbox-field" style={{ gridColumn: '1 / -1' }}>
-              <input type="checkbox" name="longTermTreatment" />
-              Tratamiento prolongado
-            </label>
-            <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
-              <button className="btn" type="submit">Crear borrador y continuar</button>
-            </div>
-          </form>
-        </details>
       </div>
 
       <div className="card">
