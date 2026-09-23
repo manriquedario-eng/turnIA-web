@@ -116,6 +116,12 @@ check(
 );
 
 check(
+  'Provider message IDs are unique for deterministic webhook status updates',
+  migration.includes('appointment_messages_provider_message_id_unique') &&
+    migration.includes('where provider_message_id is not null'),
+);
+
+check(
   'Delivery lifecycle never intentionally regresses',
   webhook.includes('if (incomingRank < currentRank) return') &&
     webhook.includes('delivered_at') &&
