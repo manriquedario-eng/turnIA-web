@@ -5,8 +5,8 @@ import { beginDigilogixPersonOnboarding } from './onboarding';
 import { requestDocumentSignature } from './signing';
 import type {
   DigilogixApiResult,
+  DigilogixOnboardingResponse,
   DigilogixSignResponse,
-  DigilogixSimpleResponse,
 } from './types';
 import { getDigilogixOnboardingReturnUrls, getDigilogixSigningReturnUrls } from './urls';
 import { isValidCuil, normalizeCuil } from './validation';
@@ -19,7 +19,7 @@ function invalidInput(message: string): DigilogixApiResult<never> {
 export async function startProfessionalDigilogixOnboarding(params: {
   email: string;
   showPaymentStep?: boolean;
-}): Promise<DigilogixApiResult<DigilogixSimpleResponse>> {
+}): Promise<DigilogixApiResult<DigilogixOnboardingResponse>> {
   const email = params.email.trim();
   if (!/^\S+@\S+\.\S+$/.test(email)) {
     return invalidInput('El email del profesional no es válido.');
@@ -36,18 +36,6 @@ export async function startProfessionalDigilogixOnboarding(params: {
   });
 }
 
-/**
- * Prepara y solicita la firma de UN PDF.
- *
- * Decisiones seguras:
- * - EmpresaID sale sólo de configuración server-side.
- * - CUIL se normaliza/valida antes de salir de TurnIA.
- * - PDF y hash se calculan a partir de los mismos bytes.
- * - La firma visible va por defecto a la última página.
- * - Nunca se activa ForzarGeneracionErrorParaTest desde esta función.
- * - Un retorno HTTP exitoso NO significa "firmado": primero se persiste
- *   IdentificadorDocumento y luego se consulta su estado en Digilogix.
- */
 export async function requestSinglePdfSignature(params: {
   pdf: Buffer;
   cuil: string;

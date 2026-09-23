@@ -3,19 +3,20 @@ import 'server-only';
 import { digilogixPost } from './client';
 import type {
   DigilogixOnboardingRequest,
+  DigilogixOnboardingResponse,
   DigilogixRegistrationRequest,
-  DigilogixSimpleResponse,
+  DigilogixRegistrationResponse,
 } from './types';
 
 export function beginDigilogixUserRegistration(body: DigilogixRegistrationRequest) {
-  return digilogixPost<DigilogixSimpleResponse>(
+  return digilogixPost<DigilogixRegistrationResponse>(
     '/FirmaDigital/PostIniciarRegistracionUsuario',
     body,
   );
 }
 
 export function beginDigilogixPersonOnboarding(body: DigilogixOnboardingRequest) {
-  return digilogixPost<DigilogixSimpleResponse>(
+  return digilogixPost<DigilogixOnboardingResponse>(
     '/FirmaDigital/PostIniciarOnboardingPersonaFisica',
     body,
   );

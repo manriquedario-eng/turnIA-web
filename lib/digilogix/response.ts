@@ -1,15 +1,12 @@
 import type {
+  DigilogixCertificateResponse,
+  DigilogixCommonResultCode,
   DigilogixDocumentStateResponse,
   DigilogixEnvelope,
   DigilogixSignResponse,
   DigilogixUploadedDocumentResult,
 } from './types';
 
-/**
- * Valida únicamente la forma común del sobre Digilogix.
- * IMPORTANTE: CodigoResultado NO tiene una semántica global uniforme.
- * Debe interpretarse según el endpoint.
- */
 export function hasValidDigilogixEnvelope(value: unknown): value is DigilogixEnvelope<unknown> {
   if (!value || typeof value !== 'object') return false;
   const obj = value as Record<string, unknown>;
@@ -17,7 +14,24 @@ export function hasValidDigilogixEnvelope(value: unknown): value is DigilogixEnv
     && typeof obj.MensajeResultado === 'string';
 }
 
-export type DigilogixDocumentStateResultCode = -2 | -1 | 0 | 1 | 2 | 3;
+export function commonResultMeaning(code: number): string {
+  switch (code) {
+    case -2:
+      return 'Los parámetros no son válidos';
+    case -1:
+      return 'No se autorizó el uso del método';
+    case 0:
+      return 'Se produjo un error';
+    case 1:
+      return 'Proceso completado correctamente';
+    default:
+      return 'Código de resultado no documentado';
+  }
+}
+
+export function isCommonSuccessCode(code: number): code is Extract<DigilogixCommonResultCode, 1> {
+  return code === 1;
+}
 
 export function documentStateResultMeaning(code: number): string {
   switch (code) {
@@ -38,15 +52,47 @@ export function documentStateResultMeaning(code: number): string {
   }
 }
 
+export function certificateResultMeaning(code: number): string {
+  switch (code) {
+    case -2:
+      return 'Los parámetros no son válidos';
+    case -1:
+      return 'No se autorizó el uso del método';
+    case 0:
+      return 'Se produjo un error';
+    case 1:
+      return 'Certificado obtenido';
+    case 2:
+      return 'La persona no posee un certificado';
+    case 3:
+      return 'La persona no posee un certificado vigente';
+    default:
+      return 'Código de resultado no documentado';
+  }
+}
+
 export function isDocumentStateQuerySuccessful(
   response: DigilogixDocumentStateResponse,
 ): boolean {
   return response.CodigoResultado === 1 && Boolean(response.Datos);
 }
 
+export function isCertificateAvailable(
+  response: DigilogixCertificateResponse,
+): boolean {
+  return response.CodigoResultado === 1 && Boolean(response.Datos?.CertificadoDerBase64);
+}
+
+export function certificateNeedsOnboardingOrRenewal(
+  response: DigilogixCertificateResponse,
+): boolean {
+  return response.CodigoResultado === 2 || response.CodigoResultado === 3;
+}
+
 export function firstUploadedDocument(
   response: DigilogixSignResponse,
 ): DigilogixUploadedDocumentResult | null {
+  if (response.CodigoResultado !== 1) return null;
   const first = response.Datos?.Resultados?.[0];
   if (!first?.IdentificadorDocumento || !Array.isArray(first.Autorizaciones)) return null;
   return first;

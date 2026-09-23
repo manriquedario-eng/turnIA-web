@@ -16,11 +16,15 @@ export type DigilogixApiResult<T> =
       status?: number;
     };
 
-export type DigilogixEnvelope<T = undefined> = {
-  CodigoResultado: number;
+export type DigilogixEnvelope<T = undefined, TResultCode extends number = number> = {
+  CodigoResultado: TResultCode;
   MensajeResultado: string;
   Datos?: T;
 };
+
+export type DigilogixCommonResultCode = -2 | -1 | 0 | 1;
+export type DigilogixDocumentStateResultCode = -2 | -1 | 0 | 1 | 2 | 3;
+export type DigilogixCertificateResultCode = -2 | -1 | 0 | 1 | 2 | 3;
 
 export type DigilogixPerson = {
   CodigoUnicoIdentificacion: string;
@@ -79,13 +83,13 @@ export type DigilogixSignResponseData = {
   Resultados: DigilogixUploadedDocumentResult[];
 };
 
-export type DigilogixSignResponse = DigilogixEnvelope<DigilogixSignResponseData>;
+export type DigilogixSignResponse =
+  DigilogixEnvelope<DigilogixSignResponseData, DigilogixCommonResultCode>;
 
 export type DigilogixDocumentStateRequest = {
   IdentificadorDocumento: string;
 };
 
-export type DigilogixDocumentStateResultCode = -2 | -1 | 0 | 1 | 2 | 3;
 export type DigilogixDocumentOverallStateCode = 1 | 2 | 3;
 export type DigilogixSignerStateCode = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -106,9 +110,7 @@ export type DigilogixDocumentStateData = {
 };
 
 export type DigilogixDocumentStateResponse =
-  Omit<DigilogixEnvelope<DigilogixDocumentStateData>, 'CodigoResultado'> & {
-    CodigoResultado: DigilogixDocumentStateResultCode;
-  };
+  DigilogixEnvelope<DigilogixDocumentStateData, DigilogixDocumentStateResultCode>;
 
 export type DigilogixCertificateRequest = {
   CodigoUnicoIdentificacion: string;
@@ -122,7 +124,7 @@ export type DigilogixCertificateData = {
 };
 
 export type DigilogixCertificateResponse =
-  DigilogixEnvelope<DigilogixCertificateData>;
+  DigilogixEnvelope<DigilogixCertificateData, DigilogixCertificateResultCode>;
 
 export type DigilogixVerifyHashRequest = {
   CertificadoBase64: string;
@@ -130,9 +132,15 @@ export type DigilogixVerifyHashRequest = {
   HashSHA256FirmadoHexadecimal: string;
 };
 
+export type DigilogixVerifyHashResponse =
+  DigilogixEnvelope<undefined, DigilogixCommonResultCode>;
+
 export type DigilogixRegistrationRequest = {
   Email?: string;
 };
+
+export type DigilogixRegistrationResponse =
+  DigilogixEnvelope<undefined, DigilogixCommonResultCode>;
 
 export type DigilogixOnboardingRequest = {
   Email: string;
@@ -142,4 +150,5 @@ export type DigilogixOnboardingRequest = {
   UrlRedireccionRechazar?: string;
 };
 
-export type DigilogixSimpleResponse = DigilogixEnvelope;
+export type DigilogixOnboardingResponse =
+  DigilogixEnvelope<undefined, DigilogixCommonResultCode>;

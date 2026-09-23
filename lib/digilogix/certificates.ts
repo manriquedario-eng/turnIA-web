@@ -4,8 +4,8 @@ import { digilogixPost } from './client';
 import type {
   DigilogixCertificateRequest,
   DigilogixCertificateResponse,
-  DigilogixSimpleResponse,
   DigilogixVerifyHashRequest,
+  DigilogixVerifyHashResponse,
 } from './types';
 
 export function getDigilogixCertificate(body: DigilogixCertificateRequest) {
@@ -16,7 +16,7 @@ export function getDigilogixCertificate(body: DigilogixCertificateRequest) {
 }
 
 export function verifyDigilogixSignedHash(body: DigilogixVerifyHashRequest) {
-  return digilogixPost<DigilogixSimpleResponse>(
+  return digilogixPost<DigilogixVerifyHashResponse>(
     '/FirmaDigital/PostVerificarFirmaHash',
     body,
   );
