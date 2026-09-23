@@ -59,14 +59,28 @@ export class MisRxAdapter {
     roles?: string;
   }>> {
     const login = await loginToMisRx(this.credentials);
-    if (!login.ok) return login;
+    if (!login.ok) {
+      console.warn('[misrx] external provider login failed', {
+        reason: login.reason,
+        status: login.status ?? null,
+      });
+      return login;
+    }
 
-    if (Number(login.data.tipo) !== 3) {
+    const accountType = Number(login.data.tipo);
+    if (accountType !== 3) {
+      console.warn('[misrx] external provider account type rejected', {
+        accountType: Number.isFinite(accountType) ? accountType : null,
+        usuarioId: login.data.usuario_id ?? null,
+        propioId: login.data.propio_id ?? null,
+      });
       return {
         ok: false,
         reason: 'unauthorized',
         status: 403,
-        errorMessage: 'La cuenta MisRX conectada no corresponde a un prestador externo habilitado para esta integración.',
+        errorMessage: Number.isFinite(accountType)
+          ? `MisRX autenticó la cuenta, pero informó tipo de usuario ${accountType}; para prestador externo debe ser tipo 3.`
+          : 'MisRX autenticó la cuenta, pero no informó un tipo de usuario válido para prestador externo.',
       };
     }
 
