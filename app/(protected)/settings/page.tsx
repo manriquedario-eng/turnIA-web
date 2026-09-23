@@ -10,6 +10,7 @@ import { SettingsTabs } from '@/components/settings/SettingsTabs';
 import { FiscalProfileFields } from '@/components/settings/FiscalProfileFields';
 import { isFiscalProfileEnabled } from '@/lib/billing/fiscal-profile';
 import { isMisRxConnectionConfigured } from '@/lib/misrx/connection';
+import { shouldShowMisRxForDeclaredProfession } from '@/lib/misrx/profession-eligibility';
 
 type PageProps = {
   searchParams?: Promise<{ ok?: string; error?: string; arca_activities?: string }>;
@@ -96,6 +97,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const misRxConfigured = isMisRxConnectionConfigured();
   const whatsappConfigured = isWhatsAppConfigured();
   const emailConfigured = isEmailConfigured();
+  const showMisRxIntegration = shouldShowMisRxForDeclaredProfession(professionalProfile.profession);
 
   // ARCA: lectura server-only; nunca expone certificado, clave, token ni sign.
   const arcaConfigured = isArcaWsaaConfigured();
@@ -322,52 +324,55 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 </div>
               </div>
 
-              <div className="integration-row">
-                <div className="integration-row-name">
-                  MisRX · Receta electrónica
-                  <span className={`badge ${misRxConnected ? 'badge-confirmado' : misRxError ? 'badge-cancelado' : misRxConfigured ? 'badge-pendiente' : 'badge-neutral'}`}>
-                    {misRxConnected ? 'Conectado' : misRxError ? 'Error' : misRxConfigured ? 'No conectado' : 'No disponible'}
-                  </span>
-                </div>
-                <div className="integration-row-desc">
-                  Conecta TurnIA con MisRX para preparar la emisión, consulta y anulación de recetas electrónicas.
-                  {misRxConnected && misRxIntegration?.account_label ? ` Cuenta: ${misRxIntegration.account_label}.` : ''}
-                  {' '}La emisión productiva seguirá deshabilitada hasta completar la homologación de TurnIA y validar las credenciales externas con el soft_id oficial.
-                </div>
-                <div className="integration-row-action" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {misRxConnected ? (
-                    <>
-                      <form action={testMisRxConnection}>
-                        <button className="btn secondary btn-compact" type="submit">Probar conexión</button>
-                      </form>
-                      <form action={disconnectMisRxIntegration}>
-                        <button className="btn danger btn-compact" type="submit">Desconectar</button>
-                      </form>
-                    </>
-                  ) : misRxConfigured ? (
-                    <form action={saveMisRxConnection} className="form-grid" style={{ width: '100%', marginTop: 8 }}>
-                      <label>
-                        Usuario MisRX
-                        <input name="username" autoComplete="username" maxLength={200} required />
-                      </label>
-                      <label>
-                        Contraseña MisRX
-                        <input name="password" type="password" autoComplete="current-password" maxLength={500} required />
-                      </label>
-                      <p className="field-hint" style={{ gridColumn: '1 / -1', margin: 0 }}>
-                        TurnIA prueba primero el acceso contra MisRX y sólo guarda la contraseña si el login es válido. Se almacena cifrada y nunca se expone al navegador nuevamente.
-                      </p>
-                      <div className="form-actions">
-                        <button className="btn secondary btn-compact" type="submit">Conectar MisRX</button>
-                      </div>
-                    </form>
-                  ) : (
-                    <span className="btn secondary btn-compact" aria-disabled="true" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-                      Conectar
+              {showMisRxIntegration ? (
+                <div className="integration-row">
+                  <div className="integration-row-name">
+                    MisRX · Receta electrónica
+                    <span className={`badge ${misRxConnected ? 'badge-confirmado' : misRxError ? 'badge-cancelado' : misRxConfigured ? 'badge-pendiente' : 'badge-neutral'}`}>
+                      {misRxConnected ? 'Conectado' : misRxError ? 'Error' : misRxConfigured ? 'No conectado' : 'No disponible'}
                     </span>
-                  )}
+                  </div>
+                  <div className="integration-row-desc">
+                    Conecta TurnIA con MisRX para preparar la emisión, consulta y anulación de recetas electrónicas.
+                    {misRxConnected && misRxIntegration?.account_label ? ` Cuenta: ${misRxIntegration.account_label}.` : ''}
+                    {' '}La emisión productiva seguirá deshabilitada hasta completar la homologación de TurnIA y validar las credenciales externas con el soft_id oficial.
+                  </div>
+                  <div className="integration-row-action" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {misRxConnected ? (
+                      <>
+                        <form action={testMisRxConnection}>
+                          <button className="btn secondary btn-compact" type="submit">Probar conexión</button>
+                        </form>
+                        <form action={disconnectMisRxIntegration}>
+                          <button className="btn danger btn-compact" type="submit">Desconectar</button>
+                        </form>
+                      </>
+                    ) : misRxConfigured ? (
+                      <form action={saveMisRxConnection} className="form-grid" style={{ width: '100%', marginTop: 8 }}>
+                        <label>
+                          Usuario MisRX
+                          <input name="username" autoComplete="username" maxLength={200} required />
+                        </label>
+                        <label>
+                          Contraseña MisRX
+                          <input name="password" type="password" autoComplete="current-password" maxLength={500} required />
+                        </label>
+                        <p className="field-hint" style={{ gridColumn: '1 / -1', margin: 0 }}>
+                          TurnIA prueba primero el acceso contra MisRX y sólo guarda la contraseña si el login es válido. Se almacena cifrada y nunca se expone al navegador nuevamente.
+                        </p>
+                        <div className="form-actions">
+                          <button className="btn secondary btn-compact" type="submit">Conectar MisRX</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <span className="btn secondary btn-compact" aria-disabled="true" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                        Conectar
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+
+              ) : null}
 
               <div className="integration-row">
                 <div className="integration-row-name">
