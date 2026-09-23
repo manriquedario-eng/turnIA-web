@@ -207,6 +207,10 @@ export function MisRxDraftClinicalData({
     const serialized = JSON.stringify(autosavePayload);
     if (serialized === lastSavedRef.current) return;
 
+    window.dispatchEvent(new CustomEvent('misrx-draft-dirty', {
+      detail: { prescriptionId, section: 'clinical' },
+    }));
+
     const timeout = window.setTimeout(async () => {
       setSaveState('saving');
       const result = await autosavePrescriptionDraftMetadata({
@@ -218,11 +222,17 @@ export function MisRxDraftClinicalData({
       if (!result.ok) {
         setSaveState('error');
         setMessage(result.error);
+        window.dispatchEvent(new CustomEvent('misrx-draft-save-error', {
+          detail: { prescriptionId, section: 'clinical' },
+        }));
         return;
       }
 
       lastSavedRef.current = serialized;
       setSaveState('saved');
+      window.dispatchEvent(new CustomEvent('misrx-draft-saved', {
+        detail: { prescriptionId, section: 'clinical' },
+      }));
       window.dispatchEvent(new CustomEvent('misrx-draft-context', {
         detail: {
           prescriptionId,
