@@ -109,6 +109,7 @@ export async function sendAppointmentCreatedMessage(
         .from('appointment_messages')
         .update({
           status: 'failed',
+          failed_at: new Date().toISOString(),
           error_message: errorMessage,
           updated_at: new Date().toISOString(),
         })
@@ -137,7 +138,11 @@ export async function sendAppointmentCreatedMessage(
         .update({
           status: 'sent',
           sent_at: new Date().toISOString(),
+          delivered_at: null,
+          read_at: null,
+          failed_at: null,
           provider_message_id: result.providerMessageId,
+          error_message: null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', messageRow.id)
@@ -150,6 +155,7 @@ export async function sendAppointmentCreatedMessage(
       .from('appointment_messages')
       .update({
         status: 'failed',
+        failed_at: new Date().toISOString(),
         error_message: result.errorMessage,
         updated_at: new Date().toISOString(),
       })
