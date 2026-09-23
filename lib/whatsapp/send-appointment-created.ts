@@ -8,9 +8,10 @@
 // `appointment_messages`, nunca en un throw que pudiera hacer fallar la
 // creación del turno que ya se guardó.
 //
-// Alcance de 5E.2: sólo el mensaje inicial `appointment_created`. NO incluye
-// recordatorio de 24h, botones interactivos, recepción de respuestas,
-// webhooks ni cambios de estado del turno — eso queda para fases futuras.
+// Este módulo envía sólo el mensaje inicial `appointment_created`. Los
+// botones interactivos se adjuntan acá, pero su procesamiento vive en el
+// webhook; el recordatorio 24h y los avisos al profesional viven en módulos
+// separados para mantener responsabilidades aisladas.
 
 import { requireTenant } from '@/lib/auth/require-user';
 import { sendWhatsAppTemplate } from './provider';
