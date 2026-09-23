@@ -90,9 +90,11 @@ Antes de activar el webhook interactivo en producción:
   `supabase/migrations/20260923174500_whatsapp_interaction_hardening.sql`
 - Confirmar que existe `public.whatsapp_inbound_events`.
 - Confirmar RLS habilitada y sin políticas de acceso para anon/authenticated.
-- Confirmar índice único para:
+- Confirmar columna `dedupe_key` en `appointment_messages`.
+- Confirmar índice único por `appointment_id + message_type + channel + dedupe_key` para:
   - `appointment_reminder_24h`
   - `professional_reschedule_requested`
+- Verificar que una reprogramación real genera un nuevo ciclo y permite un nuevo recordatorio/aviso sin duplicar el anterior.
 - Confirmar columnas:
   - `delivered_at`
   - `read_at`
