@@ -38,14 +38,32 @@ async function createProfessionalAlertRow(params: {
 
   const { data: existing } = await supabase
     .from('appointment_messages')
-    .select('id')
+    .select('id,status')
     .eq('appointment_id', params.appointmentId)
     .eq('message_type', 'professional_reschedule_requested')
     .eq('channel', params.channel)
     .eq('dedupe_key', params.dedupeKey)
     .maybeSingle();
 
-  if (existing) return null;
+  if (existing) {
+    if (existing.status === 'failed') {
+      const { error: retryError } = await supabase
+        .from('appointment_messages')
+        .update({
+          status: 'pending',
+          error_message: null,
+          provider_message_id: null,
+          sent_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+        .eq('status', 'failed');
+
+      if (!retryError) return existing.id as string;
+    }
+
+    return null;
+  }
 
   const { data, error } = await supabase
     .from('appointment_messages')
