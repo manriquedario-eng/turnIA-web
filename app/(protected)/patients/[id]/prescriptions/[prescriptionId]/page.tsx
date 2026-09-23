@@ -207,6 +207,8 @@ export default async function PrescriptionDraftPage({
               prescriptionId={prescription.id}
               connected={misRxConnected}
               initialConventionId={prescription.convention_id}
+              initialAffiliateId={prescription.affiliate_id}
+              initialPlanId={prescription.plan_id}
               currentItemCount={items?.length ?? 0}
             />
           </div>
