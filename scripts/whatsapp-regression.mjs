@@ -167,6 +167,13 @@ check(
 );
 
 check(
+  '24h reminder scan has a high cap and explicit saturation signal',
+  reminder.includes('MAX_APPOINTMENTS_PER_REMINDER_RUN = 1000') &&
+    reminder.includes('truncated') &&
+    cronRoute.includes('truncated: result.truncated'),
+);
+
+check(
   'Professional WhatsApp alert uses an approved template path, not free text',
   notification.includes('WHATSAPP_PROFESSIONAL_RESCHEDULE_TEMPLATE_NAME') &&
     notification.includes('sendWhatsAppTemplate') &&
