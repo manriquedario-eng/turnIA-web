@@ -379,7 +379,6 @@ export function MisRxDraftClinicalData({
               </>
             ) : null}
           </div>
-          ) : null}
         </>
       ) : (
         <p className="field-hint">
@@ -395,24 +394,33 @@ export function MisRxDraftClinicalData({
         <input type="hidden" name="conventionId" value={conventionId} />
         <input type="hidden" name="affiliateId" value={affiliateId} />
         <input type="hidden" name="planId" value={planId} />
-        <label>
-          Diagnóstico
-          <input
-            name="diagnosis"
-            value={diagnosis}
-            onChange={(event) => setDiagnosis(event.target.value)}
-            maxLength={500}
-          />
-        </label>
-        <label>
-          CIE-10
-          <input
-            name="cie10"
-            value={cie10}
-            onChange={(event) => setCie10(event.target.value)}
-            maxLength={20}
-          />
-        </label>
+        {showDiagnosisTools ? (
+          <>
+            <label>
+              Diagnóstico
+              <input
+                name="diagnosis"
+                value={diagnosis}
+                onChange={(event) => setDiagnosis(event.target.value)}
+                maxLength={500}
+              />
+            </label>
+            <label>
+              CIE-10
+              <input
+                name="cie10"
+                value={cie10}
+                onChange={(event) => setCie10(event.target.value)}
+                maxLength={20}
+              />
+            </label>
+          </>
+        ) : (
+          <>
+            <input type="hidden" name="diagnosis" value={diagnosis} />
+            <input type="hidden" name="cie10" value={cie10} />
+          </>
+        )}
         <label style={{ gridColumn: '1 / -1' }}>
           Observaciones / indicaciones / posología
           <textarea
