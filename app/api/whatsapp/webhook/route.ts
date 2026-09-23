@@ -83,6 +83,12 @@ type WhatsAppMessageStatus = {
   status: 'sent' | 'delivered' | 'read' | 'failed' | (string & {});
   timestamp: string;
   recipient_id: string;
+  errors?: Array<{
+    code?: number;
+    title?: string;
+    message?: string;
+    error_data?: { details?: string };
+  }>;
 };
 
 type WhatsAppChangeValue = {
@@ -194,8 +200,22 @@ async function updateDeliveryStatus(status: WhatsAppMessageStatus): Promise<void
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
   if (status.status === 'failed') {
+    // Un fallo tardío nunca debe degradar un mensaje ya entregado/leído.
+    const currentRank = rank[current.status] ?? -1;
+    if (currentRank >= rank.delivered) return;
+
+    const providerError = status.errors?.[0];
+    const errorParts = [
+      providerError?.code ? `Meta #${providerError.code}` : null,
+      providerError?.title ?? providerError?.message ?? null,
+      providerError?.error_data?.details ?? null,
+    ].filter((part): part is string => Boolean(part));
+
     patch.status = 'failed';
     patch.failed_at = current.failed_at ?? eventIso;
+    patch.error_message = errorParts.length
+      ? errorParts.join(' — ').slice(0, 500)
+      : 'Meta informó que el mensaje no pudo entregarse.';
   } else {
     const incomingRank = rank[status.status] ?? -1;
     const currentRank = rank[current.status] ?? -1;
