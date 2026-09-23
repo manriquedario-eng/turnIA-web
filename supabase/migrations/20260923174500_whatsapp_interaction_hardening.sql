@@ -27,6 +27,11 @@ alter table public.whatsapp_inbound_events enable row level security;
 -- No authenticated/anon policy on purpose: webhook processing is service-role only.
 revoke all on table public.whatsapp_inbound_events from anon, authenticated;
 
+alter table public.appointment_messages
+  add column if not exists delivered_at timestamptz,
+  add column if not exists read_at timestamptz,
+  add column if not exists failed_at timestamptz;
+
 -- Only the flows that are semantically one-shot are unique. Appointment
 -- creation/update confirmations are deliberately NOT included because TurnIA
 -- resends them when a professional changes the appointment.
