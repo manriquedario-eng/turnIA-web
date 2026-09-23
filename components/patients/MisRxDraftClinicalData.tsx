@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { updatePrescriptionDraftMetadata } from '@/app/(protected)/patients/prescription-actions';
 
 type Convention = {
@@ -87,7 +87,13 @@ export function MisRxDraftClinicalData({
   const [message, setMessage] = useState('');
   const [affiliateLoading, setAffiliateLoading] = useState(false);
   const [diagnosisLoading, setDiagnosisLoading] = useState(false);
+  const [showDiagnosisTools, setShowDiagnosisTools] = useState(Boolean(initialDiagnosis || initialCie10));
   const selectedConvention = conventions.find((item) => String(item.convenio_id) === conventionId);
+  const diagnosisRequired = Boolean(selectedConvention?.diagnostico_requerido);
+
+  useEffect(() => {
+    if (diagnosisRequired) setShowDiagnosisTools(true);
+  }, [diagnosisRequired]);
 
   useEffect(() => {
     if (!connected) return;
@@ -179,8 +185,7 @@ export function MisRxDraftClinicalData({
     }
   }
 
-  async function searchDiagnosis(event: FormEvent) {
-    event.preventDefault();
+  async function searchDiagnosis() {
     setMessage('');
     setDiagnoses([]);
 
@@ -303,45 +308,77 @@ export function MisRxDraftClinicalData({
             </label>
           ) : null}
 
-          <form onSubmit={searchDiagnosis} className="form-grid">
-            <label>
-              Buscar diagnóstico CIE-10
-              <input
-                value={diagnosisQuery}
-                onChange={(event) => setDiagnosisQuery(event.target.value)}
-                minLength={2}
-                maxLength={100}
-                placeholder="Código o descripción"
-              />
-            </label>
-            <div className="misrx-inline-action" style={{ alignSelf: 'end' }}>
-              <button className="btn secondary" type="submit" disabled={diagnosisLoading}>
-                {diagnosisLoading ? 'Buscando…' : 'Buscar CIE-10'}
-              </button>
+          <div className="misrx-diagnosis-section">
+            <div className="misrx-inline-action" style={{ justifyContent: 'space-between' }}>
+              <div>
+                <span className="field-label">Diagnóstico / CIE-10</span>
+                <p className="field-hint" style={{ margin: '4px 0 0' }}>
+                  {diagnosisRequired ? 'Este convenio exige diagnóstico.' : 'Usalo cuando corresponda al profesional o al convenio.'}
+                </p>
+              </div>
+              {!diagnosisRequired ? (
+                <button
+                  className="btn secondary btn-compact"
+                  type="button"
+                  onClick={() => setShowDiagnosisTools((value) => !value)}
+                >
+                  {showDiagnosisTools ? 'Ocultar' : 'Agregar diagnóstico'}
+                </button>
+              ) : null}
             </div>
-          </form>
 
-          {diagnoses.length > 0 ? (
-            <div className="stack" style={{ gap: 8 }}>
-              {diagnoses.slice(0, 20).map((item, index) => {
-                const code = item.codigo_4c || item.codigo_3c || '';
-                const label = item.descripcion_4c || item.descripcion_3c || code || 'Diagnóstico';
-                return (
-                  <button
-                    key={String(item.cie10_id ?? code ?? index)}
-                    type="button"
-                    className="misrx-choice-button"
-                    onClick={() => {
-                      setCie10(code);
-                      setDiagnosis(label);
-                      setDiagnoses([]);
-                    }}
-                  >
-                    <strong>{code ? `${code} · ` : ''}{label}</strong>
-                  </button>
-                );
-              })}
-            </div>
+            {showDiagnosisTools ? (
+              <>
+                {connected ? (
+                  <div className="form-grid">
+                    <label>
+                      Buscar diagnóstico CIE-10
+                      <input
+                        value={diagnosisQuery}
+                        onChange={(event) => setDiagnosisQuery(event.target.value)}
+                        minLength={2}
+                        maxLength={100}
+                        placeholder="Ej.: hipertensión, diabetes, F32"
+                      />
+                    </label>
+                    <div className="misrx-inline-action" style={{ alignSelf: 'end' }}>
+                      <button
+                        className="btn secondary"
+                        type="button"
+                        onClick={searchDiagnosis}
+                        disabled={diagnosisLoading}
+                      >
+                        {diagnosisLoading ? 'Buscando…' : 'Buscar CIE-10'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {diagnoses.length > 0 ? (
+                  <div className="stack" style={{ gap: 8 }}>
+                    {diagnoses.slice(0, 20).map((item, index) => {
+                      const code = item.codigo_4c || item.codigo_3c || '';
+                      const label = item.descripcion_4c || item.descripcion_3c || code || 'Diagnóstico';
+                      return (
+                        <button
+                          key={String(item.cie10_id ?? code ?? index)}
+                          type="button"
+                          className="misrx-choice-button"
+                          onClick={() => {
+                            setCie10(code);
+                            setDiagnosis(label);
+                            setDiagnoses([]);
+                          }}
+                        >
+                          <strong>{code ? `${code} · ` : ''}{label}</strong>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+          </div>
           ) : null}
         </>
       ) : (
