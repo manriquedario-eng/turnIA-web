@@ -61,7 +61,7 @@ export class MisRxAdapter {
     const login = await loginToMisRx(this.credentials);
     if (!login.ok) return login;
 
-    if (login.data.tipo !== 3) {
+    if (Number(login.data.tipo) !== 3) {
       return {
         ok: false,
         reason: 'unauthorized',
@@ -89,7 +89,7 @@ export class MisRxAdapter {
     const login = await loginToMisRx(this.credentials);
     if (!login.ok) return login;
 
-    if (login.data.tipo !== 3) {
+    if (Number(login.data.tipo) !== 3) {
       return {
         ok: false,
         reason: 'unauthorized',
