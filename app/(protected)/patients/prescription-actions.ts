@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
 import { createSupabaseServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { getMisRxMaxProducts } from '@/lib/misrx/convention-rules';
+import { isMisRxUiEnabled } from '@/lib/misrx/homologation';
 
 const optionalText = (max: number) =>
   z.preprocess(
@@ -25,6 +26,7 @@ const draftSchema = z.object({
 });
 
 export async function createPrescriptionDraft(formData: FormData) {
+  if (!isMisRxUiEnabled()) redirect('/patients');
   const parsed = draftSchema.safeParse({
     patientId: formData.get('patientId'),
     diagnosis: formData.get('diagnosis'),
@@ -86,6 +88,7 @@ export async function createPrescriptionDraft(formData: FormData) {
 
 
 export async function createBlankPrescriptionDraft(formData: FormData) {
+  if (!isMisRxUiEnabled()) redirect('/patients');
   const parsed = z.object({
     patientId: z.string().uuid(),
   }).safeParse({
@@ -164,6 +167,7 @@ const itemSchema = z.object({
 });
 
 export async function addPrescriptionItem(formData: FormData) {
+  if (!isMisRxUiEnabled()) redirect('/patients');
   const parsed = itemSchema.safeParse({
     patientId: formData.get('patientId'),
     prescriptionId: formData.get('prescriptionId'),
@@ -291,6 +295,7 @@ export async function addPrescriptionItem(formData: FormData) {
 }
 
 export async function removePrescriptionItem(formData: FormData) {
+  if (!isMisRxUiEnabled()) redirect('/patients');
   const parsed = z.object({
     patientId: z.string().uuid(),
     prescriptionId: z.string().uuid(),
@@ -372,6 +377,7 @@ const metadataSchema = z.object({
 });
 
 export async function autosavePrescriptionDraftMetadata(input: {
+  if (!isMisRxUiEnabled()) redirect('/patients');
   patientId: string;
   prescriptionId: string;
   conventionId?: number | null;
@@ -476,6 +482,7 @@ export async function autosavePrescriptionDraftMetadata(input: {
 }
 
 export async function updatePrescriptionDraftMetadata(formData: FormData) {
+  if (!isMisRxUiEnabled()) redirect('/patients');
   const parsed = metadataSchema.safeParse({
     patientId: formData.get('patientId'),
     prescriptionId: formData.get('prescriptionId'),
