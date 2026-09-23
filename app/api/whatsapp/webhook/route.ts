@@ -8,11 +8,11 @@
 // POST -> Recepción de eventos (mensajes entrantes y actualizaciones de
 //         estado de mensajes salientes).
 //
-// Alcance de esta implementación (ver tarea original): sólo dejar el
-// webhook operativo y seguro. NO incluye chatbot, respuestas automáticas,
-// IA, almacenamiento de conversaciones, ni ninguna lógica de negocio sobre
-// pacientes/turnos. Eso queda para fases futuras — ver comentarios "TODO"
-// en el handler de POST.
+// Alcance actual: webhook operativo y seguro para eventos de estado y
+// acciones de turnos generadas por botones de TurnIA (Confirmar / Cancelar /
+// Reprogramar). No implementa chatbot, IA ni interpretación de texto libre.
+// Los mensajes entrantes que no tengan un payload de acción generado por
+// TurnIA se ignoran deliberadamente.
 //
 // Variables de entorno (server-side únicamente, nunca NEXT_PUBLIC_):
 //   WHATSAPP_VERIFY_TOKEN   token arbitrario que vos elegís y configurás
