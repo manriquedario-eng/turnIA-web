@@ -10,8 +10,12 @@ type ReadinessCheck = {
 };
 
 function actionForCheck(key: string, patientId: string) {
-  if (['convention', 'patient', 'diagnosis-required', 'plan-required', 'posology-required'].includes(key)) {
+  if (['convention', 'patient', 'diagnosis-required', 'plan-required'].includes(key)) {
     return { label: key === 'patient' ? 'Corregir afiliado' : 'Corregir datos', href: '#clinical' };
+  }
+
+  if (key === 'posology-required') {
+    return { label: 'Completar posología', href: '#posology' };
   }
 
   if (['items', 'item-limit', 'substitution-rule'].includes(key)) {
