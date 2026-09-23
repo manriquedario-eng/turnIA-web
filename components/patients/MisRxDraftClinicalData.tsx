@@ -38,6 +38,15 @@ type Diagnosis = {
   descripcion_4c?: string;
 };
 
+function normalizeCoverageLabel(value: string | null | undefined) {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
 function resultRows<T>(body: unknown): T[] {
   if (!body || typeof body !== 'object') return [];
   const data = (body as { data?: unknown }).data;
@@ -58,6 +67,8 @@ export function MisRxDraftClinicalData({
   patientName,
   patientDni,
   patientCredential,
+  patientInsuranceName,
+  patientInsurancePlan,
 }: {
   patientId: string;
   prescriptionId: string;
@@ -72,6 +83,8 @@ export function MisRxDraftClinicalData({
   patientName: string;
   patientDni?: string | null;
   patientCredential?: string | null;
+  patientInsuranceName?: string | null;
+  patientInsurancePlan?: string | null;
 }) {
   const [conventions, setConventions] = useState<Convention[]>([]);
   const [conventionId, setConventionId] = useState(initialConventionId ? String(initialConventionId) : '');
@@ -106,7 +119,18 @@ export function MisRxDraftClinicalData({
         return body;
       })
       .then((body) => {
-        if (!cancelled) setConventions(resultRows<Convention>(body));
+        if (cancelled) return;
+        const rows = resultRows<Convention>(body);
+        setConventions(rows);
+
+        if (!conventionId && patientInsuranceName) {
+          const target = normalizeCoverageLabel(patientInsuranceName);
+          const matches = rows.filter((item) => {
+            const label = normalizeCoverageLabel(item.nombre);
+            return label === target || (target.length >= 4 && (label.includes(target) || target.includes(label)));
+          });
+          if (matches.length === 1) setConventionId(String(matches[0].convenio_id));
+        }
       })
       .catch((error) => {
         if (!cancelled) setMessage(error instanceof Error ? error.message : 'No se pudieron cargar los convenios');
@@ -141,6 +165,13 @@ export function MisRxDraftClinicalData({
         setPlans(rows);
         if (planId && !rows.some((item) => String(item.plan_id) === planId)) {
           setPlanId('');
+        } else if (!planId && patientInsurancePlan) {
+          const target = normalizeCoverageLabel(patientInsurancePlan);
+          const matches = rows.filter((item) => {
+            const label = normalizeCoverageLabel(item.descripcion);
+            return label === target || (target.length >= 2 && (label.includes(target) || target.includes(label)));
+          });
+          if (matches.length === 1) setPlanId(String(matches[0].plan_id));
         }
       })
       .catch(() => {
@@ -237,6 +268,13 @@ export function MisRxDraftClinicalData({
             TurnIA valida su afiliación en MisRX usando DNI/documento {patientDni || 'sin cargar'} y Nº afiliado/credencial {patientCredential || 'sin cargar'}.
             {!patientDni || !patientCredential ? ' Completalos en Paciente → Datos antes de consultar.' : ''}
           </div>
+          {(patientInsuranceName || patientInsurancePlan) ? (
+            <div className="misrx-search-context">
+              <span className="field-hint">Cobertura cargada en el paciente</span>
+              <strong>{[patientInsuranceName, patientInsurancePlan].filter(Boolean).join(' · ')}</strong>
+              <span className="field-hint">TurnIA intenta vincularla automáticamente con el convenio y plan devueltos por MisRX.</span>
+            </div>
+          ) : null}
           <div className="form-grid">
             <label>
               Convenio
