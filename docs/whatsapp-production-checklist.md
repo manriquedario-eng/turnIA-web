@@ -89,12 +89,14 @@ Antes de activar el webhook interactivo en producción, aplicar y revisar EN EST
 1. `supabase/migrations/20260923174500_whatsapp_interaction_hardening.sql`
 2. `supabase/migrations/20260923183500_professional_contacts.sql`
 3. `supabase/migrations/20260923185500_idempotent_reschedule_requests.sql`
+4. `supabase/migrations/20260923190500_clear_pending_reschedule_on_final_action.sql`
 
 Después confirmar:
 
 - Existe `public.whatsapp_inbound_events`.
 - Existe `public.professional_contacts` con clave `tenant_id + user_id`.
 - La RPC de reprogramación devuelve `already_requested` si ya existe una solicitud pendiente.
+- Confirmar o cancelar limpia cualquier solicitud de reprogramación pendiente.
 - Confirmar RLS habilitada y sin políticas de acceso para anon/authenticated.
 - Confirmar columna `dedupe_key` en `appointment_messages`.
 - Confirmar índice único por `appointment_id + message_type + channel + dedupe_key` para:
