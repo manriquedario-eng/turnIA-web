@@ -191,7 +191,20 @@ export async function GET(
         : 'No se pudo validar la sesión de la cuenta MisRX conectada.',
     });
 
-    if (sessionResult.ok && prescription.convention_id) {
+    const prescriberResult = sessionResult.ok
+      ? await adapterResult.data.verifyPrescriber()
+      : null;
+
+    checks.push({
+      key: 'prescriber',
+      ok: Boolean(prescriberResult?.ok),
+      label: 'Profesional validado por MisRX',
+      detail: prescriberResult?.ok
+        ? `MisRX identificó DNI ${prescriberResult.data.profile.nrodoc}, matrícula ${prescriberResult.data.profile.tipo_matricula} ${prescriberResult.data.profile.matricula} y especialidad ${prescriberResult.data.profile.especialidad_id}.`
+        : 'La cuenta conectada no pudo validarse como prestador externo con identidad profesional completa.',
+    });
+
+    if (sessionResult.ok && prescriberResult?.ok && prescription.convention_id) {
       const conventionsResult = await adapterResult.data.getEnabledConventions('');
       const convention = conventionsResult.ok
         ? conventionsResult.data.data.find((item) => item.convenio_id === prescription.convention_id)
