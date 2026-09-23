@@ -14,6 +14,7 @@ import { statusLabel, modalityLabel, paymentMethodLabel } from '@/lib/labels';
 import { SALE_CONDITIONS, VAT_CONDITIONS } from '@/lib/billing/constants';
 import { generateMercadoPagoCheckout } from '@/app/(protected)/agenda/actions';
 import { createBlankPrescriptionDraft } from '@/app/(protected)/patients/prescription-actions';
+import { isMisRxUiEnabled } from '@/lib/misrx/homologation';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -67,6 +68,7 @@ export default async function PatientDetailPage({
   const { id } = await params;
   const query = await searchParams;
   const { supabase, tenantId, user } = await requireTenant();
+  const misRxUiEnabled = isMisRxUiEnabled();
 
   const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult, mercadoPagoResult] = await Promise.all([
     supabase
@@ -316,10 +318,12 @@ export default async function PatientDetailPage({
             </Link>
             <Link className="btn secondary" href="/payments">Registrar pago</Link>
             <Link className="btn secondary" href={`/billing/new?patient=${patient.id}`}>Facturar</Link>
-            <form action={createBlankPrescriptionDraft}>
-              <input type="hidden" name="patientId" value={patient.id} />
-              <button className="btn secondary" type="submit">Crear receta</button>
-            </form>
+            {misRxUiEnabled ? (
+              <form action={createBlankPrescriptionDraft}>
+                <input type="hidden" name="patientId" value={patient.id} />
+                <button className="btn secondary" type="submit">Crear receta</button>
+              </form>
+            ) : null}
             <ExportMenu items={exportItems} />
           </div>
         </div>
@@ -540,7 +544,7 @@ export default async function PatientDetailPage({
                 <div>
                   <h2 style={{ margin: 0 }}>Datos del paciente</h2>
                   <p className="text-helper" style={{ margin: '6px 0 0' }}>
-                    Datos clínicos y administrativos de uso frecuente. Las recetas se gestionan desde Consultorio → Recetas.
+                    Datos clínicos y administrativos de uso frecuente. Los datos de cobertura quedan disponibles para futuras integraciones clínicas.
                   </p>
                 </div>
               </div>
