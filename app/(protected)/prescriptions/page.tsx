@@ -1,5 +1,7 @@
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
+import { isMisRxUiEnabled } from '@/lib/misrx/homologation';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 const TZ = 'America/Argentina/Buenos_Aires';
@@ -35,6 +37,7 @@ export default async function PrescriptionsPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const query = await searchParams;
+  if (!isMisRxUiEnabled()) notFound();
   const { supabase, tenantId, user } = await requireTenant();
 
   const [{ data: patients }, { data: prescriptions }, { data: misRxStatus }] = await Promise.all([
