@@ -35,11 +35,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import {
-  cancelAppointmentByToken,
-  confirmAppointmentByToken,
-  requestRescheduleByToken,
-} from '@/lib/appointments/public-token';
+  processWhatsAppAppointmentAction,
+  type AppointmentWhatsAppAction,
+} from '@/lib/whatsapp/appointment-actions';
 import { sendWhatsAppTextMessage } from '@/lib/whatsapp/provider';
+import {
+  createSupabaseServiceClient,
+  isServiceRoleConfigured,
+} from '@/lib/supabase/service';
 
 // Ruta 100% dinámica: no debe cachearse ni pre-renderizarse, y no depende
 // de filesystem local ni de procesos en segundo plano (compatible con el
@@ -68,6 +71,10 @@ type WhatsAppInboundMessage = {
       id?: string;
       title?: string;
     };
+  };
+  context?: {
+    id?: string;
+    from?: string;
   };
 };
 
@@ -100,8 +107,6 @@ type WhatsAppWebhookPayload = {
   entry?: WhatsAppEntry[];
 };
 
-type AppointmentWhatsAppAction = 'confirm' | 'cancel' | 'reschedule';
-
 type AppointmentActionPayload = {
   token: string;
   action: AppointmentWhatsAppAction;
@@ -127,27 +132,27 @@ async function processAppointmentAction(message: WhatsAppInboundMessage): Promis
   const parsed = parseAppointmentAction(message);
   if (!parsed) return;
 
-  const result =
-    parsed.action === 'confirm'
-      ? await confirmAppointmentByToken(parsed.token)
-      : parsed.action === 'cancel'
-        ? await cancelAppointmentByToken(parsed.token)
-        : await requestRescheduleByToken(parsed.token, 'Solicitud recibida por WhatsApp');
+  const result = await processWhatsAppAppointmentAction({
+    providerMessageId: message.id,
+    fromWaId: message.from,
+    contextMessageId: message.context?.id ?? null,
+    token: parsed.token,
+    action: parsed.action,
+  });
 
-  const successText: Record<AppointmentWhatsAppAction, string> = {
-    confirm: 'Perfecto, tu turno quedó confirmado.',
-    cancel: 'Tu turno fue cancelado correctamente.',
-    reschedule:
-      'Perfecto, ya le avisamos al profesional. Se va a contactar con vos para coordinar la reprogramación de tu turno.',
-  };
-
-  const replyText = result.ok
-    ? successText[parsed.action]
-    : result.error;
+  if (!result.shouldReply || !result.replyText) {
+    console.log('WhatsApp appointment action processed without reply', {
+      messageId: message.id,
+      action: parsed.action,
+      ok: result.ok,
+      duplicate: Boolean(result.duplicate),
+    });
+    return;
+  }
 
   const reply = await sendWhatsAppTextMessage({
     toWaId: message.from,
-    text: replyText,
+    text: result.replyText,
   });
 
   console.log('WhatsApp appointment action processed', {
@@ -156,6 +161,37 @@ async function processAppointmentAction(message: WhatsAppInboundMessage): Promis
     ok: result.ok,
     replySent: reply.ok,
   });
+}
+
+async function updateDeliveryStatus(status: WhatsAppMessageStatus): Promise<void> {
+  if (!isServiceRoleConfigured()) return;
+
+  const allowed = new Set(['sent', 'delivered', 'read', 'failed']);
+  if (!allowed.has(status.status)) return;
+
+  const supabase = createSupabaseServiceClient();
+  const nowIso = new Date().toISOString();
+
+  const patch: Record<string, unknown> = {
+    status: status.status,
+    updated_at: nowIso,
+  };
+
+  if (status.status === 'sent') patch.sent_at = new Date(Number(status.timestamp) * 1000).toISOString();
+
+  const { error } = await supabase
+    .from('appointment_messages')
+    .update(patch)
+    .eq('provider_message_id', status.id)
+    .eq('channel', 'whatsapp');
+
+  if (error) {
+    console.error('WhatsApp webhook: no se pudo actualizar estado de entrega', {
+      messageId: status.id,
+      status: status.status,
+      code: error.code ?? null,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -333,10 +369,7 @@ export async function POST(request: NextRequest) {
         }
 
         for (const status of value.statuses ?? []) {
-          // TODO (fase futura, fuera de este alcance): reflejar este estado
-          // en `appointment_messages.status` (sent/delivered/read/failed),
-          // matcheando por provider_message_id. Por ahora sólo se deja
-          // registrado el evento.
+          await updateDeliveryStatus(status);
           console.log(`WhatsApp status event: ${status.status}`, {
             messageId: status.id,
           });
