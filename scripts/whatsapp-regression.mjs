@@ -27,6 +27,8 @@ const envExample = read('.env.example');
 const settings = read('app/(protected)/settings/page.tsx');
 const settingsActions = read('app/(protected)/settings/actions.ts');
 const professionalContactsMigration = read('supabase/migrations/20260923183500_professional_contacts.sql');
+const idempotentRescheduleMigration = read('supabase/migrations/20260923185500_idempotent_reschedule_requests.sql');
+const publicToken = read('lib/appointments/public-token.ts');
 
 check(
   'WhatsApp secrets are never NEXT_PUBLIC',
@@ -194,6 +196,13 @@ check(
     webhook.includes('patch.failed_at') &&
     reminder.includes('failed_at: params.ok ? null : new Date().toISOString()') &&
     notification.includes('failed_at: params.ok ? null : new Date().toISOString()'),
+);
+
+check(
+  'Repeated pending reprogram clicks are idempotent',
+  idempotentRescheduleMigration.includes("return query select 'already_requested'::text") &&
+    idempotentRescheduleMigration.includes('a.reschedule_requested_at is null') &&
+    publicToken.includes("result === 'ok' || result === 'already_requested'"),
 );
 
 console.log(`WhatsApp regression: ${passes.length} PASS / ${failures.length} FAIL`);
