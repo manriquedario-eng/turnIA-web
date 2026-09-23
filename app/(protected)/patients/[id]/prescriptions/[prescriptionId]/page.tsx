@@ -154,6 +154,8 @@ export default async function PrescriptionDraftPage({
             patientName={patient.name}
             patientDni={patient.dni}
             patientCredential={patient.insurance_member_number}
+            patientInsuranceName={patient.insurance_name}
+            patientInsurancePlan={patient.insurance_plan}
           />
         </div>
       ) : null}
