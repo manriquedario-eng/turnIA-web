@@ -146,7 +146,7 @@ export async function POST(
     );
   }
 
-  const prescriberResult = await adapterResult.data.verifyPrescriber();
+  const prescriberResult = await adapterResult.data.verifyExternalProvider();
   if (!prescriberResult.ok) {
     return NextResponse.json(
       { error: prescriberResult.errorMessage },
@@ -212,10 +212,7 @@ export async function POST(
       doctor_id: homologation.doctorId,
       verified_misrx_usuario_id: prescriberResult.data.usuarioId ?? null,
       verified_misrx_propio_id: prescriberResult.data.propioId ?? null,
-      verified_professional_dni: prescriberResult.data.profile.nrodoc,
-      verified_professional_matricula_tipo: prescriberResult.data.profile.tipo_matricula,
-      verified_professional_matricula: prescriberResult.data.profile.matricula,
-      verified_professional_especialidad_id: prescriberResult.data.profile.especialidad_id,
+      homologation_doctor_id: homologation.doctorId,
       item_count: items.length,
       plan_id: prescription.plan_id ?? null,
       convenio_plan_cod: conventionPlanCode ?? null,
