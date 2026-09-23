@@ -9,6 +9,7 @@ import { MisRxReadinessPanel } from '@/components/patients/MisRxReadinessPanel';
 import { MisRxIssuedActions } from '@/components/patients/MisRxIssuedActions';
 import { TransientNotice } from '@/components/ui/TransientNotice';
 import { removePrescriptionItem } from '../../../prescription-actions';
+import { isMisRxUiEnabled } from '@/lib/misrx/homologation';
 
 function patientDataState(value: unknown) {
   return value ? 'Listo' : 'Falta';
@@ -22,6 +23,7 @@ export default async function PrescriptionDraftPage({
   searchParams: Promise<{ error?: string; success?: string; area?: string }>;
 }) {
   const { id: patientId, prescriptionId } = await params;
+  if (!isMisRxUiEnabled()) notFound();
   const query = await searchParams;
   const { supabase, tenantId, user } = await requireTenant();
 
