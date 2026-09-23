@@ -54,6 +54,9 @@ async function createProfessionalAlertRow(params: {
           error_message: null,
           provider_message_id: null,
           sent_at: null,
+          delivered_at: null,
+          read_at: null,
+          failed_at: null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existing.id)
@@ -96,6 +99,9 @@ async function finishProfessionalAlert(params: {
     .update({
       status: params.ok ? 'sent' : 'failed',
       sent_at: params.ok ? new Date().toISOString() : null,
+      delivered_at: params.ok ? null : undefined,
+      read_at: params.ok ? null : undefined,
+      failed_at: params.ok ? null : new Date().toISOString(),
       provider_message_id: params.providerMessageId ?? null,
       error_message: params.ok ? null : params.errorMessage?.slice(0, 500) ?? 'No se pudo enviar el aviso.',
       updated_at: new Date().toISOString(),
