@@ -367,9 +367,100 @@ export async function saveArcaConnection(formData: FormData) {
     redirect(`/settings?error=${encodeURIComponent(result.errorMessage)}#facturacion`);
   }
 
+  const testResult = await testArcaConnectionCore({ tenantId, userId: user.id });
+  if (!testResult.ok) {
+    revalidatePath('/settings');
+    redirect(
+      '/settings?error=' +
+      encodeURIComponent('Las credenciales se guardaron, pero ARCA no pudo validar la conexión: ' + testResult.errorMessage) +
+      '#facturacion'
+    );
+  }
+
+  const activitiesResult = await getWsfeActivities({
+    tenantId,
+    userId: user.id,
+    environment: 'homologacion',
+  });
+
   revalidatePath('/settings');
-  redirect('/settings?ok=Credenciales%20ARCA%20guardadas.%20Prob%C3%A1%20la%20conexi%C3%B3n%20para%20confirmar.#facturacion');
+
+  if (!activitiesResult.ok) {
+    redirect(
+      '/settings?error=' +
+      encodeURIComponent('ARCA validó la conexión, pero no se pudieron obtener las actividades: ' + activitiesResult.errorMessage) +
+      '#facturacion'
+    );
+  }
+
+  redirect(
+    activitiesResult.data.length > 0
+      ? '/settings?ok=' + encodeURIComponent(`ARCA conectado. Se encontraron ${activitiesResult.data.length} actividad(es) habilitada(s).`) + '#facturacion'
+      : '/settings?ok=' + encodeURIComponent('ARCA conectado, pero no devolvió actividades habilitadas para este CUIT.') + '#facturacion'
+  );
 }
+
+export async function selectArcaActivity(formData: FormData) {
+  const { supabase, user, tenantId } = await requireTenant();
+  const code = String(formData.get('activity_code') ?? '').trim();
+
+  if (!code) {
+    redirect('/settings?error=Seleccioná%20una%20actividad%20habilitada%20por%20ARCA#facturacion');
+  }
+
+  const activitiesResult = await getWsfeActivities({
+    tenantId,
+    userId: user.id,
+    environment: 'homologacion',
+  });
+
+  if (!activitiesResult.ok) {
+    redirect(
+      '/settings?error=' +
+      encodeURIComponent('No se pudo validar la actividad contra ARCA: ' + activitiesResult.errorMessage) +
+      '#facturacion'
+    );
+  }
+
+  const selected = activitiesResult.data.find((activity) => String(activity.id) === code);
+  if (!selected) {
+    redirect('/settings?error=La%20actividad%20seleccionada%20ya%20no%20está%20habilitada%20por%20ARCA#facturacion');
+  }
+
+  const { data: current, error: currentError } = await supabase
+    .from('settings')
+    .select('profile')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (currentError) {
+    redirect('/settings?error=' + encodeURIComponent('No se pudo leer la configuración fiscal actual.') + '#facturacion');
+  }
+
+  const currentProfile = current?.profile && typeof current.profile === 'object'
+    ? current.profile as Record<string, unknown>
+    : {};
+
+  const { error } = await supabase
+    .from('settings')
+    .upsert({
+      tenant_id: tenantId,
+      profile: {
+        ...currentProfile,
+        activity_code: String(selected.id),
+        activity_description: selected.description || null,
+      },
+    }, { onConflict: 'tenant_id' });
+
+  if (error) {
+    redirect('/settings?error=' + encodeURIComponent('No se pudo guardar la actividad fiscal validada por ARCA.') + '#facturacion');
+  }
+
+  revalidatePath('/settings');
+  revalidatePath('/billing');
+  redirect('/settings?ok=' + encodeURIComponent('Actividad fiscal validada y guardada desde ARCA.') + '#facturacion');
+}
+
 
 export async function testArcaConnection() {
   const { user, tenantId } = await requireTenant();
