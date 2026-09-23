@@ -47,9 +47,43 @@ function getBaseConfig() {
   return { accessToken, phoneNumberId, apiVersion };
 }
 
+export type WhatsAppIntegrationStatus = {
+  baseConfigured: boolean;
+  initialTemplateConfigured: boolean;
+  webhookConfigured: boolean;
+  reminderTemplateConfigured: boolean;
+  professionalRescheduleTemplateConfigured: boolean;
+  apiVersion: string;
+  readyForInitialMessages: boolean;
+};
+
+export function getWhatsAppIntegrationStatus(): WhatsAppIntegrationStatus {
+  const base = getBaseConfig();
+  const initialTemplateConfigured = Boolean(process.env.WHATSAPP_TEMPLATE_NAME);
+  const webhookConfigured = Boolean(
+    process.env.WHATSAPP_VERIFY_TOKEN &&
+    process.env.WHATSAPP_APP_SECRET &&
+    process.env.WHATSAPP_PHONE_NUMBER_ID
+  );
+  const reminderTemplateConfigured = Boolean(process.env.WHATSAPP_REMINDER_TEMPLATE_NAME);
+  const professionalRescheduleTemplateConfigured = Boolean(
+    process.env.WHATSAPP_PROFESSIONAL_RESCHEDULE_TEMPLATE_NAME
+  );
+
+  return {
+    baseConfigured: Boolean(base),
+    initialTemplateConfigured,
+    webhookConfigured,
+    reminderTemplateConfigured,
+    professionalRescheduleTemplateConfigured,
+    apiVersion: base?.apiVersion ?? process.env.WHATSAPP_GRAPH_API_VERSION ?? 'v25.0',
+    readyForInitialMessages: Boolean(base && initialTemplateConfigured),
+  };
+}
+
 /** true si hay credenciales + plantilla principal suficientes para enviar el mensaje inicial. */
 export function isWhatsAppConfigured(): boolean {
-  return Boolean(getBaseConfig() && process.env.WHATSAPP_TEMPLATE_NAME);
+  return getWhatsAppIntegrationStatus().readyForInitialMessages;
 }
 
 /**
