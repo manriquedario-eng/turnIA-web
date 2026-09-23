@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type ReadinessCheck = {
   key: string;
@@ -53,9 +53,48 @@ export function MisRxReadinessPanel({
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [issueResult, setIssueResult] = useState('');
+  const [pendingSections, setPendingSections] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    function detailFor(event: Event) {
+      return (event as CustomEvent<{ prescriptionId?: string; section?: string }>).detail;
+    }
+
+    function markDirty(event: Event) {
+      const detail = detailFor(event);
+      if (!detail || detail.prescriptionId !== prescriptionId || !detail.section) return;
+      setPendingSections((current) => {
+        const next = new Set(current);
+        next.add(detail.section as string);
+        return next;
+      });
+    }
+
+    function markSaved(event: Event) {
+      const detail = detailFor(event);
+      if (!detail || detail.prescriptionId !== prescriptionId || !detail.section) return;
+      setPendingSections((current) => {
+        const next = new Set(current);
+        next.delete(detail.section as string);
+        return next;
+      });
+    }
+
+    window.addEventListener('misrx-draft-dirty', markDirty);
+    window.addEventListener('misrx-draft-saved', markSaved);
+
+    return () => {
+      window.removeEventListener('misrx-draft-dirty', markDirty);
+      window.removeEventListener('misrx-draft-saved', markSaved);
+    };
+  }, [prescriptionId]);
 
   async function sendPrescription() {
     if (loading) return;
+    if (pendingSections.size > 0) {
+      setMessage('TurnIA todavía está guardando los últimos cambios. Esperá un instante y volvé a enviar.');
+      return;
+    }
 
     setLoading(true);
     setErrors([]);
@@ -114,8 +153,12 @@ export function MisRxReadinessPanel({
   return (
     <div className="stack misrx-send-panel">
       <div className="form-actions">
-        <button className="btn" type="button" onClick={sendPrescription} disabled={loading}>
-          {loading ? 'Verificando…' : 'Enviar receta'}
+        <button className="btn" type="button" onClick={sendPrescription} disabled={loading || pendingSections.size > 0}>
+          {loading
+            ? 'Verificando…'
+            : pendingSections.size > 0
+              ? 'Guardando cambios…'
+              : 'Enviar receta'}
         </button>
       </div>
 
