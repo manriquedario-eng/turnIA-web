@@ -32,6 +32,14 @@ function positiveRule(value: unknown): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function normalizeMemberNumber(value: unknown) {
+  return typeof value === 'string'
+    ? value.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+    : value == null
+      ? ''
+      : String(value).replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+}
+
 function doctorPayload(profile: MisRxProfessionalProfile) {
   const sex = profile.sexo?.trim().toUpperCase();
   const medicoSexo = sex === 'M' || sex === 'F' || sex === 'X' ? sex : 'X';
@@ -278,6 +286,38 @@ export async function POST(
     );
   }
 
+  const affiliateResult = await adapter.findAffiliate({
+    convenioId: prescription.convention_id,
+    affiliateId: prescription.affiliate_id,
+  });
+
+  if (!affiliateResult.ok) {
+    return NextResponse.json(
+      { error: 'No se pudo revalidar el afiliado seleccionado con MisRX.' },
+      { status: affiliateResult.status ?? 502 },
+    );
+  }
+
+  const providerAffiliate = affiliateResult.data.data.find(
+    (item) => Number(item.afiliado_id) === Number(prescription.affiliate_id)
+  );
+
+  const localDni = digits(patient.dni);
+  const providerDni = providerAffiliate?.nrodoc == null ? '' : digits(String(providerAffiliate.nrodoc));
+  const localCredential = normalizeMemberNumber(patient.insurance_member_number);
+  const providerCredential = normalizeMemberNumber(providerAffiliate?.nroafiliado);
+
+  if (
+    !providerAffiliate ||
+    (localDni && providerDni && localDni !== providerDni) ||
+    (localCredential && providerCredential && localCredential !== providerCredential)
+  ) {
+    return NextResponse.json(
+      { error: 'El afiliado seleccionado ya no coincide con los datos actuales del paciente.' },
+      { status: 400 },
+    );
+  }
+
   if (Number(convention.digital_indica_prestador ?? 0) !== 0) {
     return NextResponse.json(
       { error: 'Este convenio exige seleccionar una institución prestadora y ese flujo todavía no está habilitado en TurnIA.' },
@@ -375,6 +415,48 @@ export async function POST(
         { status: 400 },
       );
     }
+  }
+
+  const patientDni = digits(patient.dni);
+  const productValidationResults = await Promise.all(
+    items.map(async (item) => {
+      const result = await adapter.searchProducts({
+        query: '',
+        convenioId: prescription.convention_id,
+        credential: patient.insurance_member_number?.trim() || undefined,
+        dni: patientDni ? Number(patientDni) : undefined,
+        planId: prescription.plan_id ?? undefined,
+        noIncluyeBajas: 1,
+        productoId: Number(item.provider_product_id),
+      });
+
+      if (!result.ok) {
+        return { ok: false as const, providerError: true, status: result.status };
+      }
+
+      const valid = result.data.data.some(
+        (product) =>
+          Number(product.producto_id) === Number(item.provider_product_id) &&
+          !product.baja
+      );
+
+      return { ok: valid, providerError: false, status: undefined };
+    }),
+  );
+
+  const providerProductError = productValidationResults.find((result) => result.providerError);
+  if (providerProductError) {
+    return NextResponse.json(
+      { error: 'No se pudieron revalidar los medicamentos con MisRX.' },
+      { status: providerProductError.status ?? 502 },
+    );
+  }
+
+  if (!productValidationResults.every((result) => result.ok)) {
+    return NextResponse.json(
+      { error: 'Hay medicamentos que ya no están disponibles para el convenio/plan actual. Volvé a seleccionarlos.' },
+      { status: 400 },
+    );
   }
 
   const { data: locked, error: lockError } = await supabase
