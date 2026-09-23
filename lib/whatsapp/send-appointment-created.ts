@@ -76,7 +76,7 @@ export async function sendAppointmentCreatedMessage(
         message_type: 'appointment_created',
         channel: 'whatsapp',
         status: 'pending',
-        payload: { patientName, professionalName, dateLabel, timeLabel },
+        payload: { patientName, professionalName, dateLabel, timeLabel, recipientE164: phoneE164 },
       })
       .select('id')
       .maybeSingle();
