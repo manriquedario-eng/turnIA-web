@@ -39,7 +39,10 @@ export type SendAppointmentCreatedResult =
 /**
  * Intenta enviar "Hola {{nombre}}, tenés un turno el {{fecha}} a las {{hora}}
  * con {{profesional}}." por WhatsApp, sólo si se cumplen TODAS las
- * condiciones de consentimiento. Si no se cumplen, no llama a Meta, no
+ * condiciones del mensaje inicial: teléfono válido + consentimiento de
+ * WhatsApp. La preferencia de recordatorios de 24h se evalúa únicamente en
+ * el flujo de recordatorios; no bloquea la confirmación inicial. Si no se
+ * cumplen estas condiciones, no llama a Meta, no
  * inventa consentimiento y no deja registro (no hay nada que registrar: no
  * se intentó ningún envío).
  */
@@ -62,7 +65,9 @@ export async function sendAppointmentCreatedMessage(
 
   if (!phoneE164) return { attempted: false, reason: 'no_phone' };
   if (!whatsappConsent) return { attempted: false, reason: 'no_consent' };
-  if (!appointmentRemindersOptIn) return { attempted: false, reason: 'no_reminders_opt_in' };
+  // appointmentRemindersOptIn se conserva en el contrato por compatibilidad
+  // con agenda/actions.ts, pero NO condiciona el mensaje inicial.
+  void appointmentRemindersOptIn;
 
   try {
     // 1) Registrar el intento ANTES de llamar a Meta, para que quede
