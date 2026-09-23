@@ -181,6 +181,29 @@ export async function updateSettings(formData: FormData) {
 
   if (settingsError) redirect(`/settings?error=${encodeURIComponent(settingsError.message)}`);
 
+  // Contacto operativo por profesional. Mientras la migración de
+  // professional_contacts no esté aplicada, mantenemos compatibilidad con
+  // settings.profile y no rompemos Preview ni instalaciones existentes.
+  const { error: professionalContactError } = await supabase
+    .from('professional_contacts')
+    .upsert({
+      tenant_id: tenantId,
+      user_id: user.id,
+      phone_e164: professionalPhoneE164,
+      email: parsed.data.professional_email ?? null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'tenant_id,user_id' });
+
+  if (
+    professionalContactError &&
+    professionalContactError.code !== '42P01' &&
+    professionalContactError.code !== 'PGRST205'
+  ) {
+    redirect('/settings?error=' + encodeURIComponent(
+      'No se pudo guardar el contacto profesional para notificaciones.'
+    ));
+  }
+
   revalidatePath('/settings');
   revalidatePath('/agenda');
   revalidatePath('/billing');
