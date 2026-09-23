@@ -10,15 +10,32 @@ type ReadinessCheck = {
 };
 
 function actionForCheck(key: string, patientId: string) {
-  if (['convention', 'patient', 'diagnosis-required', 'plan-required'].includes(key)) {
-    return { label: key === 'patient' ? 'Corregir afiliado' : 'Corregir datos', href: '#clinical' };
+  if ([
+    'convention',
+    'convention-enabled',
+    'provider-required',
+    'patient',
+    'diagnosis-required',
+    'cie10-only',
+    'diagnosis-per-product',
+    'plan-required',
+    'plan-valid',
+  ].includes(key)) {
+    return {
+      label: key === 'patient'
+        ? 'Corregir afiliado'
+        : key === 'provider-required' || key === 'convention-enabled'
+          ? 'Revisar convenio'
+          : 'Corregir datos',
+      href: '#clinical',
+    };
   }
 
   if (key === 'posology-required') {
     return { label: 'Completar posología', href: '#posology' };
   }
 
-  if (['items', 'item-limit', 'substitution-rule'].includes(key)) {
+  if (['items', 'item-limit', 'plan-item-limit', 'plan-unit-limit', 'substitution-rule'].includes(key)) {
     return { label: 'Ir a medicamentos', href: '#medications' };
   }
 
@@ -26,7 +43,7 @@ function actionForCheck(key: string, patientId: string) {
     return { label: 'Editar paciente', href: `/patients/${patientId}#datos` };
   }
 
-  if (['connection', 'prescriber'].includes(key)) {
+  if (['connection', 'prescriber', 'homologation-doctor'].includes(key)) {
     return { label: 'Revisar MisRX', href: '/settings#integraciones' };
   }
 
