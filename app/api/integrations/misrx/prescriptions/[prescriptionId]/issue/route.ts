@@ -217,16 +217,36 @@ export async function POST(
     );
   }
 
-  const prescriberResult = homologationActive
+  const externalProviderResult = homologationActive
     ? await adapter.verifyExternalProvider()
+    : null;
+  const productionPrescriberResult = homologationActive
+    ? null
     : await adapter.verifyPrescriber();
 
-  if (!prescriberResult.ok) {
+  const prescriberError = externalProviderResult && !externalProviderResult.ok
+    ? externalProviderResult
+    : productionPrescriberResult && !productionPrescriberResult.ok
+      ? productionPrescriberResult
+      : null;
+
+  if (prescriberError) {
     return NextResponse.json(
-      { error: prescriberResult.errorMessage },
-      { status: prescriberResult.status ?? 403 },
+      { error: prescriberError.errorMessage },
+      { status: prescriberError.status ?? 403 },
     );
   }
+
+  const verifiedUsuarioId = externalProviderResult?.ok
+    ? externalProviderResult.data.usuarioId
+    : productionPrescriberResult?.ok
+      ? productionPrescriberResult.data.usuarioId
+      : undefined;
+  const verifiedPropioId = externalProviderResult?.ok
+    ? externalProviderResult.data.propioId
+    : productionPrescriberResult?.ok
+      ? productionPrescriberResult.data.propioId
+      : undefined;
 
   const conventionsResult = await adapter.getEnabledConventions('');
   let convention: MisRxConvention | undefined;
@@ -385,17 +405,24 @@ export async function POST(
     metadata: {
       convention_id: prescription.convention_id,
       doctor_id: homologationActive ? homologation.doctorId ?? null : null,
-      verified_misrx_usuario_id: prescriberResult.data.usuarioId ?? null,
-      verified_misrx_propio_id: prescriberResult.data.propioId ?? null,
+      verified_misrx_usuario_id: verifiedUsuarioId ?? null,
+      verified_misrx_propio_id: verifiedPropioId ?? null,
       item_count: items.length,
       plan_id: prescription.plan_id ?? null,
       convenio_plan_cod: conventionPlanCode ?? null,
     },
   });
 
+  if (!homologationActive && !productionPrescriberResult?.ok) {
+    return NextResponse.json(
+      { error: 'No se pudo resolver la identidad profesional para emitir.' },
+      { status: 403 },
+    );
+  }
+
   const professionalData = homologationActive
     ? { medico_id: homologation.doctorId }
-    : doctorPayload(prescriberResult.data.profile);
+    : doctorPayload(productionPrescriberResult.data.profile);
 
   const planCoverage = typeof selectedPlan?.porc_cobertura === 'number'
     ? selectedPlan.porc_cobertura
