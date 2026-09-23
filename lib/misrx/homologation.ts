@@ -34,3 +34,8 @@ export function isMisRxHomologationForConvention(
   const config = getMisRxHomologationConfig();
   return Boolean(config.enabled && config.conventionId && conventionId === config.conventionId);
 }
+
+
+export function isMisRxProductionIssuingEnabled(): boolean {
+  return process.env.MISRX_PRODUCTION_ISSUING_ENABLED?.trim().toLowerCase() === 'true';
+}
