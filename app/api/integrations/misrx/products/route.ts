@@ -58,38 +58,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: adapterResult.errorMessage }, { status: 503 });
   }
 
-  const requestedPlanId = nonNegativeInteger(params.get('plan_id'));
-  const searchInput = {
+  const result = await adapterResult.data.searchProducts({
     query,
     convenioId,
     credential: patient.insurance_member_number?.trim() || undefined,
     dni,
     authorization: nonNegativeInteger(params.get('autorizacion')),
-    planId: requestedPlanId,
+    planId: nonNegativeInteger(params.get('plan_id')),
     monodrogaId: nonNegativeInteger(params.get('monodroga_id')),
     formaFarmaId: nonNegativeInteger(params.get('forma_farma_id')),
     noIncluyeBajas: nonNegativeInteger(params.get('no_incluye_bajas')),
     productoId: nonNegativeInteger(params.get('producto_id')),
-  };
-
-  let result = await adapterResult.data.searchProducts(searchInput);
+  });
 
   if (!result.ok) {
     return NextResponse.json({ error: result.errorMessage }, { status: result.status ?? 502 });
-  }
-
-  // Algunos planes devuelven cero resultados aun cuando el medicamento existe
-  // para el convenio. En ese caso hacemos un segundo intento sin plan_id,
-  // manteniendo convenio, afiliado y DNI. La cobertura se valida por separado.
-  if (requestedPlanId && result.data.data.length === 0) {
-    const fallback = await adapterResult.data.searchProducts({
-      ...searchInput,
-      planId: undefined,
-    });
-
-    if (fallback.ok && fallback.data.data.length > 0) {
-      result = fallback;
-    }
   }
 
   return NextResponse.json(result.data, {
