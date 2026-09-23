@@ -655,6 +655,51 @@ export async function POST(
     },
   });
 
+  let verifiedInExternalList: boolean | null = null;
+
+  if (finalStatus === 'issued' && providerPrescriptionNumber) {
+    const listResult = await adapter.listPrescriptions({
+      convenioId: prescription.convention_id,
+      page: 0,
+      filter: providerPrescriptionNumber,
+    });
+
+    if (listResult.ok) {
+      verifiedInExternalList = listResult.data.data.some((row) => {
+        const candidates = [
+          row.nrorecetario,
+          row.nrorecetario_receta,
+          row.nrorecetario_os,
+        ].map((value) => value == null ? '' : String(value).trim());
+
+        return candidates.includes(String(providerPrescriptionNumber).trim());
+      });
+
+      await service.from('prescription_events').insert({
+        prescription_id: prescription.id,
+        event_type: verifiedInExternalList
+          ? 'misrx_post_issue_verified'
+          : 'misrx_post_issue_not_found',
+        provider_status: result.data.status ?? null,
+        provider_message: verifiedInExternalList
+          ? 'La receta emitida fue encontrada en el listado externo de MisRX.'
+          : 'La emisión fue aceptada, pero la receta todavía no apareció en el listado externo.',
+        metadata: { prescription_number: providerPrescriptionNumber },
+      });
+    } else {
+      await service.from('prescription_events').insert({
+        prescription_id: prescription.id,
+        event_type: 'misrx_post_issue_verification_error',
+        provider_status: result.data.status ?? null,
+        provider_message: listResult.errorMessage.slice(0, 1000),
+        metadata: {
+          prescription_number: providerPrescriptionNumber,
+          provider_http_status: listResult.status ?? null,
+        },
+      });
+    }
+  }
+
   return NextResponse.json({
     ok: finalStatus === 'issued',
     status: finalStatus,
@@ -662,6 +707,7 @@ export async function POST(
     message: result.data.msg ?? null,
     prescriptionNumber: providerPrescriptionNumber,
     tokenPresent: Boolean(result.data.token),
+    verifiedInExternalList,
     items: result.data.items ?? [],
   }, {
     status: finalStatus === 'issued' ? 200 : 422,
