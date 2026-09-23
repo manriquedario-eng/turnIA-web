@@ -84,11 +84,17 @@ Los secretos deben cargarse directamente en Vercel por una persona autorizada.
 
 ## 4. Base de datos
 
-Antes de activar el webhook interactivo en producción:
+Antes de activar el webhook interactivo en producción, aplicar y revisar EN ESTE ORDEN:
 
-- Aplicar y revisar la migración:
-  `supabase/migrations/20260923174500_whatsapp_interaction_hardening.sql`
-- Confirmar que existe `public.whatsapp_inbound_events`.
+1. `supabase/migrations/20260923174500_whatsapp_interaction_hardening.sql`
+2. `supabase/migrations/20260923183500_professional_contacts.sql`
+3. `supabase/migrations/20260923185500_idempotent_reschedule_requests.sql`
+
+Después confirmar:
+
+- Existe `public.whatsapp_inbound_events`.
+- Existe `public.professional_contacts` con clave `tenant_id + user_id`.
+- La RPC de reprogramación devuelve `already_requested` si ya existe una solicitud pendiente.
 - Confirmar RLS habilitada y sin políticas de acceso para anon/authenticated.
 - Confirmar columna `dedupe_key` en `appointment_messages`.
 - Confirmar índice único por `appointment_id + message_type + channel + dedupe_key` para:
