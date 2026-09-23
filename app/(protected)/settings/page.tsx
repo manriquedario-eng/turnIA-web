@@ -8,6 +8,7 @@ import { isArcaWsaaConfigured, getArcaConnectionSummary } from '@/lib/arca/wsaa'
 import { getWsfeActivities } from '@/lib/arca/wsfe';
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
 import { FiscalProfileFields } from '@/components/settings/FiscalProfileFields';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { isFiscalProfileEnabled } from '@/lib/billing/fiscal-profile';
 import { getMisRxConnectionSummary, isMisRxConnectionConfigured } from '@/lib/misrx/connection';
 import { shouldShowMisRxForDeclaredProfession } from '@/lib/misrx/profession-eligibility';
@@ -181,19 +182,15 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
                   <h3 style={{ margin: 0 }}>Datos de contacto</h3>
                 </div>
-                <label>
-                  Teléfono profesional
-                  <input
-                    name="professional_phone"
-                    defaultValue={text('professional_phone')}
-                    placeholder="+54 9 261 ..."
-                    maxLength={200}
-                    aria-describedby="professional-phone-hint"
-                  />
-                </label>
+                <PhoneInput
+                  name="professional_phone"
+                  label="Teléfono profesional"
+                  defaultValue={text('professional_phone')}
+                  defaultE164={text('professional_phone') || null}
+                />
                 <label>Email profesional<input name="professional_email" type="email" defaultValue={text('professional_email')} maxLength={200} /></label>
-                <p id="professional-phone-hint" className="field-hint" style={{ gridColumn: '1 / -1', margin: '-10px 0 0' }}>
-                  Para recibir avisos por WhatsApp, cargalo en formato internacional con código de país.
+                <p className="field-hint" style={{ gridColumn: '1 / -1', margin: '-10px 0 0' }}>
+                  Este teléfono se usa para avisos operativos de TurnIA, por ejemplo cuando un paciente solicita reprogramar.
                 </p>
                 <label>Dirección del consultorio<input name="office_address" defaultValue={text('office_address')} maxLength={200} /></label>
                 <label>Localidad<input name="locality" defaultValue={text('locality')} maxLength={200} /></label>
