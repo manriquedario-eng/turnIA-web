@@ -217,20 +217,8 @@ export default async function PrescriptionDraftPage({
         ) : null}
       </div>
 
-      <div className="card misrx-step-card misrx-readiness-card">
-        <div className="misrx-step-heading">
-          <span className="misrx-step-number">4</span>
-          <div>
-            <h2>Verificación final</h2>
-            <p className="text-helper">
-              TurnIA controla la receta antes de permitir cualquier envío de homologación.
-            </p>
-          </div>
-        </div>
+      <div className="card misrx-send-card">
         <MisRxReadinessPanel prescriptionId={prescription.id} />
-        <p className="field-hint" style={{ marginBottom: 0 }}>
-          Producción sigue bloqueada. En Preview la emisión de prueba sólo se habilita cuando la configuración de homologación lo permite explícitamente.
-        </p>
       </div>
     </section>
   );
