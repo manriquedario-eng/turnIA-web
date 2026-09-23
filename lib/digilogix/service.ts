@@ -1,0 +1,97 @@
+import 'server-only';
+
+import { getDigilogixConfig } from './config';
+import { beginDigilogixPersonOnboarding } from './onboarding';
+import { requestDocumentSignature } from './signing';
+import type { DigilogixApiResult, DigilogixUnknownResponse } from './types';
+import { getDigilogixOnboardingReturnUrls, getDigilogixSigningReturnUrls } from './urls';
+import { isValidCuil, normalizeCuil } from './validation';
+import { sha256Hex } from '@/lib/documents/hash';
+
+function invalidInput(message: string): DigilogixApiResult<never> {
+  return { ok: false, reason: 'invalid_configuration', errorMessage: message };
+}
+
+export async function startProfessionalDigilogixOnboarding(params: {
+  email: string;
+  showPaymentStep?: boolean;
+}): Promise<DigilogixApiResult<DigilogixUnknownResponse>> {
+  const email = params.email.trim();
+  if (!/^\S+@\S+\.\S+$/.test(email)) {
+    return invalidInput('El email del profesional no es válido.');
+  }
+
+  const urls = getDigilogixOnboardingReturnUrls();
+
+  return beginDigilogixPersonOnboarding({
+    Email: email,
+    MostrarPasoPagar: params.showPaymentStep ?? false,
+    UrlRedireccionOK: urls.ok,
+    UrlRedireccionError: urls.error,
+    UrlRedireccionRechazar: urls.rejected,
+  });
+}
+
+/**
+ * Prepara y solicita la firma de UN PDF.
+ *
+ * Decisiones seguras de esta primera integración:
+ * - EmpresaID sale sólo de configuración server-side.
+ * - CUIL se normaliza/valida antes de salir de TurnIA.
+ * - PDF y hash se calculan a partir de los mismos bytes.
+ * - La firma visible va por defecto a la última página.
+ * - Nunca se activa ForzarGeneracionErrorParaTest desde esta función.
+ * - Un retorno HTTP exitoso NO significa "firmado"; el caller deberá
+ *   persistir el IdentificadorDocumento y consultar el estado al proveedor
+ *   cuando tengamos documentado el contrato de respuesta.
+ */
+export async function requestSinglePdfSignature(params: {
+  pdf: Buffer;
+  cuil: string;
+  reason?: string;
+  certificateSerial?: string;
+  showDocumentWhenAuthorizing?: boolean;
+  visibleSignatureTemplate?: 1 | 2 | 3 | 4;
+}): Promise<DigilogixApiResult<DigilogixUnknownResponse>> {
+  const cuil = normalizeCuil(params.cuil);
+  if (!isValidCuil(cuil)) {
+    return invalidInput('El CUIL del profesional no es válido.');
+  }
+
+  if (!params.pdf.length) {
+    return invalidInput('El documento a firmar está vacío.');
+  }
+
+  const config = getDigilogixConfig();
+  if (!config?.companyId) {
+    return {
+      ok: false,
+      reason: 'not_configured',
+      errorMessage: 'Falta configurar el identificador de empresa de Digilogix.',
+    };
+  }
+
+  const urls = getDigilogixSigningReturnUrls();
+  const hash = sha256Hex(params.pdf);
+
+  return requestDocumentSignature({
+    DocumentoBase64: params.pdf.toString('base64'),
+    HashSHA256Hexadecimal: hash,
+    EmpresaID: config.companyId,
+    UrlRedireccionOK: urls.ok,
+    UrlRedireccionError: urls.error,
+    UrlRedireccionRechazar: urls.rejected,
+    MostrarDocumentoHashAutorizar: params.showDocumentWhenAuthorizing ?? true,
+    Personas: [
+      {
+        CodigoUnicoIdentificacion: cuil,
+        OrdenFirma: 1,
+        CuadroVisibleFirma_PlantillaID: params.visibleSignatureTemplate ?? 1,
+        RazonFirma: params.reason?.trim() || 'Firma digital de documento clínico',
+        CuadroVisibleFirma_Pagina: -1,
+        CuadroVisibleFirma_TodasPaginas: false,
+        NroSerieCertificado: params.certificateSerial?.trim() || undefined,
+      },
+    ],
+  });
+}
