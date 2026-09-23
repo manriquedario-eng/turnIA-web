@@ -48,7 +48,25 @@ async function createMessageRow(params: {
     .eq('channel', params.channel)
     .maybeSingle();
 
-  if (existing) return { id: null as string | null, duplicate: true };
+  if (existing) {
+    if (existing.status === 'failed') {
+      const { error: retryError } = await supabase
+        .from('appointment_messages')
+        .update({
+          status: 'pending',
+          error_message: null,
+          provider_message_id: null,
+          sent_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+        .eq('status', 'failed');
+
+      if (!retryError) return { id: existing.id as string, duplicate: false };
+    }
+
+    return { id: null as string | null, duplicate: true };
+  }
 
   const { data, error } = await supabase
     .from('appointment_messages')
