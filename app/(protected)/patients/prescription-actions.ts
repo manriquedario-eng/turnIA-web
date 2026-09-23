@@ -278,7 +278,7 @@ export async function addPrescriptionItem(formData: FormData) {
       message: itemError.message,
     });
     redirect(
-      `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?error=${encodeURIComponent('No se pudo agregar el medicamento')}`,
+      `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?error=${encodeURIComponent('No se pudo agregar el medicamento')}&area=medications#medications`,
     );
   }
 
@@ -286,7 +286,7 @@ export async function addPrescriptionItem(formData: FormData) {
   revalidatePath(`/patients/${parsed.data.patientId}`);
   revalidatePath(`/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}`);
   redirect(
-    `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?success=item-added`,
+    `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?success=item-added#medications`,
   );
 }
 
@@ -336,13 +336,13 @@ export async function removePrescriptionItem(formData: FormData) {
       message: error.message,
     });
     redirect(
-      `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?error=${encodeURIComponent('No se pudo quitar el medicamento')}`,
+      `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?error=${encodeURIComponent('No se pudo quitar el medicamento')}&area=medications#medications`,
     );
   }
 
   revalidatePath(`/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}`);
   redirect(
-    `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?success=item-removed`,
+    `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?success=item-removed#medications`,
   );
 }
 
@@ -455,13 +455,13 @@ export async function updatePrescriptionDraftMetadata(formData: FormData) {
       message: error.message,
     });
     redirect(
-      `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?error=${encodeURIComponent('No se pudo actualizar el borrador')}`,
+      `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?error=${encodeURIComponent('No se pudo actualizar el borrador')}&area=clinical#clinical`,
     );
   }
 
   revalidatePath(`/patients/${parsed.data.patientId}`);
   revalidatePath(`/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}`);
   redirect(
-    `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?success=metadata-updated`,
+    `/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}?success=metadata-updated#clinical`,
   );
 }
