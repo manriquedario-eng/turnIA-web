@@ -260,11 +260,11 @@ export default async function PatientsPage({
             </p>
             <label className="checkbox-field">
               <input type="checkbox" name="whatsapp_consent" />
-              Autoriza recibir mensajes por WhatsApp
+              Autoriza recibir por WhatsApp confirmaciones y avisos operativos de sus turnos
             </label>
             <label className="checkbox-field" style={{ marginTop: 6 }}>
               <input type="checkbox" name="appointment_reminders_opt_in" />
-              Recibir recordatorios automáticos de turnos
+              Recibir recordatorios automáticos 24 h antes (email y, si autorizó WhatsApp, también por WhatsApp)
             </label>
           </div>
 
