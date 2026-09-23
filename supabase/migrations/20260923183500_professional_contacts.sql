@@ -19,6 +19,9 @@ comment on table public.professional_contacts is
 
 alter table public.professional_contacts enable row level security;
 
+revoke all on table public.professional_contacts from anon;
+grant select, insert, update on table public.professional_contacts to authenticated;
+
 drop policy if exists professional_contacts_self_select on public.professional_contacts;
 create policy professional_contacts_self_select
   on public.professional_contacts
