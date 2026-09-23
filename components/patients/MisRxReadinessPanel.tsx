@@ -160,6 +160,7 @@ export function MisRxReadinessPanel({
           ? `Receta enviada correctamente. N° ${issueBody.prescriptionNumber}`
           : 'Receta enviada correctamente.',
       );
+      window.setTimeout(() => window.location.reload(), 900);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo enviar la receta');
     } finally {
