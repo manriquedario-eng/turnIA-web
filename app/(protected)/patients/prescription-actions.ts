@@ -382,18 +382,19 @@ export async function autosavePrescriptionDraftMetadata(input: {
   observations?: string | null;
   longTermTreatment?: boolean;
 }) {
-  const parsed = metadataSchema.safeParse({
-    patientId: input.patientId,
-    prescriptionId: input.prescriptionId,
-    conventionId: input.conventionId ?? null,
-    affiliateId: input.affiliateId ?? null,
-    planId: input.planId ?? null,
-    diagnosis: input.diagnosis ?? null,
-    cie10: input.cie10 ?? null,
-    observations: input.observations ?? null,
-    longTermTreatment: Boolean(input.longTermTreatment),
+  const autosaveSchema = z.object({
+    patientId: z.string().uuid(),
+    prescriptionId: z.string().uuid(),
+    conventionId: z.number().int().positive().nullable().optional(),
+    affiliateId: z.number().int().positive().nullable().optional(),
+    planId: z.number().int().positive().nullable().optional(),
+    diagnosis: z.string().trim().max(500).nullable().optional(),
+    cie10: z.string().trim().max(20).nullable().optional(),
+    observations: z.string().trim().max(4000).nullable().optional(),
+    longTermTreatment: z.boolean().optional(),
   });
 
+  const parsed = autosaveSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false as const, error: 'Datos de receta inválidos.' };
   }
@@ -411,38 +412,55 @@ export async function autosavePrescriptionDraftMetadata(input: {
     return { ok: false as const, error: 'El borrador no está disponible para editar.' };
   }
 
-  const maxProducts = getMisRxMaxProducts(parsed.data.conventionId ?? null);
-  if (maxProducts && isServiceRoleConfigured()) {
-    const service = createSupabaseServiceClient();
-    const { count, error: countError } = await service
-      .from('prescription_items')
-      .select('id', { count: 'exact', head: true })
-      .eq('prescription_id', prescription.id);
+  if (Object.prototype.hasOwnProperty.call(parsed.data, 'conventionId')) {
+    const maxProducts = getMisRxMaxProducts(parsed.data.conventionId ?? null);
+    if (maxProducts && isServiceRoleConfigured()) {
+      const service = createSupabaseServiceClient();
+      const { count, error: countError } = await service
+        .from('prescription_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('prescription_id', prescription.id);
 
-    if (countError) {
-      return { ok: false as const, error: 'No se pudo validar el convenio.' };
-    }
+      if (countError) {
+        return { ok: false as const, error: 'No se pudo validar el convenio.' };
+      }
 
-    if ((count ?? 0) > maxProducts) {
-      return {
-        ok: false as const,
-        error: `Este convenio admite como máximo ${maxProducts} medicamentos por receta.`,
-      };
+      if ((count ?? 0) > maxProducts) {
+        return {
+          ok: false as const,
+          error: `Este convenio admite como máximo ${maxProducts} medicamentos por receta.`,
+        };
+      }
     }
+  }
+
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+  if (Object.prototype.hasOwnProperty.call(parsed.data, 'conventionId')) {
+    update.convention_id = parsed.data.conventionId ?? null;
+  }
+  if (Object.prototype.hasOwnProperty.call(parsed.data, 'affiliateId')) {
+    update.affiliate_id = parsed.data.affiliateId ?? null;
+  }
+  if (Object.prototype.hasOwnProperty.call(parsed.data, 'planId')) {
+    update.plan_id = parsed.data.planId ?? null;
+  }
+  if (Object.prototype.hasOwnProperty.call(parsed.data, 'diagnosis')) {
+    update.diagnosis = parsed.data.diagnosis?.trim() || null;
+  }
+  if (Object.prototype.hasOwnProperty.call(parsed.data, 'cie10')) {
+    update.cie10 = parsed.data.cie10?.trim() || null;
+  }
+  if (Object.prototype.hasOwnProperty.call(parsed.data, 'observations')) {
+    update.observations = parsed.data.observations?.trim() || null;
+  }
+  if (Object.prototype.hasOwnProperty.call(parsed.data, 'longTermTreatment')) {
+    update.long_term_treatment = Boolean(parsed.data.longTermTreatment);
   }
 
   const { error } = await supabase
     .from('prescriptions')
-    .update({
-      convention_id: parsed.data.conventionId ?? null,
-      affiliate_id: parsed.data.affiliateId ?? null,
-      plan_id: parsed.data.planId ?? null,
-      diagnosis: parsed.data.diagnosis ?? null,
-      cie10: parsed.data.cie10 ?? null,
-      observations: parsed.data.observations ?? null,
-      long_term_treatment: parsed.data.longTermTreatment,
-      updated_at: new Date().toISOString(),
-    })
+    .update(update)
     .eq('id', prescription.id)
     .eq('tenant_id', tenantId)
     .eq('professional_id', user.id)
@@ -456,7 +474,6 @@ export async function autosavePrescriptionDraftMetadata(input: {
   revalidatePath(`/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}`);
   return { ok: true as const };
 }
-
 
 export async function updatePrescriptionDraftMetadata(formData: FormData) {
   const parsed = metadataSchema.safeParse({
