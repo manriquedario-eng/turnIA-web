@@ -34,6 +34,10 @@ export function MisRxDraftInstructions({
 
     if (serialized === lastSavedRef.current) return;
 
+    window.dispatchEvent(new CustomEvent('misrx-draft-dirty', {
+      detail: { prescriptionId, section: 'instructions' },
+    }));
+
     const timeout = window.setTimeout(async () => {
       setSaveState('saving');
       setErrorMessage('');
@@ -47,11 +51,17 @@ export function MisRxDraftInstructions({
       if (!result.ok) {
         setSaveState('error');
         setErrorMessage(result.error);
+        window.dispatchEvent(new CustomEvent('misrx-draft-save-error', {
+          detail: { prescriptionId, section: 'instructions' },
+        }));
         return;
       }
 
       lastSavedRef.current = serialized;
       setSaveState('saved');
+      window.dispatchEvent(new CustomEvent('misrx-draft-saved', {
+        detail: { prescriptionId, section: 'instructions' },
+      }));
       window.setTimeout(() => setSaveState('idle'), 1800);
     }, 500);
 
