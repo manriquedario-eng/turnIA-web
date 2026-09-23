@@ -413,7 +413,11 @@ export async function POST(
     },
   });
 
-  if (!homologationActive && !productionPrescriberResult?.ok) {
+  const productionProfile = productionPrescriberResult?.ok
+    ? productionPrescriberResult.data.profile
+    : null;
+
+  if (!homologationActive && !productionProfile) {
     return NextResponse.json(
       { error: 'No se pudo resolver la identidad profesional para emitir.' },
       { status: 403 },
@@ -421,8 +425,8 @@ export async function POST(
   }
 
   const professionalData = homologationActive
-    ? { medico_id: homologation.doctorId }
-    : doctorPayload(productionPrescriberResult!.data.profile);
+    ? { medico_id: homologation.doctorId ?? undefined }
+    : doctorPayload(productionProfile!);
 
   const planCoverage = typeof selectedPlan?.porc_cobertura === 'number'
     ? selectedPlan.porc_cobertura
