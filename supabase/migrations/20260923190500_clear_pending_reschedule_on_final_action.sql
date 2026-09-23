@@ -32,6 +32,11 @@ begin
     return;
   end if;
 
+  if v_status in ('completed', 'completado') then
+    return query select 'not_available'::text;
+    return;
+  end if;
+
   update public.appointments as a
   set status = 'confirmed',
       reschedule_requested_at = null,
@@ -76,6 +81,11 @@ begin
   for update;
 
   if not found then
+    return query select 'not_available'::text;
+    return;
+  end if;
+
+  if v_status in ('completed', 'completado') then
     return query select 'not_available'::text;
     return;
   end if;
