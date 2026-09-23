@@ -31,7 +31,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
   const { supabase, user, tenantId } = await requireTenant();
 
-  const [{ data: profile }, { data: settings }, { data: googleIntegration }, { data: mercadoPagoIntegration }, { data: misRxIntegration }, { data: transcriptionAccount, error: transcriptionAccountError }] = await Promise.all([
+  const [{ data: profile }, { data: settings }, { data: googleIntegration }, { data: mercadoPagoIntegration }, { data: misRxIntegration }, { data: transcriptionAccount, error: transcriptionAccountError }, { data: professionalContact }] = await Promise.all([
     supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
     // `profile` acá es la columna jsonb existente de `settings` (datos del
     // profesional/consultorio) — no confundir con la tabla `profiles`
@@ -67,6 +67,12 @@ export default async function SettingsPage({ searchParams }: PageProps) {
       .select('enabled,balance_seconds,lifetime_used_seconds')
       .eq('tenant_id', tenantId)
       .maybeSingle(),
+    supabase
+      .from('professional_contacts')
+      .select('phone_e164,email')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', user.id)
+      .maybeSingle(),
   ]);
 
   const preferences = settings?.preferences && typeof settings.preferences === 'object'
@@ -89,6 +95,14 @@ export default async function SettingsPage({ searchParams }: PageProps) {
     : '18:00';
 
   const text = (key: string) => (typeof professionalProfile[key] === 'string' ? professionalProfile[key] as string : '');
+  const professionalPhoneValue =
+    typeof professionalContact?.phone_e164 === 'string'
+      ? professionalContact.phone_e164
+      : text('professional_phone');
+  const professionalEmailValue =
+    typeof professionalContact?.email === 'string'
+      ? professionalContact.email
+      : text('professional_email');
 
   const googleConnected = googleIntegration?.status === 'connected';
   const googleConfigured = isGoogleOAuthConfigured();
@@ -185,10 +199,10 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 <PhoneInput
                   name="professional_phone"
                   label="Teléfono profesional"
-                  defaultValue={text('professional_phone')}
-                  defaultE164={text('professional_phone') || null}
+                  defaultValue={professionalPhoneValue}
+                  defaultE164={professionalPhoneValue || null}
                 />
-                <label>Email profesional<input name="professional_email" type="email" defaultValue={text('professional_email')} maxLength={200} /></label>
+                <label>Email profesional<input name="professional_email" type="email" defaultValue={professionalEmailValue} maxLength={200} /></label>
                 <p className="field-hint" style={{ gridColumn: '1 / -1', margin: '-10px 0 0' }}>
                   Este teléfono se usa para avisos operativos de TurnIA, por ejemplo cuando un paciente solicita reprogramar.
                 </p>
