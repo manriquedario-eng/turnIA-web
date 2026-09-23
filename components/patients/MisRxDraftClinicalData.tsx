@@ -185,18 +185,19 @@ export function MisRxDraftClinicalData({
     }
   }
 
-  async function searchDiagnosis() {
+  async function searchDiagnosis(queryOverride?: string) {
+    const term = (queryOverride ?? diagnosisQuery).trim();
     setMessage('');
     setDiagnoses([]);
 
-    if (diagnosisQuery.trim().length < 2) {
+    if (term.length < 2) {
       setMessage('Escribí al menos 2 caracteres para buscar CIE-10.');
       return;
     }
 
     setDiagnosisLoading(true);
     try {
-      const params = new URLSearchParams({ q: diagnosisQuery.trim() });
+      const params = new URLSearchParams({ q: term });
       const response = await fetch(`/api/integrations/misrx/diagnoses?${params.toString()}`, {
         cache: 'no-store',
       });
@@ -211,6 +212,21 @@ export function MisRxDraftClinicalData({
       setDiagnosisLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!connected || !showDiagnosisTools) return;
+    const term = diagnosisQuery.trim();
+    if (term.length < 3) {
+      setDiagnoses([]);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void searchDiagnosis(term);
+    }, 450);
+
+    return () => window.clearTimeout(timeout);
+  }, [connected, showDiagnosisTools, diagnosisQuery]);
 
   return (
     <div className="stack">
@@ -339,13 +355,14 @@ export function MisRxDraftClinicalData({
                         minLength={2}
                         maxLength={100}
                         placeholder="Ej.: hipertensión, diabetes, F32"
+                        autoComplete="off"
                       />
                     </label>
                     <div className="misrx-inline-action" style={{ alignSelf: 'end' }}>
                       <button
                         className="btn secondary"
                         type="button"
-                        onClick={searchDiagnosis}
+                        onClick={() => void searchDiagnosis()}
                         disabled={diagnosisLoading}
                       >
                         {diagnosisLoading ? 'Buscando…' : 'Buscar CIE-10'}
