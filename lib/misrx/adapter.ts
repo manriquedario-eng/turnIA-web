@@ -138,7 +138,7 @@ export class MisRxAdapter {
         accessToken,
         query: {
           query: params.query,
-          valor: params.value ?? 0,
+          valor: params.value,
           verify_exp: false,
         },
       }),
