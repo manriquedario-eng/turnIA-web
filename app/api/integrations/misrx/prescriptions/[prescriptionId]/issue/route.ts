@@ -447,7 +447,9 @@ export async function POST(
       porc_cobertura:
         planCoverage ??
         (item.coverage_percentage == null ? undefined : Number(item.coverage_percentage)),
-      imprimeMarca: Boolean(item.print_brand),
+      imprimeMarca: Number(convention.solo_marca ?? 0) !== 0
+        ? true
+        : Boolean(item.print_brand),
       sustituible: convention.permite_sustitucion === false
         ? false
         : item.substitutable == null
