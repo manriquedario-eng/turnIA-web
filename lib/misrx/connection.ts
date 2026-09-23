@@ -83,7 +83,7 @@ export async function connectMisRx(params: {
   if (!login.ok) return login;
 
 
-  if (login.data.tipo !== 3) {
+  if (Number(login.data.tipo) !== 3) {
     return {
       ok: false,
       reason: 'unauthorized',
@@ -232,7 +232,7 @@ export async function testStoredMisRxConnection(params: {
 
   const now = new Date().toISOString();
 
-  if (login.ok && login.data.tipo !== 3) {
+  if (login.ok && Number(login.data.tipo) !== 3) {
     const errorMessage = 'La cuenta MisRX ya no corresponde a un prestador externo habilitable para prescribir.';
 
     await service
