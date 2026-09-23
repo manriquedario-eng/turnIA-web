@@ -27,13 +27,27 @@ export async function GET(request: NextRequest) {
   }
 
   const query = request.nextUrl.searchParams.get('q')?.trim().slice(0, 100) ?? '';
+  const homologation = getMisRxHomologationConfig();
   const result = await adapterResult.data.getEnabledConventions(query);
 
   if (!result.ok) {
+    if (homologation.enabled && homologation.conventionId) {
+      return NextResponse.json({
+        total: 1,
+        data: [{
+          convenio_id: homologation.conventionId,
+          nombre: `Homologación MisRX (ID ${homologation.conventionId})`,
+          autorizado: 1,
+        }],
+        warning: 'MisRX no devolvió el listado dinámico de convenios; se usa el convenio configurado para homologación.',
+      }, {
+        headers: { 'Cache-Control': 'private, no-store' },
+      });
+    }
+
     return NextResponse.json({ error: result.errorMessage }, { status: result.status ?? 502 });
   }
 
-  const homologation = getMisRxHomologationConfig();
   if (homologation.enabled && homologation.conventionId) {
     const rows = Array.isArray(result.data.data) ? [...result.data.data] : [];
     if (!rows.some((item) => item.convenio_id === homologation.conventionId)) {
