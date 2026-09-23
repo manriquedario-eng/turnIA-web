@@ -4697,3 +4697,13 @@ table tbody tr:hover {
     grid-template-columns: 1fr;
   }
 }
+
+
+.misrx-choice-button.is-selected {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.misrx-selected-product {
+  scroll-margin-top: 96px;
+}
