@@ -36,6 +36,7 @@ async function createMessageRow(params: {
   patientId: string;
   appointmentId: string;
   channel: 'email' | 'whatsapp';
+  dedupeKey: string;
   payload: Record<string, unknown>;
 }) {
   const supabase = createSupabaseServiceClient();
@@ -46,6 +47,7 @@ async function createMessageRow(params: {
     .eq('appointment_id', params.appointmentId)
     .eq('message_type', 'appointment_reminder_24h')
     .eq('channel', params.channel)
+    .eq('dedupe_key', params.dedupeKey)
     .maybeSingle();
 
   if (existing) {
@@ -76,6 +78,7 @@ async function createMessageRow(params: {
       appointment_id: params.appointmentId,
       message_type: 'appointment_reminder_24h',
       channel: params.channel,
+      dedupe_key: params.dedupeKey,
       status: 'pending',
       payload: params.payload,
     })
@@ -116,6 +119,7 @@ async function sendReminderEmail(params: {
   professionalName: string;
   dateLabel: string;
   timeLabel: string;
+  startsAt: string;
   publicToken: string;
 }) {
   if (!params.patientEmail || !isPlausibleEmail(params.patientEmail)) return;
@@ -125,6 +129,7 @@ async function sendReminderEmail(params: {
     patientId: params.patientId,
     appointmentId: params.appointmentId,
     channel: 'email',
+    dedupeKey: `appointment_reminder_24h:${params.startsAt}`,
     payload: {
       patientName: params.patientName,
       professionalName: params.professionalName,
@@ -193,6 +198,7 @@ async function sendReminderWhatsApp(params: {
   professionalName: string;
   dateLabel: string;
   timeLabel: string;
+  startsAt: string;
   publicToken: string;
 }) {
   if (!params.phoneE164 || !params.whatsappConsent) return;
@@ -210,6 +216,7 @@ async function sendReminderWhatsApp(params: {
     patientId: params.patientId,
     appointmentId: params.appointmentId,
     channel: 'whatsapp',
+    dedupeKey: `appointment_reminder_24h:${params.startsAt}`,
     payload: {
       patientName: params.patientName,
       professionalName: params.professionalName,
@@ -318,6 +325,7 @@ export async function processAppointmentReminders24h(now = new Date()) {
         professionalName,
         dateLabel,
         timeLabel,
+        startsAt: appointment.starts_at,
         publicToken: appointment.public_token,
       }),
       sendReminderWhatsApp({
@@ -330,6 +338,7 @@ export async function processAppointmentReminders24h(now = new Date()) {
         professionalName,
         dateLabel,
         timeLabel,
+        startsAt: appointment.starts_at,
         publicToken: appointment.public_token,
       }),
     ]);
