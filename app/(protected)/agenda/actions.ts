@@ -376,6 +376,10 @@ export async function updateAppointment(formData: FormData) {
     redirect(`${returnTo}&error=No%20se%20puede%20editar%20un%20turno%20cancelado`);
   }
 
+  const schedulingChanged =
+    existing.starts_at !== startsAt ||
+    existing.ends_at !== endsAt;
+
   try {
     await assertNoOverlap(supabase, {
       tenantId,
@@ -398,6 +402,9 @@ export async function updateAppointment(formData: FormData) {
       ends_at: endsAt,
       modality: parsed.data.modality,
       quoted_amount: parsed.data.quoted_amount ?? null,
+      ...(schedulingChanged
+        ? { reschedule_requested_at: null, reschedule_note: null }
+        : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', parsed.data.id)
