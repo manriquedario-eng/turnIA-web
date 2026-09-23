@@ -50,11 +50,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: adapterResult.errorMessage }, { status: 503 });
   }
 
+  const dni = patient.dni?.replace(/\D/g, '') || undefined;
+  const affiliateNumber = patient.insurance_member_number?.trim() || undefined;
+
   const result = await adapterResult.data.findAffiliate({
     convenioId,
-    dni: patient.dni?.replace(/\D/g, '') || undefined,
-    affiliateNumber: patient.insurance_member_number?.trim() || undefined,
-    fullName: patient.name?.trim() || undefined,
+    dni,
+    affiliateNumber,
+    // DNI / credencial are the canonical identifiers for the MisRX lookup.
+    // Name is only a fallback when neither identifier is available, because
+    // homologation records can have generic provider-side names.
+    fullName: !dni && !affiliateNumber ? patient.name?.trim() || undefined : undefined,
   });
 
   if (!result.ok) {
