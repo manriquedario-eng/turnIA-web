@@ -422,7 +422,7 @@ export async function POST(
 
   const professionalData = homologationActive
     ? { medico_id: homologation.doctorId }
-    : doctorPayload(productionPrescriberResult.data.profile);
+    : doctorPayload(productionPrescriberResult!.data.profile);
 
   const planCoverage = typeof selectedPlan?.porc_cobertura === 'number'
     ? selectedPlan.porc_cobertura
