@@ -84,6 +84,59 @@ export async function createPrescriptionDraft(formData: FormData) {
 }
 
 
+
+export async function createBlankPrescriptionDraft(formData: FormData) {
+  const parsed = z.object({
+    patientId: z.string().uuid(),
+  }).safeParse({
+    patientId: formData.get('patientId'),
+  });
+
+  if (!parsed.success) {
+    redirect('/prescriptions/new?error=Paciente%20inv%C3%A1lido');
+  }
+
+  const { supabase, tenantId, user } = await requireTenant();
+
+  const { data: patient } = await supabase
+    .from('patients')
+    .select('id')
+    .eq('id', parsed.data.patientId)
+    .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (!patient) {
+    redirect('/prescriptions/new?error=Paciente%20no%20disponible');
+  }
+
+  const { data: prescription, error } = await supabase
+    .from('prescriptions')
+    .insert({
+      tenant_id: tenantId,
+      professional_id: user.id,
+      patient_id: patient.id,
+      provider: 'misrx',
+      status: 'draft',
+      prescribed_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single();
+
+  if (error || !prescription) {
+    console.error('[misrx] create blank draft failed', {
+      code: error?.code,
+      message: error?.message,
+    });
+    redirect('/prescriptions/new?error=' + encodeURIComponent('No se pudo crear la receta'));
+  }
+
+  revalidatePath('/prescriptions');
+  revalidatePath(`/patients/${patient.id}`);
+  redirect(`/patients/${patient.id}/prescriptions/${prescription.id}`);
+}
+
+
 const itemSchema = z.object({
   patientId: z.string().uuid(),
   prescriptionId: z.string().uuid(),
