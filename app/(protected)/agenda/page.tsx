@@ -235,6 +235,7 @@ export default async function AgendaPage({
     { data: services },
     { data: googleIntegration },
     { data: mercadoPagoIntegration },
+    { data: pendingRescheduleData },
   ] = await Promise.all([
     supabase
       .from('appointments')
@@ -278,6 +279,13 @@ export default async function AgendaPage({
       .eq('user_id', user.id)
       .eq('provider', 'mercadopago')
       .maybeSingle(),
+    supabase
+      .from('appointments')
+      .select('id,patient_id,starts_at,status,reschedule_requested_at')
+      .eq('tenant_id', tenantId)
+      .not('reschedule_requested_at', 'is', null)
+      .order('reschedule_requested_at', { ascending: false })
+      .limit(20),
   ]);
 
   if (appointmentError) throw new Error(appointmentError.message);
@@ -313,6 +321,9 @@ export default async function AgendaPage({
 
   const patientMap = new Map((patients ?? []).map((p) => [p.id, p]));
   const serviceMap = new Map((services ?? []).map((s) => [s.id, s]));
+  const pendingRescheduleRequests = (pendingRescheduleData ?? []).filter(
+    (item) => !isCancelled(item.status)
+  );
   const editing = editId ? appointments.find((a) => a.id === editId) : undefined;
   const showDrawer = Boolean(editing) || wantsNew;
   const drawerDate = editing ? dateKeyInTz(editing.starts_at) : slotDate;
@@ -391,6 +402,48 @@ export default async function AgendaPage({
 
       {ok ? <p className="alert success">{ok}</p> : null}
       {error ? <p className="alert error">{error}</p> : null}
+
+      {pendingRescheduleRequests.length > 0 ? (
+        <div className="card">
+          <div className="page-header" style={{ marginBottom: 8 }}>
+            <div>
+              <h2 style={{ margin: 0 }}>Solicitudes de reprogramación</h2>
+              <p className="text-helper" style={{ margin: '4px 0 0' }}>
+                Hay {pendingRescheduleRequests.length} turno{pendingRescheduleRequests.length === 1 ? '' : 's'} esperando coordinación.
+              </p>
+            </div>
+          </div>
+          <div className="stack" style={{ gap: 8 }}>
+            {pendingRescheduleRequests.slice(0, 8).map((item) => {
+              const patient = item.patient_id ? patientMap.get(item.patient_id) : null;
+              const itemDate = dateKeyInTz(item.starts_at);
+              const itemTime = new Intl.DateTimeFormat('es-AR', {
+                timeZone: TZ,
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              }).format(new Date(item.starts_at));
+
+              return (
+                <div key={item.id} className="nav" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                  <div>
+                    <strong>{patient?.name ?? 'Paciente'}</strong>
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      {itemDate} · {itemTime}
+                    </div>
+                  </div>
+                  <Link
+                    className="btn secondary btn-compact"
+                    href={`/agenda?view=day&date=${itemDate}&edit=${item.id}#turno-drawer`}
+                  >
+                    Revisar solicitud
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: '16px 20px' }}>
