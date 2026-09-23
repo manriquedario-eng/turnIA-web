@@ -28,6 +28,7 @@ const settings = read('app/(protected)/settings/page.tsx');
 const settingsActions = read('app/(protected)/settings/actions.ts');
 const professionalContactsMigration = read('supabase/migrations/20260923183500_professional_contacts.sql');
 const idempotentRescheduleMigration = read('supabase/migrations/20260923185500_idempotent_reschedule_requests.sql');
+const finalActionCleanupMigration = read('supabase/migrations/20260923190500_clear_pending_reschedule_on_final_action.sql');
 const publicToken = read('lib/appointments/public-token.ts');
 const agendaPage = read('app/(protected)/agenda/page.tsx');
 
@@ -218,6 +219,14 @@ check(
   idempotentRescheduleMigration.includes("return query select 'already_requested'::text") &&
     idempotentRescheduleMigration.includes('a.reschedule_requested_at is null') &&
     publicToken.includes("result === 'ok' || result === 'already_requested'"),
+);
+
+check(
+  'Confirm and cancel clear pending reprogram metadata',
+  finalActionCleanupMigration.includes("status = 'confirmed'") &&
+    finalActionCleanupMigration.includes("status = 'cancelled'") &&
+    (finalActionCleanupMigration.match(/reschedule_requested_at = null/g) ?? []).length >= 2 &&
+    (finalActionCleanupMigration.match(/reschedule_note = null/g) ?? []).length >= 2,
 );
 
 check(
