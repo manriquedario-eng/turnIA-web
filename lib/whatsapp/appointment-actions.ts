@@ -50,11 +50,13 @@ export async function processWhatsAppAppointmentAction(
 
   const supabase = createSupabaseServiceClient();
 
-  const { data: appointment } = await supabase
+  const { data: appointment, error: appointmentError } = await supabase
     .from('appointments')
     .select('id, tenant_id, patient_id, starts_at')
     .eq('public_token', input.token)
     .maybeSingle();
+
+  if (appointmentError) throw appointmentError;
 
   if (!appointment?.id || !appointment.tenant_id || !appointment.patient_id) {
     return {
@@ -64,12 +66,14 @@ export async function processWhatsAppAppointmentAction(
     };
   }
 
-  const { data: patient } = await supabase
+  const { data: patient, error: patientError } = await supabase
     .from('patients')
     .select('name, phone_e164')
     .eq('id', appointment.patient_id)
     .eq('tenant_id', appointment.tenant_id)
     .maybeSingle();
+
+  if (patientError) throw patientError;
 
   const senderDigits = digits(input.fromWaId);
   const patientDigits = digits(patient?.phone_e164);
@@ -96,15 +100,18 @@ export async function processWhatsAppAppointmentAction(
   // When Meta provides the replied-to message id, bind the action to an actual
   // WhatsApp message TurnIA sent for this same appointment.
   if (input.contextMessageId) {
-    const { data: contextMessage } = await supabase
+    const { data: contextMessage, error: contextError } = await supabase
       .from('appointment_messages')
-      .select('id')
+      .select('id,message_type')
       .eq('appointment_id', appointment.id)
       .eq('channel', 'whatsapp')
       .eq('provider_message_id', input.contextMessageId)
       .maybeSingle();
 
-    if (!contextMessage) {
+    if (contextError) throw contextError;
+
+    const allowedContextTypes = new Set(['appointment_created', 'appointment_reminder_24h']);
+    if (!contextMessage || !allowedContextTypes.has(contextMessage.message_type)) {
       return { ok: false, shouldReply: false };
     }
   }
@@ -128,7 +135,7 @@ export async function processWhatsAppAppointmentAction(
   }
 
   if (eventInsertError) {
-    return { ok: false, shouldReply: false };
+    throw eventInsertError;
   }
 
   const mutation =
@@ -179,14 +186,17 @@ export async function processWhatsAppAppointmentAction(
       .maybeSingle();
     outboundMessageId = data?.id ?? null;
   } else {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('appointment_messages')
       .select('id')
       .eq('appointment_id', appointment.id)
       .eq('channel', 'whatsapp')
+      .in('message_type', ['appointment_created', 'appointment_reminder_24h'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    if (error) throw error;
     outboundMessageId = data?.id ?? null;
   }
 
