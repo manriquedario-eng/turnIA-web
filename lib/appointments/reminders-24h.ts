@@ -8,6 +8,7 @@ import { sendWhatsAppTemplate } from '@/lib/whatsapp/provider';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 const TURNIA_URL = 'https://www.turniahealth.com.ar';
+const MAX_APPOINTMENTS_PER_REMINDER_RUN = 1000;
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('es-AR', {
@@ -276,10 +277,19 @@ export async function processAppointmentReminders24h(now = new Date()) {
     .gte('starts_at', startsFrom)
     .lte('starts_at', startsTo)
     .order('starts_at', { ascending: true })
-    .limit(200);
+    .limit(MAX_APPOINTMENTS_PER_REMINDER_RUN);
 
   if (error) {
     return { ok: false as const, reason: 'appointments_query_failed' };
+  }
+
+  const truncated = (appointments?.length ?? 0) >= MAX_APPOINTMENTS_PER_REMINDER_RUN;
+  if (truncated) {
+    console.warn('Appointment reminders 24h reached scan cap', {
+      cap: MAX_APPOINTMENTS_PER_REMINDER_RUN,
+      startsFrom,
+      startsTo,
+    });
   }
 
   let eligible = 0;
@@ -357,6 +367,7 @@ export async function processAppointmentReminders24h(now = new Date()) {
     scanned: appointments?.length ?? 0,
     eligible,
     processed,
+    truncated,
     window: { startsFrom, startsTo },
   };
 }
