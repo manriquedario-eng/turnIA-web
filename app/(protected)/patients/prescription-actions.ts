@@ -371,6 +371,93 @@ const metadataSchema = z.object({
   ),
 });
 
+export async function autosavePrescriptionDraftMetadata(input: {
+  patientId: string;
+  prescriptionId: string;
+  conventionId?: number | null;
+  affiliateId?: number | null;
+  planId?: number | null;
+  diagnosis?: string | null;
+  cie10?: string | null;
+  observations?: string | null;
+  longTermTreatment?: boolean;
+}) {
+  const parsed = metadataSchema.safeParse({
+    patientId: input.patientId,
+    prescriptionId: input.prescriptionId,
+    conventionId: input.conventionId ?? null,
+    affiliateId: input.affiliateId ?? null,
+    planId: input.planId ?? null,
+    diagnosis: input.diagnosis ?? null,
+    cie10: input.cie10 ?? null,
+    observations: input.observations ?? null,
+    longTermTreatment: Boolean(input.longTermTreatment),
+  });
+
+  if (!parsed.success) {
+    return { ok: false as const, error: 'Datos de receta inválidos.' };
+  }
+
+  const { supabase, tenantId, user } = await requireTenant();
+  const { data: prescription } = await supabase
+    .from('prescriptions')
+    .select('id,status,professional_id')
+    .eq('id', parsed.data.prescriptionId)
+    .eq('tenant_id', tenantId)
+    .eq('patient_id', parsed.data.patientId)
+    .maybeSingle();
+
+  if (!prescription || prescription.status !== 'draft' || prescription.professional_id !== user.id) {
+    return { ok: false as const, error: 'El borrador no está disponible para editar.' };
+  }
+
+  const maxProducts = getMisRxMaxProducts(parsed.data.conventionId ?? null);
+  if (maxProducts && isServiceRoleConfigured()) {
+    const service = createSupabaseServiceClient();
+    const { count, error: countError } = await service
+      .from('prescription_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('prescription_id', prescription.id);
+
+    if (countError) {
+      return { ok: false as const, error: 'No se pudo validar el convenio.' };
+    }
+
+    if ((count ?? 0) > maxProducts) {
+      return {
+        ok: false as const,
+        error: `Este convenio admite como máximo ${maxProducts} medicamentos por receta.`,
+      };
+    }
+  }
+
+  const { error } = await supabase
+    .from('prescriptions')
+    .update({
+      convention_id: parsed.data.conventionId ?? null,
+      affiliate_id: parsed.data.affiliateId ?? null,
+      plan_id: parsed.data.planId ?? null,
+      diagnosis: parsed.data.diagnosis ?? null,
+      cie10: parsed.data.cie10 ?? null,
+      observations: parsed.data.observations ?? null,
+      long_term_treatment: parsed.data.longTermTreatment,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', prescription.id)
+    .eq('tenant_id', tenantId)
+    .eq('professional_id', user.id)
+    .eq('status', 'draft');
+
+  if (error) {
+    console.error('[misrx] autosave draft metadata failed', { code: error.code, message: error.message });
+    return { ok: false as const, error: 'No se pudo guardar automáticamente la receta.' };
+  }
+
+  revalidatePath(`/patients/${parsed.data.patientId}/prescriptions/${parsed.data.prescriptionId}`);
+  return { ok: true as const };
+}
+
+
 export async function updatePrescriptionDraftMetadata(formData: FormData) {
   const parsed = metadataSchema.safeParse({
     patientId: formData.get('patientId'),
