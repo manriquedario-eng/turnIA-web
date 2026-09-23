@@ -55,6 +55,7 @@ export function MisRxDraftClinicalData({
   initialCie10,
   initialObservations,
   initialLongTermTreatment,
+  patientName,
   patientDni,
   patientCredential,
 }: {
@@ -68,6 +69,7 @@ export function MisRxDraftClinicalData({
   initialCie10?: string | null;
   initialObservations?: string | null;
   initialLongTermTreatment?: boolean | null;
+  patientName: string;
   patientDni?: string | null;
   patientCredential?: string | null;
 }) {
@@ -210,8 +212,8 @@ export function MisRxDraftClinicalData({
       {connected ? (
         <>
           <div className="alert" style={{ marginBottom: 0 }}>
-            <strong>Datos usados para buscar al afiliado en MisRX:</strong>{' '}
-            DNI/documento: {patientDni || 'sin cargar'} · Nº afiliado/credencial: {patientCredential || 'sin cargar'}.
+            <strong>Paciente de esta receta:</strong> {patientName}.{' '}
+            TurnIA valida su afiliación en MisRX usando DNI/documento {patientDni || 'sin cargar'} y Nº afiliado/credencial {patientCredential || 'sin cargar'}.
             {!patientDni || !patientCredential ? ' Completalos en Paciente → Datos antes de consultar.' : ''}
           </div>
           <div className="form-grid">
@@ -254,20 +256,33 @@ export function MisRxDraftClinicalData({
           ) : null}
 
           {affiliates.length > 0 ? (
-            <label>
-              Coincidencia en MisRX
-              <select value={affiliateId} onChange={(event) => {
-                setAffiliateId(event.target.value);
-                setPlanId('');
-              }}>
-                <option value="">Sin seleccionar</option>
-                {affiliates.map((item) => (
-                  <option key={item.afiliado_id} value={item.afiliado_id}>
-                    {item.apenomb_afiliado || 'Afiliado'}{item.nroafiliado ? ` · ${item.nroafiliado}` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="misrx-affiliate-match">
+              <div>
+                <span className="field-label">Afiliado validado</span>
+                <strong>{patientName}</strong>
+                <p className="field-hint" style={{ margin: '4px 0 0' }}>
+                  MisRX encontró {affiliates.length === 1 ? 'una coincidencia' : `${affiliates.length} coincidencias`} para los identificadores cargados en TurnIA.
+                </p>
+              </div>
+              <label>
+                Registro técnico MisRX
+                <select value={affiliateId} onChange={(event) => {
+                  setAffiliateId(event.target.value);
+                  setPlanId('');
+                }}>
+                  <option value="">Sin seleccionar</option>
+                  {affiliates.map((item) => (
+                    <option key={item.afiliado_id} value={item.afiliado_id}>
+                      {item.nroafiliado ? `Afiliado ${item.nroafiliado}` : `ID ${item.afiliado_id}`}
+                      {item.nrodoc ? ` · DNI ${item.nrodoc}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <span className="field-hint">
+                  El nombre del padrón de homologación puede ser genérico. La receta sigue asociada a {patientName} dentro de TurnIA.
+                </span>
+              </label>
+            </div>
           ) : null}
 
           {plans.length > 0 || plansLoading ? (
