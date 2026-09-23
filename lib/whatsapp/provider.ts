@@ -14,7 +14,7 @@
 //   WHATSAPP_PHONE_NUMBER_ID      Phone Number ID de WhatsApp Cloud API
 //   WHATSAPP_TEMPLATE_NAME        nombre de la plantilla aprobada por Meta
 //   WHATSAPP_TEMPLATE_LANG        código de idioma de la plantilla (ej. "es_AR")
-//   WHATSAPP_GRAPH_API_VERSION    opcional, default "v20.0"
+//   WHATSAPP_GRAPH_API_VERSION    opcional, default "v25.0"
 //
 // Ninguna de estas variables se hardcodea ni se versiona: se leen sólo desde
 // process.env en tiempo de ejecución server-side.
@@ -34,6 +34,22 @@ export type WhatsAppTemplateComponent =
 export type WhatsAppSendResult =
   | { ok: true; providerMessageId: string }
   | { ok: false, reason: 'not_configured' | 'invalid_phone' | 'provider_error' | 'network_error'; errorMessage: string };
+
+const META_REQUEST_TIMEOUT_MS = 10_000;
+
+function metaErrorMessage(json: any, status: number): string {
+  const code = json?.error?.code;
+  const subcode = json?.error?.error_subcode;
+  const message = json?.error?.message;
+
+  const parts = [
+    typeof code === 'number' ? `Meta #${code}` : null,
+    typeof subcode === 'number' ? `subcode ${subcode}` : null,
+    typeof message === 'string' ? message : null,
+  ].filter((part): part is string => Boolean(part));
+
+  return (parts.length ? parts.join(' — ') : `Meta respondió ${status}`).slice(0, 500);
+}
 
 function getBaseConfig() {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
@@ -138,6 +154,7 @@ export async function sendWhatsAppTemplate(params: {
         Authorization: `Bearer ${config.accessToken}`,
         'Content-Type': 'application/json',
       },
+      signal: AbortSignal.timeout(META_REQUEST_TIMEOUT_MS),
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         to,
@@ -155,8 +172,11 @@ export async function sendWhatsAppTemplate(params: {
     if (!response.ok) {
       // Sanitizado: sólo el mensaje de error de Meta, nunca el token ni el
       // payload completo de la request.
-      const errorMessage = json?.error?.message || `Meta respondió ${response.status}`;
-      return { ok: false, reason: 'provider_error', errorMessage: String(errorMessage).slice(0, 500) };
+      return {
+        ok: false,
+        reason: 'provider_error',
+        errorMessage: metaErrorMessage(json, response.status),
+      };
     }
 
     const providerMessageId = json?.messages?.[0]?.id;
@@ -166,7 +186,12 @@ export async function sendWhatsAppTemplate(params: {
 
     return { ok: true, providerMessageId };
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Error de red desconocido';
+    const errorMessage =
+      err instanceof Error && err.name === 'TimeoutError'
+        ? 'Timeout al contactar WhatsApp Cloud API.'
+        : err instanceof Error
+          ? err.message
+          : 'Error de red desconocido';
     return { ok: false, reason: 'network_error', errorMessage: errorMessage.slice(0, 500) };
   }
 }
@@ -206,6 +231,7 @@ export async function sendWhatsAppTextMessage(params: {
         Authorization: `Bearer ${config.accessToken}`,
         'Content-Type': 'application/json',
       },
+      signal: AbortSignal.timeout(META_REQUEST_TIMEOUT_MS),
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         to,
@@ -216,8 +242,11 @@ export async function sendWhatsAppTextMessage(params: {
 
     const json = await response.json().catch(() => null);
     if (!response.ok) {
-      const errorMessage = json?.error?.message || `Meta respondió ${response.status}`;
-      return { ok: false, reason: 'provider_error', errorMessage: String(errorMessage).slice(0, 500) };
+      return {
+        ok: false,
+        reason: 'provider_error',
+        errorMessage: metaErrorMessage(json, response.status),
+      };
     }
 
     const providerMessageId = json?.messages?.[0]?.id;
@@ -227,7 +256,12 @@ export async function sendWhatsAppTextMessage(params: {
 
     return { ok: true, providerMessageId };
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Error de red desconocido';
+    const errorMessage =
+      err instanceof Error && err.name === 'TimeoutError'
+        ? 'Timeout al contactar WhatsApp Cloud API.'
+        : err instanceof Error
+          ? err.message
+          : 'Error de red desconocido';
     return { ok: false, reason: 'network_error', errorMessage: errorMessage.slice(0, 500) };
   }
 }
