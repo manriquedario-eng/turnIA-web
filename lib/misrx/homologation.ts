@@ -39,3 +39,7 @@ export function isMisRxHomologationForConvention(
 export function isMisRxProductionIssuingEnabled(): boolean {
   return process.env.MISRX_PRODUCTION_ISSUING_ENABLED?.trim().toLowerCase() === 'true';
 }
+
+export function isMisRxUiEnabled(): boolean {
+  return process.env.MISRX_FEATURE_VISIBLE?.trim().toLowerCase() === 'true';
+}
