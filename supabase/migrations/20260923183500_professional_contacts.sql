@@ -57,3 +57,43 @@ create policy professional_contacts_self_update
   );
 
 revoke delete on table public.professional_contacts from authenticated;
+
+-- Safe legacy backfill: only when the tenant has exactly one member, so the
+-- historical tenant-wide professional_phone/professional_email can be mapped
+-- without guessing which professional owns it. Multi-professional tenants are
+-- intentionally left untouched and must configure each professional explicitly.
+with single_member_tenants as (
+  select
+    tm.tenant_id,
+    min(tm.user_id::text)::uuid as user_id
+  from public.tenant_members tm
+  group by tm.tenant_id
+  having count(*) = 1
+),
+legacy_contacts as (
+  select
+    s.tenant_id,
+    smt.user_id,
+    case
+      when nullif(btrim(s.profile->>'professional_phone'), '') ~ '^\+[1-9][0-9]{7,14}
+        then btrim(s.profile->>'professional_phone')
+      else null
+    end as phone_e164,
+    nullif(btrim(s.profile->>'professional_email'), '') as email
+  from public.settings s
+  join single_member_tenants smt on smt.tenant_id = s.tenant_id
+)
+insert into public.professional_contacts (
+  tenant_id,
+  user_id,
+  phone_e164,
+  email
+)
+select
+  tenant_id,
+  user_id,
+  phone_e164,
+  email
+from legacy_contacts
+where phone_e164 is not null or email is not null
+on conflict (tenant_id, user_id) do nothing;
