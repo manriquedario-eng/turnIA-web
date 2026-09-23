@@ -11,6 +11,7 @@ import { FiscalProfileFields } from '@/components/settings/FiscalProfileFields';
 import { isFiscalProfileEnabled } from '@/lib/billing/fiscal-profile';
 import { getMisRxConnectionSummary, isMisRxConnectionConfigured } from '@/lib/misrx/connection';
 import { shouldShowMisRxForDeclaredProfession } from '@/lib/misrx/profession-eligibility';
+import { isMisRxUiEnabled } from '@/lib/misrx/homologation';
 
 type PageProps = {
   searchParams?: Promise<{ ok?: string; error?: string }>;
@@ -101,7 +102,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const whatsappConfigured = isWhatsAppConfigured();
   const emailConfigured = isEmailConfigured();
   const declaredProfessionAllowsMisRx = shouldShowMisRxForDeclaredProfession(professionalProfile.profession);
-  const showMisRxIntegration = Boolean(
+  const showMisRxIntegration = isMisRxUiEnabled() && Boolean(
     misRxConnection ||
     misRxConnected ||
     misRxError ||
