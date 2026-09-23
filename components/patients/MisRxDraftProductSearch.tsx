@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { addPrescriptionItem } from '@/app/(protected)/patients/prescription-actions';
 import { getMisRxMaxProducts } from '@/lib/misrx/convention-rules';
 
@@ -69,8 +69,8 @@ export function MisRxDraftProductSearch({
     };
   }, [connected, conventionId]);
 
-  async function search(event: FormEvent) {
-    event.preventDefault();
+  async function search(queryOverride?: string) {
+    const term = (queryOverride ?? query).trim();
     setSelected(null);
     setProducts([]);
     setMessage('');
@@ -85,7 +85,7 @@ export function MisRxDraftProductSearch({
       return;
     }
 
-    if (query.trim().length < 2) {
+    if (term.length < 2) {
       setMessage('Escribí al menos 2 caracteres.');
       return;
     }
@@ -95,7 +95,7 @@ export function MisRxDraftProductSearch({
       const params = new URLSearchParams({
         patient_id: patientId,
         convenio_id: conventionId,
-        q: query.trim(),
+        q: term,
       });
       const response = await fetch(`/api/integrations/misrx/products?${params.toString()}`, {
         cache: 'no-store',
@@ -112,6 +112,21 @@ export function MisRxDraftProductSearch({
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!connected || !conventionId || atProductLimit) return;
+    const term = query.trim();
+    if (term.length < 3) {
+      setProducts([]);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void search(term);
+    }, 450);
+
+    return () => window.clearTimeout(timeout);
+  }, [connected, conventionId, atProductLimit, query]);
 
   if (!connected) {
     return (
@@ -143,7 +158,7 @@ export function MisRxDraftProductSearch({
         </p>
       ) : null}
 
-      <form onSubmit={search} className="form-grid">
+      <div className="form-grid">
         <label style={{ gridColumn: '1 / -1' }}>
           Buscar medicamento
           <input
@@ -156,11 +171,11 @@ export function MisRxDraftProductSearch({
           />
         </label>
         <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
-          <button className="btn secondary" type="submit" disabled={loading || atProductLimit}>
+          <button className="btn secondary" type="button" onClick={() => void search()} disabled={loading || atProductLimit}>
             {loading ? 'Buscando…' : 'Buscar en MisRX'}
           </button>
         </div>
-      </form>
+      </div>
 
       {message ? <p className="field-hint">{message}</p> : null}
 
