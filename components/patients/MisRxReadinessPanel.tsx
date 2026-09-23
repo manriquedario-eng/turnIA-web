@@ -9,7 +9,42 @@ type ReadinessCheck = {
   detail: string;
 };
 
-export function MisRxReadinessPanel({ prescriptionId }: { prescriptionId: string }) {
+function actionForCheck(key: string, patientId: string) {
+  if (['convention', 'patient', 'diagnosis-required', 'plan-required', 'posology-required'].includes(key)) {
+    return { label: key === 'patient' ? 'Corregir afiliado' : 'Corregir datos', href: '#clinical' };
+  }
+
+  if (['items', 'item-limit', 'substitution-rule'].includes(key)) {
+    return { label: 'Ir a medicamentos', href: '#medications' };
+  }
+
+  if (key === 'homologation-patient') {
+    return { label: 'Editar paciente', href: `/patients/${patientId}#datos` };
+  }
+
+  if (['connection', 'prescriber'].includes(key)) {
+    return { label: 'Revisar MisRX', href: '/settings#integraciones' };
+  }
+
+  return null;
+}
+
+function goTo(href: string) {
+  if (href.startsWith('#')) {
+    const element = document.querySelector(href);
+    element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  window.location.href = href;
+}
+
+export function MisRxReadinessPanel({
+  prescriptionId,
+  patientId,
+}: {
+  prescriptionId: string;
+  patientId: string;
+}) {
   const [errors, setErrors] = useState<ReadinessCheck[]>([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,7 +81,7 @@ export function MisRxReadinessPanel({ prescriptionId }: { prescriptionId: string
       }
 
       if (!readinessBody?.liveIssuingEnabled) {
-        setMessage('La receta está completa, pero el envío de homologación continúa bloqueado por configuración.');
+        setMessage('La receta está completa. La emisión de homologación sigue bloqueada hasta habilitar explícitamente la prueba controlada.');
         return;
       }
 
@@ -84,11 +119,23 @@ export function MisRxReadinessPanel({ prescriptionId }: { prescriptionId: string
 
       {errors.length > 0 ? (
         <div className="stack" style={{ gap: 8 }}>
-          {errors.map((check) => (
-            <div key={check.key} className="alert error" style={{ margin: 0 }}>
-              <strong>{check.label}:</strong> {check.detail}
-            </div>
-          ))}
+          {errors.map((check) => {
+            const action = actionForCheck(check.key, patientId);
+            return (
+              <div key={check.key} className="alert error" style={{ margin: 0 }}>
+                <div className="misrx-inline-action" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <strong>{check.label}:</strong> {check.detail}
+                  </div>
+                  {action ? (
+                    <button className="btn secondary btn-compact" type="button" onClick={() => goTo(action.href)}>
+                      {action.label}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : null}
 
