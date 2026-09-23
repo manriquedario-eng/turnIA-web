@@ -38,7 +38,7 @@ export type WhatsAppSendResult =
 function getBaseConfig() {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const apiVersion = process.env.WHATSAPP_GRAPH_API_VERSION || 'v20.0';
+  const apiVersion = process.env.WHATSAPP_GRAPH_API_VERSION || 'v25.0';
 
   if (!accessToken || !phoneNumberId) {
     return null;
