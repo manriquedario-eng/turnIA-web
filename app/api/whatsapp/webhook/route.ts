@@ -34,6 +34,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import {
+  cancelAppointmentByToken,
+  confirmAppointmentByToken,
+  requestRescheduleByToken,
+} from '@/lib/appointments/public-token';
+import { sendWhatsAppTextMessage } from '@/lib/whatsapp/provider';
 
 // Ruta 100% dinámica: no debe cachearse ni pre-renderizarse, y no depende
 // de filesystem local ni de procesos en segundo plano (compatible con el
@@ -52,6 +58,17 @@ type WhatsAppInboundMessage = {
   from: string;
   timestamp: string;
   type: string;
+  button?: {
+    payload?: string;
+    text?: string;
+  };
+  interactive?: {
+    type?: string;
+    button_reply?: {
+      id?: string;
+      title?: string;
+    };
+  };
 };
 
 type WhatsAppMessageStatus = {
@@ -82,6 +99,64 @@ type WhatsAppWebhookPayload = {
   object?: string;
   entry?: WhatsAppEntry[];
 };
+
+type AppointmentWhatsAppAction = 'confirm' | 'cancel' | 'reschedule';
+
+type AppointmentActionPayload = {
+  token: string;
+  action: AppointmentWhatsAppAction;
+};
+
+const APPOINTMENT_ACTION_PAYLOAD =
+  /^turnia:appointment:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):(confirm|cancel|reschedule)$/i;
+
+function parseAppointmentAction(message: WhatsAppInboundMessage): AppointmentActionPayload | null {
+  const payload = message.button?.payload ?? message.interactive?.button_reply?.id ?? null;
+  if (!payload) return null;
+
+  const match = APPOINTMENT_ACTION_PAYLOAD.exec(payload);
+  if (!match) return null;
+
+  return {
+    token: match[1],
+    action: match[2].toLowerCase() as AppointmentWhatsAppAction,
+  };
+}
+
+async function processAppointmentAction(message: WhatsAppInboundMessage): Promise<void> {
+  const parsed = parseAppointmentAction(message);
+  if (!parsed) return;
+
+  const result =
+    parsed.action === 'confirm'
+      ? await confirmAppointmentByToken(parsed.token)
+      : parsed.action === 'cancel'
+        ? await cancelAppointmentByToken(parsed.token)
+        : await requestRescheduleByToken(parsed.token, 'Solicitud recibida por WhatsApp');
+
+  const successText: Record<AppointmentWhatsAppAction, string> = {
+    confirm: 'Perfecto, tu turno quedó confirmado.',
+    cancel: 'Tu turno fue cancelado correctamente.',
+    reschedule:
+      'Perfecto, ya le avisamos al profesional. Se va a contactar con vos para coordinar la reprogramación de tu turno.',
+  };
+
+  const replyText = result.ok
+    ? successText[parsed.action]
+    : result.error;
+
+  const reply = await sendWhatsAppTextMessage({
+    toWaId: message.from,
+    text: replyText,
+  });
+
+  console.log('WhatsApp appointment action processed', {
+    messageId: message.id,
+    action: parsed.action,
+    ok: result.ok,
+    replySent: reply.ok,
+  });
+}
 
 // ---------------------------------------------------------------------------
 // GET — verificación del webhook (Meta Cloud API "hub challenge").
@@ -235,14 +310,26 @@ export async function POST(request: NextRequest) {
       for (const change of entry.changes ?? []) {
         const value = change.value;
 
+        const expectedPhoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+        if (
+          expectedPhoneNumberId &&
+          value.metadata?.phone_number_id &&
+          value.metadata.phone_number_id !== expectedPhoneNumberId
+        ) {
+          console.warn('WhatsApp webhook: evento para otro Phone Number ID ignorado');
+          continue;
+        }
+
         for (const message of value.messages ?? []) {
-          // TODO (fase futura, fuera de este alcance): procesar el mensaje
-          // entrante (guardarlo, interpretarlo, responder). Por ahora sólo
-          // se deja registrada la recepción con IDs técnicos, sin contenido.
           console.log('Incoming WhatsApp message event', {
             messageId: message.id,
             type: message.type,
           });
+
+          // Sólo interpretamos payloads generados por TurnIA. Cualquier otro
+          // mensaje entrante sigue siendo ignorado: no hay chatbot ni texto
+          // libre que pueda modificar un turno.
+          await processAppointmentAction(message);
         }
 
         for (const status of value.statuses ?? []) {
