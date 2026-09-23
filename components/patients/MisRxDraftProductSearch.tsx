@@ -7,6 +7,7 @@ import { getMisRxMaxProducts } from '@/lib/misrx/convention-rules';
 type Convention = {
   convenio_id: number;
   permite_sustitucion?: boolean;
+  solo_marca?: number;
 };
 
 type Product = {
@@ -46,6 +47,7 @@ export function MisRxDraftProductSearch({
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [allowSubstitution, setAllowSubstitution] = useState(true);
+  const [forceBrand, setForceBrand] = useState(false);
   const [coveragePercentage, setCoveragePercentage] = useState<number | null>(null);
   const selectedPanelRef = useRef<HTMLFormElement | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
@@ -124,9 +126,13 @@ export function MisRxDraftProductSearch({
         const rows = Array.isArray(body?.data) ? body.data as Convention[] : [];
         const convention = rows.find((item) => String(item.convenio_id) === conventionId);
         setAllowSubstitution(convention?.permite_sustitucion !== false);
+        setForceBrand(Number(convention?.solo_marca ?? 0) !== 0);
       })
       .catch(() => {
-        if (!cancelled) setAllowSubstitution(true);
+        if (!cancelled) {
+          setAllowSubstitution(true);
+          setForceBrand(false);
+        }
       });
 
     return () => {
@@ -315,10 +321,19 @@ export function MisRxDraftProductSearch({
               </>
             )}
           </div>
-          <label className="checkbox-field">
-            <input type="checkbox" name="printBrand" />
-            Imprimir marca
-          </label>
+          {forceBrand ? (
+            <label className="checkbox-field">
+              <input type="checkbox" checked disabled readOnly />
+              Imprimir marca
+              <input type="hidden" name="printBrand" value="true" />
+              <span className="field-hint">Este convenio prescribe obligatoriamente por marca.</span>
+            </label>
+          ) : (
+            <label className="checkbox-field">
+              <input type="checkbox" name="printBrand" />
+              Imprimir marca
+            </label>
+          )}
           <label className="checkbox-field">
             <input
               type="checkbox"
