@@ -160,8 +160,8 @@ async function sendReminderEmail(params: {
       <table style="width:100%;border-collapse:collapse;margin:24px 0;">
         <tr>
           <td style="padding:4px;"><a href="${base}" style="display:block;text-align:center;background:#111827;color:#fff;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Confirmar</a></td>
-          <td style="padding:4px;"><a href="${base}?action=reschedule" style="display:block;text-align:center;background:#f3f4f6;color:#111827;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Reprogramar</a></td>
           <td style="padding:4px;"><a href="${base}?action=cancel" style="display:block;text-align:center;background:#f3f4f6;color:#b91c1c;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Cancelar</a></td>
+          <td style="padding:4px;"><a href="${base}?action=reschedule" style="display:block;text-align:center;background:#f3f4f6;color:#111827;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Reprogramar</a></td>
         </tr>
       </table>
       <p style="font-size:12px;color:#9ca3af;">Este es un mensaje automático de TurnIA.</p>
