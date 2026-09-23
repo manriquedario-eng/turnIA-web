@@ -29,6 +29,7 @@ const settingsActions = read('app/(protected)/settings/actions.ts');
 const professionalContactsMigration = read('supabase/migrations/20260923183500_professional_contacts.sql');
 const idempotentRescheduleMigration = read('supabase/migrations/20260923185500_idempotent_reschedule_requests.sql');
 const publicToken = read('lib/appointments/public-token.ts');
+const agendaPage = read('app/(protected)/agenda/page.tsx');
 
 check(
   'WhatsApp secrets are never NEXT_PUBLIC',
@@ -210,6 +211,17 @@ check(
   idempotentRescheduleMigration.includes("return query select 'already_requested'::text") &&
     idempotentRescheduleMigration.includes('a.reschedule_requested_at is null') &&
     publicToken.includes("result === 'ok' || result === 'already_requested'"),
+);
+
+check(
+  'Post-migration professional alerts never fall back to another professional contact',
+  notification.includes('professionalContactTableUnavailable') &&
+    notification.includes("professionalContactError?.code === 'PGRST205'"),
+);
+
+check(
+  'Agenda delivery badges only summarize patient-facing messages',
+  agendaPage.includes(".in('message_type', ['appointment_created', 'appointment_reminder_24h'])"),
 );
 
 console.log(`WhatsApp regression: ${passes.length} PASS / ${failures.length} FAIL`);
