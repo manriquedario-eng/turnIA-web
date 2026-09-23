@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { addPrescriptionItem } from '@/app/(protected)/patients/prescription-actions';
 import { getMisRxMaxProducts } from '@/lib/misrx/convention-rules';
 
@@ -25,12 +25,16 @@ export function MisRxDraftProductSearch({
   prescriptionId,
   connected,
   initialConventionId,
+  initialAffiliateId,
+  initialPlanId,
   currentItemCount,
 }: {
   patientId: string;
   prescriptionId: string;
   connected: boolean;
   initialConventionId?: number | null;
+  initialAffiliateId?: number | null;
+  initialPlanId?: number | null;
   currentItemCount: number;
 }) {
   const conventionId = initialConventionId ? String(initialConventionId) : '';
@@ -40,9 +44,44 @@ export function MisRxDraftProductSearch({
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [allowSubstitution, setAllowSubstitution] = useState(true);
+  const [coveragePercentage, setCoveragePercentage] = useState<number | null>(null);
+  const selectedPanelRef = useRef<HTMLFormElement | null>(null);
   const selectedConventionId = conventionId ? Number(conventionId) : null;
   const maxProducts = getMisRxMaxProducts(selectedConventionId);
   const atProductLimit = Boolean(maxProducts && currentItemCount >= maxProducts);
+
+  useEffect(() => {
+    if (!connected || !conventionId || !initialPlanId) {
+      setCoveragePercentage(null);
+      return;
+    }
+
+    let cancelled = false;
+    const params = new URLSearchParams({
+      convenio_id: conventionId,
+      afiliado_id: initialAffiliateId ? String(initialAffiliateId) : '',
+    });
+
+    fetch(`/api/integrations/misrx/plans?${params.toString()}`, { cache: 'no-store' })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error('No se pudo obtener la cobertura del plan');
+        return body;
+      })
+      .then((body) => {
+        if (cancelled) return;
+        const rows = Array.isArray(body?.data) ? body.data as Array<{ plan_id?: number; porc_cobertura?: number }> : [];
+        const plan = rows.find((item) => Number(item.plan_id) === Number(initialPlanId));
+        setCoveragePercentage(typeof plan?.porc_cobertura === 'number' ? plan.porc_cobertura : null);
+      })
+      .catch(() => {
+        if (!cancelled) setCoveragePercentage(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, conventionId, initialAffiliateId, initialPlanId]);
 
   useEffect(() => {
     if (!connected || !conventionId) return;
@@ -97,6 +136,7 @@ export function MisRxDraftProductSearch({
         convenio_id: conventionId,
         q: term,
       });
+      if (initialPlanId) params.set('plan_id', String(initialPlanId));
       const response = await fetch(`/api/integrations/misrx/products?${params.toString()}`, {
         cache: 'no-store',
       });
@@ -111,6 +151,16 @@ export function MisRxDraftProductSearch({
     } finally {
       setLoading(false);
     }
+  }
+
+  function selectProduct(product: Product) {
+    setSelected(product);
+    window.setTimeout(() => {
+      selectedPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const quantityInput = selectedPanelRef.current?.querySelector<HTMLInputElement>('input[name="quantity"]');
+      quantityInput?.focus();
+      quantityInput?.select();
+    }, 50);
   }
 
   useEffect(() => {
@@ -185,8 +235,8 @@ export function MisRxDraftProductSearch({
             <button
               key={String(product.producto_id ?? product.code ?? index)}
               type="button"
-              className="misrx-choice-button"
-              onClick={() => setSelected(product)}
+              className={`misrx-choice-button${selected?.producto_id === product.producto_id ? ' is-selected' : ''}`}
+              onClick={() => selectProduct(product)}
             >
               <strong>{product.nombre || product.descripcion || product.monodroga || 'Medicamento'}</strong>
               <span className="integration-row-desc">
@@ -198,7 +248,7 @@ export function MisRxDraftProductSearch({
       ) : null}
 
       {!atProductLimit && selected?.producto_id ? (
-        <form action={addPrescriptionItem} className="form-grid misrx-selected-product">
+        <form ref={selectedPanelRef} action={addPrescriptionItem} className="form-grid misrx-selected-product">
           <input type="hidden" name="patientId" value={patientId} />
           <input type="hidden" name="prescriptionId" value={prescriptionId} />
           <input type="hidden" name="conventionId" value={conventionId} />
@@ -220,10 +270,23 @@ export function MisRxDraftProductSearch({
             Cantidad
             <input name="quantity" type="number" min="1" max="100" step="1" defaultValue="1" required />
           </label>
-          <label>
-            Cobertura %
-            <input name="coveragePercentage" type="number" min="0" max="100" step="1" />
-          </label>
+          <div>
+            <span className="field-label">Cobertura</span>
+            {coveragePercentage != null ? (
+              <>
+                <strong style={{ display: 'block', marginTop: 6 }}>{coveragePercentage}%</strong>
+                <span className="field-hint">Tomada automáticamente del plan informado por MisRX.</span>
+                <input type="hidden" name="coveragePercentage" value={coveragePercentage} />
+              </>
+            ) : (
+              <>
+                <span className="field-hint" style={{ display: 'block', marginTop: 6 }}>
+                  MisRX no informó un porcentaje de cobertura para el plan seleccionado. No se completa manualmente.
+                </span>
+                <input type="hidden" name="coveragePercentage" value="" />
+              </>
+            )}
+          </div>
           <label className="checkbox-field">
             <input type="checkbox" name="printBrand" />
             Imprimir marca
@@ -241,7 +304,7 @@ export function MisRxDraftProductSearch({
             ) : null}
           </label>
           <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
-            <button className="btn" type="submit">Agregar al borrador</button>
+            <button className="btn" type="submit">Añadir a la receta</button>
           </div>
         </form>
       ) : null}
