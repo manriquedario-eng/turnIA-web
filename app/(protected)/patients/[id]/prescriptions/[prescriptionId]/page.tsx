@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { MisRxDraftProductSearch } from '@/components/patients/MisRxDraftProductSearch';
 import { MisRxDraftClinicalData } from '@/components/patients/MisRxDraftClinicalData';
 import { MisRxReadinessPanel } from '@/components/patients/MisRxReadinessPanel';
+import { TransientNotice } from '@/components/ui/TransientNotice';
 import { removePrescriptionItem } from '../../../prescription-actions';
 
 function patientDataState(value: unknown) {
@@ -16,7 +17,7 @@ export default async function PrescriptionDraftPage({
   searchParams,
 }: {
   params: Promise<{ id: string; prescriptionId: string }>;
-  searchParams: Promise<{ error?: string; success?: string }>;
+  searchParams: Promise<{ error?: string; success?: string; area?: string }>;
 }) {
   const { id: patientId, prescriptionId } = await params;
   const query = await searchParams;
@@ -72,10 +73,7 @@ export default async function PrescriptionDraftPage({
         <Link href={`/patients/${patient.id}`}>{patient.name}</Link>
       </div>
 
-      {query.error ? <p className="alert error">{query.error}</p> : null}
-      {query.success === 'item-added' ? <p className="alert success">Medicamento agregado al borrador.</p> : null}
-      {query.success === 'item-removed' ? <p className="alert success">Medicamento quitado del borrador.</p> : null}
-      {query.success === 'metadata-updated' ? <p className="alert success">Datos del borrador actualizados.</p> : null}
+      {query.error && !query.area ? <p className="alert error">{query.error}</p> : null}
 
       <div className="card prescription-editor-hero">
         <div className="page-header">
@@ -130,7 +128,7 @@ export default async function PrescriptionDraftPage({
       </div>
 
       {editable ? (
-        <div className="card misrx-step-card">
+        <div className="card misrx-step-card" id="clinical">
           <div className="misrx-step-heading">
             <span className="misrx-step-number">2</span>
             <div>
@@ -140,6 +138,12 @@ export default async function PrescriptionDraftPage({
               </p>
             </div>
           </div>
+          {query.success === 'metadata-updated' ? (
+            <TransientNotice message="Datos de receta guardados." />
+          ) : null}
+          {query.error && query.area === 'clinical' ? (
+            <TransientNotice message={query.error} kind="error" />
+          ) : null}
           <MisRxDraftClinicalData
             patientId={patient.id}
             prescriptionId={prescription.id}
@@ -160,7 +164,7 @@ export default async function PrescriptionDraftPage({
         </div>
       ) : null}
 
-      <div className="card misrx-step-card">
+      <div className="card misrx-step-card" id="medications">
         <div className="misrx-step-heading">
           <span className="misrx-step-number">3</span>
           <div>
@@ -170,6 +174,16 @@ export default async function PrescriptionDraftPage({
             </p>
           </div>
         </div>
+
+        {query.success === 'item-added' ? (
+          <TransientNotice message="Medicamento agregado." />
+        ) : null}
+        {query.success === 'item-removed' ? (
+          <TransientNotice message="Medicamento quitado." />
+        ) : null}
+        {query.error && query.area === 'medications' ? (
+          <TransientNotice message={query.error} kind="error" />
+        ) : null}
 
         {!items || items.length === 0 ? (
           <EmptyState title="Todavía no hay medicamentos en este borrador" />
@@ -218,7 +232,7 @@ export default async function PrescriptionDraftPage({
       </div>
 
       <div className="card misrx-send-card">
-        <MisRxReadinessPanel prescriptionId={prescription.id} />
+        <MisRxReadinessPanel prescriptionId={prescription.id} patientId={patient.id} />
       </div>
     </section>
   );
