@@ -170,28 +170,58 @@ async function updateDeliveryStatus(status: WhatsAppMessageStatus): Promise<void
   if (!allowed.has(status.status)) return;
 
   const supabase = createSupabaseServiceClient();
-  const nowIso = new Date().toISOString();
+  const eventAt = new Date(Number(status.timestamp) * 1000);
+  const eventIso = Number.isNaN(eventAt.getTime()) ? new Date().toISOString() : eventAt.toISOString();
 
-  const patch: Record<string, unknown> = {
-    status: status.status,
-    updated_at: nowIso,
+  const { data: current, error: currentError } = await supabase
+    .from('appointment_messages')
+    .select('id,status,sent_at,delivered_at,read_at,failed_at')
+    .eq('provider_message_id', status.id)
+    .eq('channel', 'whatsapp')
+    .maybeSingle();
+
+  if (currentError) throw currentError;
+  if (!current) return;
+
+  const rank: Record<string, number> = {
+    pending: 0,
+    scheduled: 0,
+    sent: 1,
+    delivered: 2,
+    read: 3,
   };
 
-  if (status.status === 'sent') patch.sent_at = new Date(Number(status.timestamp) * 1000).toISOString();
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+  if (status.status === 'failed') {
+    patch.status = 'failed';
+    patch.failed_at = current.failed_at ?? eventIso;
+  } else {
+    const incomingRank = rank[status.status] ?? -1;
+    const currentRank = rank[current.status] ?? -1;
+
+    // Nunca degradar read -> delivered -> sent si Meta entrega eventos fuera de orden.
+    if (incomingRank < currentRank) return;
+
+    patch.status = status.status;
+    if (status.status === 'sent') patch.sent_at = current.sent_at ?? eventIso;
+    if (status.status === 'delivered') {
+      patch.sent_at = current.sent_at ?? eventIso;
+      patch.delivered_at = current.delivered_at ?? eventIso;
+    }
+    if (status.status === 'read') {
+      patch.sent_at = current.sent_at ?? eventIso;
+      patch.delivered_at = current.delivered_at ?? eventIso;
+      patch.read_at = current.read_at ?? eventIso;
+    }
+  }
 
   const { error } = await supabase
     .from('appointment_messages')
     .update(patch)
-    .eq('provider_message_id', status.id)
-    .eq('channel', 'whatsapp');
+    .eq('id', current.id);
 
-  if (error) {
-    console.error('WhatsApp webhook: no se pudo actualizar estado de entrega', {
-      messageId: status.id,
-      status: status.status,
-      code: error.code ?? null,
-    });
-  }
+  if (error) throw error;
 }
 
 // ---------------------------------------------------------------------------
@@ -377,14 +407,13 @@ export async function POST(request: NextRequest) {
       }
     }
   } catch (err) {
-    // Red de seguridad: un payload con forma inesperada nunca debe tirar
-    // abajo el endpoint. Se registra sólo el mensaje de error, nunca el
-    // payload completo.
+    // Un evento firmado y válido que falla por infraestructura/DB debe poder
+    // reintentarse. Las acciones son idempotentes y whatsapp_inbound_events
+    // evita efectos duplicados cuando Meta reenvía el mismo webhook.
     const message = err instanceof Error ? err.message : 'Error desconocido';
-    console.error('WhatsApp webhook: error procesando el payload', message);
+    console.error('WhatsApp webhook: error transitorio procesando evento', message);
+    return NextResponse.json({ received: false }, { status: 500 });
   }
 
-  // Responder 200 rápido y siempre que el payload haya sido reconocido,
-  // para evitar reintentos innecesarios de Meta.
   return NextResponse.json({ received: true }, { status: 200 });
 }
