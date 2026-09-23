@@ -227,8 +227,12 @@ export async function GET(
           ? `Cuenta de prestador externo validada; la prueba usa medico_id ${homologation.doctorId ?? 'sin configurar'}.`
           : 'La identidad profesional fue validada por MisRX.'
         : homologationActive
-          ? 'La cuenta conectada no pudo validarse como prestador externo de MisRX.'
-          : 'La cuenta conectada no pudo validarse con identidad profesional completa.',
+          ? prescriberResult && !prescriberResult.ok
+            ? prescriberResult.errorMessage
+            : 'La cuenta conectada no pudo validarse como prestador externo de MisRX.'
+          : prescriberResult && !prescriberResult.ok
+            ? prescriberResult.errorMessage
+            : 'La cuenta conectada no pudo validarse con identidad profesional completa.',
     });
 
     if (
