@@ -2,12 +2,13 @@ import 'server-only';
 
 import { createSupabaseServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { loginToMisRx } from './auth';
+import { misRxRequest } from './client';
 import {
   decryptMisRxCredential,
   encryptMisRxCredential,
   isMisRxCredentialEncryptionConfigured,
 } from './credential-crypto';
-import type { MisRxApiResult } from './types';
+import type { MisRxApiResult, MisRxSessionTestResponse } from './types';
 
 type ConnectionSummary = {
   username: string;
@@ -80,6 +81,30 @@ export async function connectMisRx(params: {
   // contraseña ni dejamos una conexión local que parezca válida.
   const login = await loginToMisRx({ username, password });
   if (!login.ok) return login;
+
+
+  if (Number(login.data.tipo) !== 3) {
+    return {
+      ok: false,
+      reason: 'unauthorized',
+      status: 403,
+      errorMessage: 'La cuenta MisRX ingresada no corresponde a un prestador externo habilitable para prescribir.',
+    };
+  }
+
+  const sessionResult = await misRxRequest<MisRxSessionTestResponse>({
+    path: '/test',
+    accessToken: login.data.access_token,
+  });
+
+  if (!sessionResult.ok) {
+    return {
+      ok: false,
+      reason: sessionResult.reason,
+      status: sessionResult.status,
+      errorMessage: 'MisRX autenticó la cuenta, pero no pudo validar la sesión del prestador externo.',
+    };
+  }
 
   const encrypted = encryptMisRxCredential(password);
   if (!encrypted.ok) {
@@ -206,6 +231,81 @@ export async function testStoredMisRxConnection(params: {
   });
 
   const now = new Date().toISOString();
+
+  if (login.ok && Number(login.data.tipo) !== 3) {
+    const errorMessage = 'La cuenta MisRX ya no corresponde a un prestador externo habilitable para prescribir.';
+
+    await service
+      .from('misrx_connections')
+      .update({
+        status: 'error',
+        last_verified_at: now,
+        last_error: errorMessage,
+        updated_at: now,
+      })
+      .eq('tenant_id', params.tenantId)
+      .eq('user_id', params.userId);
+
+    await service
+      .from('integration_status')
+      .upsert(
+        {
+          tenant_id: params.tenantId,
+          user_id: params.userId,
+          provider: 'misrx',
+          status: 'error',
+          updated_at: now,
+        },
+        { onConflict: 'tenant_id,user_id,provider' },
+      );
+
+    return {
+      ok: false,
+      reason: 'unauthorized',
+      status: 403,
+      errorMessage,
+    };
+  }
+
+  if (login.ok) {
+    const sessionResult = await misRxRequest<MisRxSessionTestResponse>({
+      path: '/test',
+      accessToken: login.data.access_token,
+    });
+
+    if (!sessionResult.ok) {
+      await service
+        .from('misrx_connections')
+        .update({
+          status: 'error',
+          last_verified_at: now,
+          last_error: 'MisRX no pudo validar la sesión del prestador externo.',
+          updated_at: now,
+        })
+        .eq('tenant_id', params.tenantId)
+        .eq('user_id', params.userId);
+
+      await service
+        .from('integration_status')
+        .upsert(
+          {
+            tenant_id: params.tenantId,
+            user_id: params.userId,
+            provider: 'misrx',
+            status: 'error',
+            updated_at: now,
+          },
+          { onConflict: 'tenant_id,user_id,provider' },
+        );
+
+      return {
+        ok: false,
+        reason: sessionResult.reason,
+        status: sessionResult.status,
+        errorMessage: 'MisRX autenticó la cuenta, pero no pudo validar la sesión del prestador externo.',
+      };
+    }
+  }
 
   if (!login.ok) {
     await service

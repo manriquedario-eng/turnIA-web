@@ -12,6 +12,7 @@ import type {
   MisRxPrescriptionResponse,
   MisRxProduct,
   MisRxProfessionalProfile,
+  MisRxSessionTestResponse,
   MisRxCancelPrescriptionPayload,
   MisRxPlan,
   MisRxCancelPrescriptionResponse,
@@ -32,6 +33,15 @@ export class MisRxAdapter {
     return operation(login.data.access_token);
   }
 
+  async testSession(): Promise<MisRxApiResult<MisRxSessionTestResponse>> {
+    return this.withToken((accessToken) =>
+      misRxRequest<MisRxSessionTestResponse>({
+        path: '/test',
+        accessToken,
+      }),
+    );
+  }
+
   async testConnection(): Promise<MisRxApiResult<MisRxProfessionalProfile>> {
     return this.withToken((accessToken) =>
       misRxRequest<MisRxProfessionalProfile>({
@@ -40,6 +50,102 @@ export class MisRxAdapter {
         query: { verify_exp: false },
       }),
     );
+  }
+
+
+  async verifyExternalProvider(): Promise<MisRxApiResult<{
+    usuarioId?: number;
+    propioId?: number;
+    roles?: string;
+  }>> {
+    const login = await loginToMisRx(this.credentials);
+    if (!login.ok) {
+      console.warn('[misrx] external provider login failed', {
+        reason: login.reason,
+        status: login.status ?? null,
+      });
+      return login;
+    }
+
+    const accountType = Number(login.data.tipo);
+    if (accountType !== 3) {
+      console.warn('[misrx] external provider account type rejected', {
+        accountType: Number.isFinite(accountType) ? accountType : null,
+        usuarioId: login.data.usuario_id ?? null,
+        propioId: login.data.propio_id ?? null,
+      });
+      return {
+        ok: false,
+        reason: 'unauthorized',
+        status: 403,
+        errorMessage: Number.isFinite(accountType)
+          ? `MisRX autenticó la cuenta, pero informó tipo de usuario ${accountType}; para prestador externo debe ser tipo 3.`
+          : 'MisRX autenticó la cuenta, pero no informó un tipo de usuario válido para prestador externo.',
+      };
+    }
+
+    return {
+      ok: true,
+      data: {
+        usuarioId: login.data.usuario_id,
+        propioId: login.data.propio_id,
+        roles: login.data.roles,
+      },
+    };
+  }
+
+  async verifyPrescriber(): Promise<MisRxApiResult<{
+    profile: MisRxProfessionalProfile;
+    usuarioId?: number;
+    propioId?: number;
+    roles?: string;
+  }>> {
+    const login = await loginToMisRx(this.credentials);
+    if (!login.ok) return login;
+
+    if (Number(login.data.tipo) !== 3) {
+      return {
+        ok: false,
+        reason: 'unauthorized',
+        status: 403,
+        errorMessage: 'La cuenta MisRX conectada no corresponde a un prestador externo habilitable para prescribir.',
+      };
+    }
+
+    const profileResult = await misRxRequest<MisRxProfessionalProfile>({
+      path: '/usuario/perfil',
+      accessToken: login.data.access_token,
+      query: { verify_exp: false },
+    });
+
+    if (!profileResult.ok) return profileResult;
+
+    const profile = profileResult.data;
+    const validProfessionalIdentity = Boolean(
+      Number(profile.nrodoc) > 0 &&
+      profile.tipo_matricula?.trim() &&
+      Number(profile.matricula) > 0 &&
+      Number(profile.especialidad_id) > 0
+    );
+
+    if (!validProfessionalIdentity) {
+      return {
+        ok: false,
+        reason: 'unauthorized',
+        status: 403,
+        errorMessage: 'MisRX autenticó la cuenta, pero no devolvió una identidad profesional completa con DNI, matrícula y especialidad.',
+      };
+    }
+
+    return {
+      ok: true,
+      data: {
+        profile,
+        usuarioId: login.data.usuario_id,
+        propioId: login.data.propio_id,
+        roles: login.data.roles,
+      },
+    };
   }
 
   async getEnabledConventions(query = ''): Promise<MisRxApiResult<MisRxListResponse<MisRxConvention>>> {
@@ -104,14 +210,14 @@ export class MisRxAdapter {
           soft_id: softId,
           convenio_id: params.convenioId,
           query: params.query,
-          afiliado_credencial: params.credential ?? '',
-          afiliado_dni: params.dni ?? 0,
-          autorizacion: params.authorization ?? 0,
-          plan_id: params.planId ?? 0,
-          monodroga_id: params.monodrogaId ?? 0,
-          forma_farma_id: params.formaFarmaId ?? 0,
-          no_incluye_bajas: params.noIncluyeBajas ?? 0,
-          producto_id: params.productoId ?? 0,
+          afiliado_credencial: params.credential,
+          afiliado_dni: params.dni,
+          autorizacion: params.authorization,
+          plan_id: params.planId,
+          monodroga_id: params.monodrogaId,
+          forma_farma_id: params.formaFarmaId,
+          no_incluye_bajas: params.noIncluyeBajas,
+          producto_id: params.productoId,
           verify_exp: false,
         },
       }),
@@ -128,7 +234,7 @@ export class MisRxAdapter {
         accessToken,
         query: {
           query: params.query,
-          valor: params.value ?? 0,
+          valor: params.value,
           verify_exp: false,
         },
       }),
@@ -214,7 +320,6 @@ export class MisRxAdapter {
         path: '/api/anular_prescripcion',
         method: 'DELETE',
         accessToken,
-        appId: this.provider.appId,
         body: {
           ...payload,
           soft_id: softId,

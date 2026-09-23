@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/auth/require-user';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { getMisRxAdapterForUser } from '@/lib/misrx/service';
+import { getMisRxHomologationConfig } from '@/lib/misrx/homologation';
 
 export async function GET(request: NextRequest) {
   const { tenantId, user } = await requireTenant();
@@ -26,13 +27,55 @@ export async function GET(request: NextRequest) {
   }
 
   const query = request.nextUrl.searchParams.get('q')?.trim().slice(0, 100) ?? '';
+  const homologation = getMisRxHomologationConfig();
   const result = await adapterResult.data.getEnabledConventions(query);
 
   if (!result.ok) {
+    if (homologation.enabled && homologation.conventionId) {
+      return NextResponse.json({
+        total: 1,
+        data: [{
+          convenio_id: homologation.conventionId,
+          nombre: `Homologación MisRX (ID ${homologation.conventionId})`,
+          autorizado: 1,
+        }],
+        warning: 'MisRX no devolvió el listado dinámico de convenios; se usa el convenio configurado para homologación.',
+      }, {
+        headers: { 'Cache-Control': 'private, no-store' },
+      });
+    }
+
     return NextResponse.json({ error: result.errorMessage }, { status: result.status ?? 502 });
   }
 
-  return NextResponse.json(result.data, {
+  const authorizedRows = Array.isArray(result.data.data)
+    ? result.data.data.filter((item) => item.autorizado == null || Number(item.autorizado) !== 0)
+    : [];
+
+  if (homologation.enabled && homologation.conventionId) {
+    const rows = [...authorizedRows];
+    if (!rows.some((item) => item.convenio_id === homologation.conventionId)) {
+      rows.unshift({
+        convenio_id: homologation.conventionId,
+        nombre: `Homologación MisRX (ID ${homologation.conventionId})`,
+        autorizado: 1,
+      });
+    }
+
+    return NextResponse.json({
+      ...result.data,
+      total: Math.max(result.data.total ?? 0, rows.length),
+      data: rows,
+    }, {
+      headers: { 'Cache-Control': 'private, no-store' },
+    });
+  }
+
+  return NextResponse.json({
+    ...result.data,
+    total: authorizedRows.length,
+    data: authorizedRows,
+  }, {
     headers: { 'Cache-Control': 'private, no-store' },
   });
 }

@@ -23,6 +23,8 @@ export type MisRxApiResult<T> =
       status?: number;
     };
 
+export type MisRxSessionTestResponse = { data: string };
+
 export type MisRxProfessionalProfile = {
   nrodoc: number;
   sexo: string;
@@ -49,9 +51,23 @@ export type MisRxConvention = {
   convenio_id: number;
   nombre: string;
   autorizado: number;
+  padron_afiliados_manual?: number;
+  autorizaciones_recetas_por_afiliado?: number;
+  digital_elige_plan?: boolean;
+  permite_sustitucion?: boolean;
+  digital_auditoria?: number;
+  digital_get_contacto_afiliado?: number;
+  digital_indica_prestador?: number;
+  digital_tratamiento_prolongado?: number;
+  digital_fecha_receta?: number;
+  selecciona_afiliado_por?: string;
+  solo_marca?: number;
+  check_sustituible?: number;
   diagnostico_requerido?: number;
   posologia_requierida?: number;
-  permite_sustitucion?: boolean;
+  valida_item_digital?: number;
+  solo_cie10?: number;
+  diagnostico_por_producto?: number;
   check_arca?: number;
   [key: string]: unknown;
 };
@@ -208,7 +224,12 @@ export type MisRxPlan = {
   convenio_id?: number;
   plan_id?: number;
   descripcion?: string;
-  cobertura?: number;
+  porc_cobertura?: number;
+  vdm_por_afiliado?: number;
+  afiliados_global?: number;
+  autorizaciones_recetas_por_afiliado?: number;
+  regla_items_por_receta?: number;
+  regla_unidades_por_receta?: number;
   convenio_plan_cod?: number;
   afiliado_id?: number;
   [key: string]: unknown;

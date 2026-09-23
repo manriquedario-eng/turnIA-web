@@ -181,6 +181,15 @@ export default async function PatientsPage({
           <label>Nº afiliado<input name="insurance_member_number" maxLength={160} /></label>
           <label>Plan<input name="insurance_plan" maxLength={160} /></label>
 
+          <details className="patient-data-disclosure" style={{ gridColumn: '1 / -1' }}>
+            <summary>
+              <span>
+                <strong>Datos fiscales y facturación institucional</strong>
+                <small>Opcional · completalos sólo si los necesitás</small>
+              </span>
+              <span className="patient-data-disclosure-action">Ver datos</span>
+            </summary>
+            <div className="form-grid patient-data-disclosure-grid">
           <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
             <h3>Datos fiscales del paciente</h3>
             <p className="text-helper" style={{ marginTop: 4 }}>
@@ -240,6 +249,9 @@ export default async function PatientsPage({
               ))}
             </select>
           </label>
+
+            </div>
+          </details>
 
           <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
             <h3>Comunicación y recordatorios</h3>
