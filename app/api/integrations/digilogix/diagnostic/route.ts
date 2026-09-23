@@ -6,7 +6,7 @@ import {
   getDigilogixConfig,
 } from '@/lib/digilogix/config';
 import { certificateResultMeaning } from '@/lib/digilogix/response';
-import { isValidArgentinianCuitCuil } from '@/lib/digilogix/validation';
+import { isValidCuil } from '@/lib/digilogix/validation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,7 +61,7 @@ export async function GET() {
     );
   }
 
-  if (!isValidArgentinianCuitCuil(testCuil)) {
+  if (!isValidCuil(testCuil)) {
     return NextResponse.json(
       {
         ok: false,
