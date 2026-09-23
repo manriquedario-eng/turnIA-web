@@ -230,6 +230,12 @@ check(
 );
 
 check(
+  'Completed appointments cannot be mutated from public or WhatsApp actions',
+  finalActionCleanupMigration.includes("v_status in ('completed', 'completado')") &&
+    idempotentRescheduleMigration.includes("v_status in ('completed', 'completado')"),
+);
+
+check(
   'Post-migration professional alerts never fall back to another professional contact',
   notification.includes('professionalContactTableUnavailable') &&
     notification.includes("professionalContactError?.code === 'PGRST205'"),
