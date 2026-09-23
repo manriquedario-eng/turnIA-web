@@ -48,8 +48,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: result.errorMessage }, { status: result.status ?? 502 });
   }
 
+  const authorizedRows = Array.isArray(result.data.data)
+    ? result.data.data.filter((item) => item.autorizado == null || Number(item.autorizado) !== 0)
+    : [];
+
   if (homologation.enabled && homologation.conventionId) {
-    const rows = Array.isArray(result.data.data) ? [...result.data.data] : [];
+    const rows = [...authorizedRows];
     if (!rows.some((item) => item.convenio_id === homologation.conventionId)) {
       rows.unshift({
         convenio_id: homologation.conventionId,
@@ -67,7 +71,11 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  return NextResponse.json(result.data, {
+  return NextResponse.json({
+    ...result.data,
+    total: authorizedRows.length,
+    data: authorizedRows,
+  }, {
     headers: { 'Cache-Control': 'private, no-store' },
   });
 }
