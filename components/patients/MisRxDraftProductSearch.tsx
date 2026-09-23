@@ -37,7 +37,9 @@ export function MisRxDraftProductSearch({
   initialPlanId?: number | null;
   currentItemCount: number;
 }) {
-  const conventionId = initialConventionId ? String(initialConventionId) : '';
+  const [conventionId, setConventionId] = useState(initialConventionId ? String(initialConventionId) : '');
+  const [affiliateId, setAffiliateId] = useState(initialAffiliateId ?? null);
+  const [planId, setPlanId] = useState(initialPlanId ?? null);
   const [query, setQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Product | null>(null);
@@ -46,12 +48,36 @@ export function MisRxDraftProductSearch({
   const [allowSubstitution, setAllowSubstitution] = useState(true);
   const [coveragePercentage, setCoveragePercentage] = useState<number | null>(null);
   const selectedPanelRef = useRef<HTMLFormElement | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
   const selectedConventionId = conventionId ? Number(conventionId) : null;
   const maxProducts = getMisRxMaxProducts(selectedConventionId);
   const atProductLimit = Boolean(maxProducts && currentItemCount >= maxProducts);
 
   useEffect(() => {
-    if (!connected || !conventionId || !initialPlanId) {
+    function handleDraftContext(event: Event) {
+      const detail = (event as CustomEvent<{
+        prescriptionId?: string;
+        conventionId?: number | null;
+        affiliateId?: number | null;
+        planId?: number | null;
+      }>).detail;
+
+      if (!detail || detail.prescriptionId !== prescriptionId) return;
+
+      setConventionId(detail.conventionId ? String(detail.conventionId) : '');
+      setAffiliateId(detail.affiliateId ?? null);
+      setPlanId(detail.planId ?? null);
+      setProducts([]);
+      setSelected(null);
+      setMessage('');
+    }
+
+    window.addEventListener('misrx-draft-context', handleDraftContext);
+    return () => window.removeEventListener('misrx-draft-context', handleDraftContext);
+  }, [prescriptionId]);
+
+  useEffect(() => {
+    if (!connected || !conventionId || !planId) {
       setCoveragePercentage(null);
       return;
     }
@@ -59,7 +85,7 @@ export function MisRxDraftProductSearch({
     let cancelled = false;
     const params = new URLSearchParams({
       convenio_id: conventionId,
-      afiliado_id: initialAffiliateId ? String(initialAffiliateId) : '',
+      afiliado_id: affiliateId ? String(affiliateId) : '',
     });
 
     fetch(`/api/integrations/misrx/plans?${params.toString()}`, { cache: 'no-store' })
@@ -71,7 +97,7 @@ export function MisRxDraftProductSearch({
       .then((body) => {
         if (cancelled) return;
         const rows = Array.isArray(body?.data) ? body.data as Array<{ plan_id?: number; porc_cobertura?: number }> : [];
-        const plan = rows.find((item) => Number(item.plan_id) === Number(initialPlanId));
+        const plan = rows.find((item) => Number(item.plan_id) === Number(planId));
         setCoveragePercentage(typeof plan?.porc_cobertura === 'number' ? plan.porc_cobertura : null);
       })
       .catch(() => {
@@ -81,7 +107,7 @@ export function MisRxDraftProductSearch({
     return () => {
       cancelled = true;
     };
-  }, [connected, conventionId, initialAffiliateId, initialPlanId]);
+  }, [connected, conventionId, affiliateId, planId]);
 
   useEffect(() => {
     if (!connected || !conventionId) return;
@@ -136,10 +162,17 @@ export function MisRxDraftProductSearch({
         convenio_id: conventionId,
         q: term,
       });
-      if (initialPlanId) params.set('plan_id', String(initialPlanId));
+      if (planId) params.set('plan_id', String(planId));
+
+      searchAbortRef.current?.abort();
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+
+      const timeout = window.setTimeout(() => controller.abort(), 12000);
       const response = await fetch(`/api/integrations/misrx/products?${params.toString()}`, {
         cache: 'no-store',
-      });
+        signal: controller.signal,
+      }).finally(() => window.clearTimeout(timeout));
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error || 'No se pudieron buscar medicamentos');
       setProducts(Array.isArray(body?.data) ? body.data : []);
@@ -147,7 +180,11 @@ export function MisRxDraftProductSearch({
         setMessage('No se encontraron medicamentos para esa búsqueda.');
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'No se pudieron buscar medicamentos');
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setMessage('La búsqueda tardó demasiado. Volvé a intentar.');
+      } else {
+        setMessage(error instanceof Error ? error.message : 'No se pudieron buscar medicamentos');
+      }
     } finally {
       setLoading(false);
     }
@@ -163,21 +200,6 @@ export function MisRxDraftProductSearch({
     }, 50);
   }
 
-  useEffect(() => {
-    if (!connected || !conventionId || atProductLimit) return;
-    const term = query.trim();
-    if (term.length < 3) {
-      setProducts([]);
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      void search(term);
-    }, 450);
-
-    return () => window.clearTimeout(timeout);
-  }, [connected, conventionId, atProductLimit, query]);
-
   if (!connected) {
     return (
       <p className="alert">
@@ -189,7 +211,7 @@ export function MisRxDraftProductSearch({
   if (!conventionId) {
     return (
       <p className="alert" style={{ marginBottom: 0 }}>
-        Elegí y guardá el convenio en el paso 2 antes de buscar medicamentos.
+        Elegí el convenio y validá el afiliado antes de buscar medicamentos. TurnIA guarda esos datos automáticamente.
       </p>
     );
   }
@@ -214,6 +236,12 @@ export function MisRxDraftProductSearch({
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void search();
+              }
+            }}
             minLength={2}
             maxLength={100}
             placeholder="Marca, droga o presentación"
