@@ -44,6 +44,13 @@ check(
 );
 
 check(
+  'Meta requests have an explicit timeout and sanitized provider errors',
+  provider.includes('META_REQUEST_TIMEOUT_MS = 10_000') &&
+    provider.includes('AbortSignal.timeout(META_REQUEST_TIMEOUT_MS)') &&
+    provider.includes('metaErrorMessage(json, response.status)'),
+);
+
+check(
   'Webhook fails closed without Meta App Secret',
   webhook.includes("const appSecret = process.env.WHATSAPP_APP_SECRET") &&
     webhook.includes("status: 403") &&
