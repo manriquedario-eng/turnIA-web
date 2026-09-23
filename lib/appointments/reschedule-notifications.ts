@@ -31,6 +31,7 @@ async function createProfessionalAlertRow(params: {
   tenantId: string;
   patientId: string;
   channel: 'email' | 'whatsapp';
+  dedupeKey: string;
   payload: Record<string, unknown>;
 }) {
   const supabase = createSupabaseServiceClient();
@@ -41,6 +42,7 @@ async function createProfessionalAlertRow(params: {
     .eq('appointment_id', params.appointmentId)
     .eq('message_type', 'professional_reschedule_requested')
     .eq('channel', params.channel)
+    .eq('dedupe_key', params.dedupeKey)
     .maybeSingle();
 
   if (existing) return null;
@@ -53,6 +55,7 @@ async function createProfessionalAlertRow(params: {
       appointment_id: params.appointmentId,
       message_type: 'professional_reschedule_requested',
       channel: params.channel,
+      dedupe_key: params.dedupeKey,
       status: 'pending',
       payload: params.payload,
     })
@@ -89,7 +92,7 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
 
   const { data: appointment } = await supabase
     .from('appointments')
-    .select('id,tenant_id,patient_id,starts_at')
+    .select('id,tenant_id,patient_id,starts_at,reschedule_requested_at')
     .eq('public_token', token)
     .maybeSingle();
 
@@ -122,6 +125,9 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
 
   const dateLabel = formatDate(appointment.starts_at);
   const timeLabel = formatTime(appointment.starts_at);
+  const rescheduleCycle = appointment.reschedule_requested_at ?? appointment.starts_at;
+  const dedupeKey = `professional_reschedule_requested:${rescheduleCycle}`;
+  const agendaUrl = 'https://www.turniahealth.com.ar/agenda';
 
   if (professionalEmail && isPlausibleEmail(professionalEmail)) {
     const messageRowId = await createProfessionalAlertRow({
@@ -129,6 +135,7 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
       tenantId: appointment.tenant_id,
       patientId: appointment.patient_id,
       channel: 'email',
+      dedupeKey,
       payload: { recipient: 'professional', patientName, dateLabel, timeLabel },
     });
 
@@ -142,6 +149,7 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
         `Hora actual: ${timeLabel}`,
         '',
         'El turno no fue movido ni cancelado. Ingresá a TurnIA para coordinar un nuevo horario con el paciente.',
+        agendaUrl,
       ].join('\n');
 
       const safePatientName = patientName.replace(/[<>&"']/g, '');
@@ -152,6 +160,11 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
           <p><strong>${safePatientName}</strong> solicitó reprogramar su turno.</p>
           <p>Fecha actual: <strong>${dateLabel}</strong><br/>Hora actual: <strong>${timeLabel}</strong></p>
           <p>El turno no fue movido ni cancelado. Ingresá a TurnIA para coordinar un nuevo horario con el paciente.</p>
+          <p style="margin-top:20px;">
+            <a href="${agendaUrl}" style="display:inline-block;background:#111827;color:#ffffff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;">
+              Abrir Agenda en TurnIA
+            </a>
+          </p>
         </div>
       `.trim();
 
@@ -188,6 +201,7 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
         tenantId: appointment.tenant_id,
         patientId: appointment.patient_id,
         channel: 'whatsapp',
+        dedupeKey,
         payload: { recipient: 'professional', patientName, dateLabel, timeLabel },
       });
 
