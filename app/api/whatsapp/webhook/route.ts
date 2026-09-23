@@ -1,7 +1,7 @@
 // Webhook oficial de Meta WhatsApp Cloud API.
 //
 // URL pública que debe configurarse en Meta (App > WhatsApp > Configuration):
-//   https://turn-ia-web.vercel.app/api/whatsapp/webhook
+//   https://www.turniahealth.com.ar/api/whatsapp/webhook
 //
 // GET  -> Verificación del webhook (Meta la llama una vez al guardar la
 //         configuración, y cada vez que se re-verifica).
