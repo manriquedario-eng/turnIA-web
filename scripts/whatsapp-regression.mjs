@@ -26,6 +26,7 @@ const vercel = read('vercel.json');
 const envExample = read('.env.example');
 const settings = read('app/(protected)/settings/page.tsx');
 const settingsActions = read('app/(protected)/settings/actions.ts');
+const professionalContactsMigration = read('supabase/migrations/20260923183500_professional_contacts.sql');
 
 check(
   'WhatsApp secrets are never NEXT_PUBLIC',
@@ -172,6 +173,27 @@ check(
   'Professional phone is normalized before saving',
   settingsActions.includes('normalizePhone(parsed.data.professional_phone)') &&
     settingsActions.includes('professionalPhoneE164'),
+);
+
+check(
+  'Professional notification contacts are keyed per tenant and user',
+  professionalContactsMigration.includes('primary key (tenant_id, user_id)') &&
+    professionalContactsMigration.includes('user_id = auth.uid()'),
+);
+
+check(
+  'Reprogram alerts target the assigned professional contact first',
+  notification.includes('appointment.professional_id') &&
+    notification.includes("from('professional_contacts')") &&
+    notification.includes("eq('user_id', appointment.professional_id)"),
+);
+
+check(
+  'Immediate and webhook failures track failed_at',
+  created.includes('failed_at: new Date().toISOString()') &&
+    webhook.includes('patch.failed_at') &&
+    reminder.includes('failed_at: params.ok ? null : new Date().toISOString()') &&
+    notification.includes('failed_at: params.ok ? null : new Date().toISOString()'),
 );
 
 console.log(`WhatsApp regression: ${passes.length} PASS / ${failures.length} FAIL`);
