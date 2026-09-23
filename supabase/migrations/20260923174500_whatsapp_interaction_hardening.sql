@@ -30,12 +30,14 @@ revoke all on table public.whatsapp_inbound_events from anon, authenticated;
 alter table public.appointment_messages
   add column if not exists delivered_at timestamptz,
   add column if not exists read_at timestamptz,
-  add column if not exists failed_at timestamptz;
+  add column if not exists failed_at timestamptz,
+  add column if not exists dedupe_key text;
 
 -- Only the flows that are semantically one-shot are unique. Appointment
 -- creation/update confirmations are deliberately NOT included because TurnIA
 -- resends them when a professional changes the appointment.
-create unique index if not exists appointment_messages_once_for_reminders_and_reschedule_alerts
-  on public.appointment_messages (appointment_id, message_type, channel)
+create unique index if not exists appointment_messages_dedupe_key_unique
+  on public.appointment_messages (appointment_id, message_type, channel, dedupe_key)
   where appointment_id is not null
+    and dedupe_key is not null
     and message_type in ('appointment_reminder_24h', 'professional_reschedule_requested');
