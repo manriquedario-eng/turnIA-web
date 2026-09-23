@@ -27,6 +27,7 @@ type AppointmentRow = {
   currency: string | null;
   meeting_provider: string | null;
   meeting_url: string | null;
+  reschedule_requested_at: string | null;
 };
 
 function startOfDayIso(date: string) {
@@ -220,7 +221,7 @@ export default async function AgendaPage({
   ] = await Promise.all([
     supabase
       .from('appointments')
-      .select('id, patient_id, service_id, professional_id, starts_at, ends_at, modality, status, quoted_amount, currency, meeting_provider, meeting_url')
+      .select('id, patient_id, service_id, professional_id, starts_at, ends_at, modality, status, quoted_amount, currency, meeting_provider, meeting_url, reschedule_requested_at')
       .eq('tenant_id', tenantId)
       .gte('starts_at', startOfDayIso(rangeStart))
       .lte('starts_at', endOfDayIso(rangeEnd))
@@ -589,6 +590,11 @@ export default async function AgendaPage({
                           {a.quoted_amount != null ? `${a.currency ?? 'ARS'} ${Number(a.quoted_amount).toLocaleString('es-AR')}` : '—'}
                         </span>
                         <StatusBadge status={a.status} label={statusLabel(a.status)} />
+                        {a.reschedule_requested_at && !cancelled ? (
+                          <span className="badge" title="El paciente pidió reprogramar este turno">
+                            Pidió reprogramar
+                          </span>
+                        ) : null}
                         {!cancelled ? (
                           <div className="appointment-row-actions">
                             {a.patient_id && patientMap.get(a.patient_id) && !patientMap.get(a.patient_id)?.deleted_at ? (
