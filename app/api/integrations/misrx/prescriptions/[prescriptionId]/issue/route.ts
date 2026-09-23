@@ -258,6 +258,13 @@ export async function POST(
     );
   }
 
+  if (Number(convention.digital_indica_prestador ?? 0) !== 0) {
+    return NextResponse.json(
+      { error: 'Este convenio exige seleccionar una institución prestadora y ese flujo todavía no está habilitado en TurnIA.' },
+      { status: 400 },
+    );
+  }
+
   const hasDiagnosis = Boolean(prescription.diagnosis?.trim() || prescription.cie10?.trim());
   const hasCie10 = Boolean(prescription.cie10?.trim());
 
