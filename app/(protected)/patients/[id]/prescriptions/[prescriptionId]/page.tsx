@@ -303,10 +303,7 @@ export default async function PrescriptionDraftPage({
           ) : null}
 
           {prescription.provider_prescription_number && ['issued', 'cancelled'].includes(prescription.status) ? (
-            <MisRxIssuedActions
-              prescriptionId={prescription.id}
-              canCancel={prescription.status === 'issued'}
-            />
+            <MisRxIssuedActions prescriptionId={prescription.id} />
           ) : null}
         </div>
       )}
