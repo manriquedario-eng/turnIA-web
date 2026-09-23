@@ -53,6 +53,33 @@ export class MisRxAdapter {
   }
 
 
+  async verifyExternalProvider(): Promise<MisRxApiResult<{
+    usuarioId?: number;
+    propioId?: number;
+    roles?: string;
+  }>> {
+    const login = await loginToMisRx(this.credentials);
+    if (!login.ok) return login;
+
+    if (login.data.tipo !== 3) {
+      return {
+        ok: false,
+        reason: 'unauthorized',
+        status: 403,
+        errorMessage: 'La cuenta MisRX conectada no corresponde a un prestador externo habilitado para esta integración.',
+      };
+    }
+
+    return {
+      ok: true,
+      data: {
+        usuarioId: login.data.usuario_id,
+        propioId: login.data.propio_id,
+        roles: login.data.roles,
+      },
+    };
+  }
+
   async verifyPrescriber(): Promise<MisRxApiResult<{
     profile: MisRxProfessionalProfile;
     usuarioId?: number;
