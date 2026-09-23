@@ -4,18 +4,18 @@ import { digilogixPost } from './client';
 import type {
   DigilogixOnboardingRequest,
   DigilogixRegistrationRequest,
-  DigilogixUnknownResponse,
+  DigilogixSimpleResponse,
 } from './types';
 
 export function beginDigilogixUserRegistration(body: DigilogixRegistrationRequest) {
-  return digilogixPost<DigilogixUnknownResponse>(
+  return digilogixPost<DigilogixSimpleResponse>(
     '/FirmaDigital/PostIniciarRegistracionUsuario',
     body,
   );
 }
 
 export function beginDigilogixPersonOnboarding(body: DigilogixOnboardingRequest) {
-  return digilogixPost<DigilogixUnknownResponse>(
+  return digilogixPost<DigilogixSimpleResponse>(
     '/FirmaDigital/PostIniciarOnboardingPersonaFisica',
     body,
   );

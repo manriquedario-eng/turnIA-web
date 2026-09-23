@@ -3,20 +3,21 @@ import 'server-only';
 import { digilogixPost } from './client';
 import type {
   DigilogixDocumentStateRequest,
+  DigilogixDocumentStateResponse,
   DigilogixSignDocumentRequest,
   DigilogixSignDocumentsRequest,
-  DigilogixUnknownResponse,
+  DigilogixSignResponse,
 } from './types';
 
 export function requestDocumentSignature(body: DigilogixSignDocumentRequest) {
-  return digilogixPost<DigilogixUnknownResponse>(
+  return digilogixPost<DigilogixSignResponse>(
     '/FirmaDigital/PostFirmarDocumentoFirmaDigital',
     body,
   );
 }
 
 export function requestDocumentsSignature(body: DigilogixSignDocumentsRequest) {
-  return digilogixPost<DigilogixUnknownResponse>(
+  return digilogixPost<DigilogixSignResponse>(
     '/FirmaDigital/PostFirmarDocumentosFirmaDigital',
     body,
   );
@@ -24,7 +25,7 @@ export function requestDocumentsSignature(body: DigilogixSignDocumentsRequest) {
 
 export function getDocumentSignatureState(IdentificadorDocumento: string) {
   const body: DigilogixDocumentStateRequest = { IdentificadorDocumento };
-  return digilogixPost<DigilogixUnknownResponse>(
+  return digilogixPost<DigilogixDocumentStateResponse>(
     '/FirmaDigital/PostObtenerEstadoFirmaDigitalDocumento',
     body,
   );

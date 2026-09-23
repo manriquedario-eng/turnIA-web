@@ -16,6 +16,12 @@ export type DigilogixApiResult<T> =
       status?: number;
     };
 
+export type DigilogixEnvelope<T = undefined> = {
+  CodigoResultado: number;
+  MensajeResultado: string;
+  Datos?: T;
+};
+
 export type DigilogixPerson = {
   CodigoUnicoIdentificacion: string;
   CuitOrganizacion?: string;
@@ -54,14 +60,66 @@ export type DigilogixSignDocumentsRequest = {
   Documentos: DigilogixDocumentToSign[];
 };
 
+export type DigilogixAuthorizationResult = {
+  IdentificadorPersonaDocumento: string;
+  CodigoUnicoIdentificacion: string;
+  CuitOrganizacion?: string;
+  URLAutorizacion: string;
+  OrdenFirma: number;
+};
+
+export type DigilogixUploadedDocumentResult = {
+  IdentificadorDocumento: string;
+  IdentificadorGrupo: string;
+  HashSHA256Hexadecimal: string;
+  Autorizaciones: DigilogixAuthorizationResult[];
+};
+
+export type DigilogixSignResponseData = {
+  Resultados: DigilogixUploadedDocumentResult[];
+};
+
+export type DigilogixSignResponse = DigilogixEnvelope<DigilogixSignResponseData>;
+
 export type DigilogixDocumentStateRequest = {
   IdentificadorDocumento: string;
 };
+
+export type DigilogixDocumentOverallStateCode = 1 | 2 | 3;
+export type DigilogixSignerStateCode = 1 | 2 | 3 | 4 | 5 | 6;
+
+export type DigilogixSignerState = {
+  CodigoUnicoIdentificacion: string;
+  CuitOrganizacion?: string;
+  CodigoEstado: DigilogixSignerStateCode;
+  DescripcionEstado: string;
+};
+
+export type DigilogixDocumentStateData = {
+  CodigoEstado: DigilogixDocumentOverallStateCode;
+  DescripcionEstado: string;
+  ArchivoFirmadoBase64?: string;
+  HashSHA256FirmadoHexadecimal?: string;
+  Estados: DigilogixSignerState[];
+  IdentificadorDocumento: string;
+};
+
+export type DigilogixDocumentStateResponse =
+  DigilogixEnvelope<DigilogixDocumentStateData>;
 
 export type DigilogixCertificateRequest = {
   CodigoUnicoIdentificacion: string;
   CuitOrganizacion?: string;
 };
+
+export type DigilogixCertificateData = {
+  Certificado: string;
+  ClavePublica: string;
+  CertificadoDerBase64: string;
+};
+
+export type DigilogixCertificateResponse =
+  DigilogixEnvelope<DigilogixCertificateData>;
 
 export type DigilogixVerifyHashRequest = {
   CertificadoBase64: string;
@@ -81,9 +139,4 @@ export type DigilogixOnboardingRequest = {
   UrlRedireccionRechazar?: string;
 };
 
-/**
- * Digilogix todavía no nos entregó el contrato formal de las respuestas.
- * Hasta tenerlo, se preserva la respuesta como objeto desconocido y los
- * callers NO deben inferir IDs/estados a partir de nombres inventados.
- */
-export type DigilogixUnknownResponse = Record<string, unknown>;
+export type DigilogixSimpleResponse = DigilogixEnvelope;
