@@ -1,5 +1,7 @@
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
+import { isMisRxUiEnabled } from '@/lib/misrx/homologation';
 import { createBlankPrescriptionDraft } from '@/app/(protected)/patients/prescription-actions';
 
 export default async function NewPrescriptionPage({
@@ -8,6 +10,7 @@ export default async function NewPrescriptionPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const query = await searchParams;
+  if (!isMisRxUiEnabled()) notFound();
   const { supabase, tenantId } = await requireTenant();
 
   const { data: patients } = await supabase
