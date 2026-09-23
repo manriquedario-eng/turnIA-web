@@ -135,8 +135,11 @@ check(
 );
 
 check(
-  'Reminder and professional alerts are one-shot per appointment/channel',
-  migration.includes("message_type in ('appointment_reminder_24h', 'professional_reschedule_requested')"),
+  'Reminder and professional alerts use cycle-based dedupe keys',
+  migration.includes('dedupe_key text') &&
+    migration.includes('appointment_messages_dedupe_key_unique') &&
+    reminder.includes('appointment_reminder_24h:${params.startsAt}') &&
+    notification.includes('professional_reschedule_requested:${rescheduleCycle}'),
 );
 
 check(
