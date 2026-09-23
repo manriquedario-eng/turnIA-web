@@ -148,7 +148,7 @@ const itemSchema = z.object({
   presentation: optionalText(240),
   potency: optionalText(120),
   laboratory: optionalText(240),
-  quantity: z.coerce.number().positive().max(100),
+  quantity: z.coerce.number().int().positive().max(100),
   coveragePercentage: z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
     z.coerce.number().min(0).max(100).nullable().optional(),
