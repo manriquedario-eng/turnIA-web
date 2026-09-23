@@ -13,6 +13,7 @@ import { ExportMenu, type ExportMenuItem } from '@/components/export/ExportMenu'
 import { statusLabel, modalityLabel, paymentMethodLabel } from '@/lib/labels';
 import { SALE_CONDITIONS, VAT_CONDITIONS } from '@/lib/billing/constants';
 import { generateMercadoPagoCheckout } from '@/app/(protected)/agenda/actions';
+import { createBlankPrescriptionDraft } from '@/app/(protected)/patients/prescription-actions';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -315,7 +316,10 @@ export default async function PatientDetailPage({
             </Link>
             <Link className="btn secondary" href="/payments">Registrar pago</Link>
             <Link className="btn secondary" href={`/billing/new?patient=${patient.id}`}>Facturar</Link>
-            <Link className="btn secondary" href={`/prescriptions?patient=${patient.id}`}>Nueva receta</Link>
+            <form action={createBlankPrescriptionDraft}>
+              <input type="hidden" name="patientId" value={patient.id} />
+              <button className="btn secondary" type="submit">Crear receta</button>
+            </form>
             <ExportMenu items={exportItems} />
           </div>
         </div>
