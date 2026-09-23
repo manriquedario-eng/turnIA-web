@@ -218,11 +218,37 @@ export async function testStoredMisRxConnection(params: {
   const now = new Date().toISOString();
 
   if (login.ok && login.data.tipo !== 3) {
+    const errorMessage = 'La cuenta MisRX ya no corresponde a un prestador externo habilitable para prescribir.';
+
+    await service
+      .from('misrx_connections')
+      .update({
+        status: 'error',
+        last_verified_at: now,
+        last_error: errorMessage,
+        updated_at: now,
+      })
+      .eq('tenant_id', params.tenantId)
+      .eq('user_id', params.userId);
+
+    await service
+      .from('integration_status')
+      .upsert(
+        {
+          tenant_id: params.tenantId,
+          user_id: params.userId,
+          provider: 'misrx',
+          status: 'error',
+          updated_at: now,
+        },
+        { onConflict: 'tenant_id,user_id,provider' },
+      );
+
     return {
       ok: false,
       reason: 'unauthorized',
       status: 403,
-      errorMessage: 'La cuenta MisRX ya no corresponde a un prestador externo habilitable para prescribir.',
+      errorMessage,
     };
   }
 
