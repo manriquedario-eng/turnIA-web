@@ -52,6 +52,61 @@ export class MisRxAdapter {
     );
   }
 
+
+  async verifyPrescriber(): Promise<MisRxApiResult<{
+    profile: MisRxProfessionalProfile;
+    usuarioId?: number;
+    propioId?: number;
+    roles?: string;
+  }>> {
+    const login = await loginToMisRx(this.credentials);
+    if (!login.ok) return login;
+
+    if (login.data.tipo !== 3) {
+      return {
+        ok: false,
+        reason: 'unauthorized',
+        status: 403,
+        errorMessage: 'La cuenta MisRX conectada no corresponde a un prestador externo habilitable para prescribir.',
+      };
+    }
+
+    const profileResult = await misRxRequest<MisRxProfessionalProfile>({
+      path: '/usuario/perfil',
+      accessToken: login.data.access_token,
+      query: { verify_exp: false },
+    });
+
+    if (!profileResult.ok) return profileResult;
+
+    const profile = profileResult.data;
+    const validProfessionalIdentity = Boolean(
+      Number(profile.nrodoc) > 0 &&
+      profile.tipo_matricula?.trim() &&
+      Number(profile.matricula) > 0 &&
+      Number(profile.especialidad_id) > 0
+    );
+
+    if (!validProfessionalIdentity) {
+      return {
+        ok: false,
+        reason: 'unauthorized',
+        status: 403,
+        errorMessage: 'MisRX autenticó la cuenta, pero no devolvió una identidad profesional completa con DNI, matrícula y especialidad.',
+      };
+    }
+
+    return {
+      ok: true,
+      data: {
+        profile,
+        usuarioId: login.data.usuario_id,
+        propioId: login.data.propio_id,
+        roles: login.data.roles,
+      },
+    };
+  }
+
   async getEnabledConventions(query = ''): Promise<MisRxApiResult<MisRxListResponse<MisRxConvention>>> {
     return this.withToken((accessToken) =>
       misRxRequest<MisRxListResponse<MisRxConvention>>({
