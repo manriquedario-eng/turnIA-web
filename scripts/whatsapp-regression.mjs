@@ -192,6 +192,13 @@ check(
 );
 
 check(
+  'Legacy professional contact backfill only runs for single-member tenants',
+  professionalContactsMigration.includes('having count(*) = 1') &&
+    professionalContactsMigration.includes('Multi-professional tenants are') &&
+    professionalContactsMigration.includes('on conflict (tenant_id, user_id) do nothing'),
+);
+
+check(
   'Reprogram alerts target the assigned professional contact first',
   notification.includes('appointment.professional_id') &&
     notification.includes("from('professional_contacts')") &&
