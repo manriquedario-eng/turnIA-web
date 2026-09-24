@@ -15,6 +15,7 @@ import { getUsableGoogleConnection, persistRefreshedAccessToken } from './connec
 
 const CALENDAR_EVENTS_ENDPOINT = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
+const GOOGLE_REQUEST_TIMEOUT_MS = 12_000;
 
 export type CreateGoogleMeetResult =
   | { ok: true; eventId: string; meetUrl: string }
@@ -57,6 +58,7 @@ async function getValidAccessToken(
   try {
     const response = await fetch(GOOGLE_TOKEN_ENDPOINT, {
       method: 'POST',
+      signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS),
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         refresh_token: refreshToken,
@@ -131,6 +133,7 @@ export async function createGoogleMeetForAppointment(params: {
     const sendUpdates = params.patientEmail?.trim() ? '&sendUpdates=all' : '';
     const response = await fetch(`${CALENDAR_EVENTS_ENDPOINT}?conferenceDataVersion=1${sendUpdates}`, {
       method: 'POST',
+      signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS),
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
@@ -214,6 +217,7 @@ export async function updateGoogleMeetForAppointment(params: {
   try {
     const response = await fetch(`${CALENDAR_EVENTS_ENDPOINT}/${encodeURIComponent(params.externalCalendarEventId)}`, {
       method: 'PATCH',
+      signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS),
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         start: { dateTime: params.startsAtIso, timeZone: params.timeZone },
@@ -257,6 +261,7 @@ export async function cancelGoogleMeetForAppointment(params: {
   try {
     const response = await fetch(`${CALENDAR_EVENTS_ENDPOINT}/${encodeURIComponent(params.externalCalendarEventId)}`, {
       method: 'DELETE',
+      signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS),
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!response.ok && response.status !== 404 && response.status !== 410) {
