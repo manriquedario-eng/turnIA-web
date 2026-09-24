@@ -16,6 +16,11 @@ function invalidInput(message: string): DigilogixApiResult<never> {
   return { ok: false, reason: 'invalid_configuration', errorMessage: message };
 }
 
+/**
+ * Inicia el alta del profesional usando la integración global de TurnIA.
+ * El email identifica el onboarding; las credenciales personales, PIN/OTP y
+ * cualquier validación de identidad se completan exclusivamente en Digilogix.
+ */
 export async function startProfessionalDigilogixOnboarding(params: {
   email: string;
   showPaymentStep?: boolean;
@@ -36,6 +41,11 @@ export async function startProfessionalDigilogixOnboarding(params: {
   });
 }
 
+/**
+ * Solicita una firma con la cuenta técnica global de TurnIA y señala al
+ * profesional únicamente por CUIL. La autorización personal ocurre luego en
+ * la URL de Digilogix; TurnIA no recibe el PIN ni la contraseña del firmante.
+ */
 export async function requestSinglePdfSignature(params: {
   pdf: Buffer;
   cuil: string;
