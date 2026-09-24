@@ -284,8 +284,9 @@ check(
 
 check(
   'Professional contact backfill validates complete E.164 values',
-  professionalContactsMigration.includes("~ '^\\+[1-9][0-9]{7,14}
-check(
+  professionalContactsMigration.includes("~ '^\\\\+[1-9][0-9]{7,14}$'"),
+);
+
   'Completed appointments cannot be mutated from public or WhatsApp actions',
   finalActionCleanupMigration.includes("v_status in ('completed', 'completado')") &&
     idempotentRescheduleMigration.includes("v_status in ('completed', 'completado')"),
