@@ -131,7 +131,7 @@ async function sendReminderEmail(params: {
   timeLabel: string;
   startsAt: string;
   publicToken: string;
-): Promise<boolean> {
+}): Promise<boolean> {
   if (!params.patientEmail || !isPlausibleEmail(params.patientEmail)) return true;
 
   const row = await createMessageRow({
