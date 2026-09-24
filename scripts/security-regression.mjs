@@ -88,13 +88,90 @@ for (const file of protectedActions) {
   check(`${file} uses requireTenant`, text.includes('requireTenant'));
 }
 
+const reimbursementActions = read('app/(protected)/reimbursements/actions.ts');
+check('Reimbursements require tenant auth', reimbursementActions.includes('requireTenant'));
+check(
+  'Reimbursements validate tenant-scoped appointments',
+  reimbursementActions.includes(".eq('tenant_id', tenantId)") &&
+    reimbursementActions.includes(".eq('professional_id', user.id)") &&
+    reimbursementActions.includes(".eq('patient_id', patient.id)"),
+);
+check(
+  'Reimbursements block appointments already used by another case',
+  reimbursementActions.includes("from('reimbursement_case_appointments')") &&
+    reimbursementActions.includes(".in('appointment_id', appointmentIds)") &&
+    reimbursementActions.includes("linkError.code === '23505'"),
+);
+
+const exportRoutes = [
+  'app/api/export/agenda/route.ts',
+  'app/api/export/patient/[id]/route.ts',
+  'app/api/export/patients/route.ts',
+  'app/api/export/payments/route.ts',
+];
+for (const file of exportRoutes) {
+  const text = read(file);
+  check(`${file} requires tenant auth`, text.includes('requireTenant'));
+}
+const patientExportRoute = read('app/api/export/patient/[id]/route.ts');
+check(
+  'Single-patient export validates UUID before loading data',
+  patientExportRoute.includes("z.string().uuid().safeParse(id)") &&
+    patientExportRoute.includes('fetchPatientExportData'),
+);
+const patientsExportRoute = read('app/api/export/patients/route.ts');
+check(
+  'Patient list export fails closed instead of silently truncating oversized data',
+  patientsExportRoute.includes('PatientsExportTooLargeError'),
+);
+const paymentsExportRoute = read('app/api/export/payments/route.ts');
+check(
+  'Payments export validates optional period and fails closed on oversized data',
+  paymentsExportRoute.includes('PaymentsExportTooLargeError') &&
+    paymentsExportRoute.includes('isValidDate') &&
+    paymentsExportRoute.includes('from > to'),
+);
+
+const arcaRoutes = [
+  'app/api/arca/wsfe/last-authorized/route.ts',
+  'app/api/arca/wsfe/parameters/route.ts',
+  'app/api/arca/wsfe/test-invoice-c/route.ts',
+];
+for (const file of arcaRoutes) {
+  const text = read(file);
+  check(`${file} requires tenant auth`, text.includes('requireTenant'));
+  check(`${file} remains on homologation`, text.includes("environment: 'homologacion'") || file.endsWith('test-invoice-c/route.ts'));
+}
+
 const paymentActions = read('app/(protected)/payments/actions.ts');
 check('Payments use atomic registration RPC', /rpc\(['\"]register_payment_with_cash['\"]/.test(paymentActions));
 check('Payments action does not directly insert payment before cash', !/from\(['\"]payments['\"]\)\.insert/.test(paymentActions));
 check('Payments validate input with Zod', paymentActions.includes("from 'zod'") || paymentActions.includes('from "zod"'));
+const paymentGuardMigration = read('supabase/migrations/20260924015500_manual_payment_balance_guard.sql');
+check(
+  'Manual payment RPC serializes the appointment and blocks overpayment',
+  paymentGuardMigration.includes('for update of a') &&
+    paymentGuardMigration.includes('payment_exceeds_remaining_balance') &&
+    paymentGuardMigration.includes('register_payment_with_cash'),
+);
+check(
+  'Authenticated users cannot write payments directly',
+  /revoke\s+insert\s*,\s*update\s*,\s*delete\s+on\s+table\s+public\.payments\s+from\s+authenticated/i.test(paymentGuardMigration),
+);
 
 
 const billingActions = read('app/(protected)/billing/actions.ts');
+check(
+  'ARCA billing authorization remains pinned to homologation',
+  billingActions.includes("authorizeWsfeInvoiceC") &&
+    billingActions.includes("environment: 'homologacion'") &&
+    !billingActions.includes("environment: 'produccion'"),
+);
+check(
+  'ARCA lost-CAE reconciliation remains available',
+  billingActions.includes('reconcileBillingInvoice') &&
+    billingActions.includes('getWsfeInvoiceByNumber'),
+);
 check(
   'Billing fiscal transitions use service role',
   billingActions.includes("createSupabaseServiceClient") &&
