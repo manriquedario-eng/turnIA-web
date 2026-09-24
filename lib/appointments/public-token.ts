@@ -205,7 +205,9 @@ export type PublicActionResult = { ok: true } | { ok: false; error: string };
  * de los tres valores conocidos — la rama `else` de cada función de abajo
  * cubre cualquier valor no reconocido con el mismo mensaje genérico.
  */
-type PublicMutationRpcRow = { result: 'ok' | 'already_cancelled' | 'not_available' | (string & {}) };
+type PublicMutationRpcRow = {
+  result: 'ok' | 'already_cancelled' | 'already_requested' | 'not_available' | (string & {});
+};
 
 /**
  * Confirma el turno vía la RPC atómica `confirm_public_appointment`. TODA la
@@ -317,7 +319,7 @@ export async function requestRescheduleByToken(token: string, note: string): Pro
   }
 
   const result = (data as unknown as PublicMutationRpcRow).result;
-  if (result === 'ok') return { ok: true };
+  if (result === 'ok' || result === 'already_requested') return { ok: true };
   if (result === 'already_cancelled') {
     return { ok: false, error: 'Este turno ya está cancelado.' };
   }
