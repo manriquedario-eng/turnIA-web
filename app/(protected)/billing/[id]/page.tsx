@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireTenant } from '@/lib/auth/require-user';
-import { authorizeBillingInvoice } from '../actions';
+import { authorizeBillingInvoice, reconcileBillingInvoice } from '../actions';
 import { saleConditionLabel } from '@/lib/billing/constants';
 
 function formatDate(value: string | null) {
@@ -77,6 +77,12 @@ export default async function BillingInvoiceDetailPage({
     invoice.environment === 'homologacion' &&
     invoice.professional_id === user.id;
 
+  const canReconcile =
+    invoice.status === 'authorizing' &&
+    invoice.environment === 'homologacion' &&
+    invoice.professional_id === user.id &&
+    Number(invoice.arca_voucher_number) > 0;
+
   const patient = Array.isArray(invoice.patients) ? invoice.patients[0] : invoice.patients;
 
   return (
@@ -95,6 +101,7 @@ export default async function BillingInvoiceDetailPage({
       {query.error ? <p className="alert error">{query.error}</p> : null}
       {query.success === 'draft' ? <p className="alert success">Borrador guardado. Revisá los datos antes de emitir.</p> : null}
       {query.success === 'authorized' ? <p className="alert success">ARCA autorizó el comprobante y otorgó CAE.</p> : null}
+      {query.success === 'reconciled' ? <p className="alert success">Comprobante reconciliado con ARCA. El CAE quedó recuperado y guardado.</p> : null}
 
       <div className="card">
         <div className="page-header" style={{ marginBottom: 12 }}>
@@ -104,9 +111,11 @@ export default async function BillingInvoiceDetailPage({
               Factura C · Servicios · {invoice.environment === 'homologacion' ? 'Homologación' : 'Producción'}
             </p>
           </div>
-          {invoice.status === 'authorized' ? (
+          {(invoice.status === 'authorized' || (invoice.status === 'authorizing' && invoice.arca_voucher_number)) ? (
             <div style={{ textAlign: 'right' }}>
-              <div className="muted" style={{ fontSize: 12 }}>Número</div>
+              <div className="muted" style={{ fontSize: 12 }}>
+                {invoice.status === 'authorizing' ? 'Número reservado' : 'Número'}
+              </div>
               <strong>{invoiceNumber(invoice.point_of_sale, invoice.arca_voucher_number)}</strong>
             </div>
           ) : null}
@@ -208,6 +217,21 @@ export default async function BillingInvoiceDetailPage({
               <button className="btn" type="submit">Emitir en ARCA (homologación)</button>
             </div>
           </form>
+        ) : canReconcile ? (
+          <div style={{ marginTop: 18 }}>
+            <p className="alert">
+              Este comprobante quedó pendiente de confirmación local. No lo vuelvas a emitir: TurnIA puede consultar en ARCA
+              el número reservado y recuperar el CAE sin generar otro comprobante.
+            </p>
+            <form action={reconcileBillingInvoice}>
+              <input type="hidden" name="invoice_id" value={invoice.id} />
+              <button className="btn secondary" type="submit">Reconciliar con ARCA</button>
+            </form>
+          </div>
+        ) : invoice.status === 'authorizing' ? (
+          <p className="alert" style={{ marginTop: 16 }}>
+            El comprobante está pendiente pero no tiene un número reservado recuperable automáticamente. No lo vuelvas a emitir y contactá soporte.
+          </p>
         ) : invoice.status === 'authorized' ? (
           <p className="alert success" style={{ marginTop: 16 }}>
             Comprobante autorizado. Este registro conserva el snapshot fiscal usado al momento de la emisión.

@@ -391,6 +391,15 @@ export async function createPatient(formData: FormData) {
   });
 
   if (error) {
+    if (error.code === '23505') {
+      const raceDuplicate = await findDuplicatePatient(supabase, {
+        tenantId,
+        email: payload.email ?? null,
+        phoneE164: phoneNormalization.e164,
+      });
+      if (raceDuplicate) redirect(`/patients?${duplicateRedirectQuery(raceDuplicate)}`);
+      redirect(`/patients?error=${encodeURIComponent('Ya existe otro paciente activo con ese teléfono o email')}`);
+    }
     redirect(`/patients?error=${encodeURIComponent('No se pudo crear el paciente')}`);
   }
 
@@ -400,7 +409,8 @@ export async function createPatient(formData: FormData) {
 
 export async function updatePatient(formData: FormData) {
   const parsed = formDataToPatient(formData);
-  if (!parsed.success || !parsed.data.id) {
+  const expectedUpdatedAt = z.string().min(1).safeParse(formData.get('expected_updated_at'));
+  if (!parsed.success || !parsed.data.id || !expectedUpdatedAt.success) {
     redirect('/patients?error=Datos%20inválidos');
   }
 
@@ -433,13 +443,21 @@ export async function updatePatient(formData: FormData) {
   // Si ya estaba en true y sigue en true, se conserva la fecha original.
   const { data: existing } = await supabase
     .from('patients')
-    .select('whatsapp_consent, whatsapp_consent_at, billing_entity_id')
+    .select('whatsapp_consent, whatsapp_consent_at, billing_entity_id, updated_at')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .is('deleted_at', null)
     .maybeSingle();
 
-  let whatsappConsentAt: string | null = existing?.whatsapp_consent_at ?? null;
+  if (!existing) {
+    redirect(`/patients/${id}?error=${encodeURIComponent('Paciente no disponible')}`);
+  }
+
+  if (existing.updated_at !== expectedUpdatedAt.data) {
+    redirect(`/patients/${id}?error=${encodeURIComponent('Los datos del paciente cambiaron desde que abriste esta ficha. Recargá la página antes de guardar para no pisar cambios más recientes.')}`);
+  }
+
+  let whatsappConsentAt: string | null = existing.whatsapp_consent_at ?? null;
   if (payload.whatsapp_consent && !existing?.whatsapp_consent) {
     whatsappConsentAt = new Date().toISOString();
   } else if (!payload.whatsapp_consent) {
@@ -483,11 +501,26 @@ export async function updatePatient(formData: FormData) {
     })
     .eq('id', id)
     .eq('tenant_id', tenantId)
+    .eq('updated_at', expectedUpdatedAt.data)
     .is('deleted_at', null)
     .select('id')
     .maybeSingle();
 
+  if (!error && !data) {
+    redirect(`/patients/${id}?error=${encodeURIComponent('Los datos del paciente cambiaron mientras estabas editando. Recargá la página y revisá la versión más reciente antes de volver a guardar.')}`);
+  }
+
   if (error || !data) {
+    if (error?.code === '23505') {
+      const raceDuplicate = await findDuplicatePatient(supabase, {
+        tenantId,
+        email: payload.email ?? null,
+        phoneE164: phoneNormalization.e164,
+        excludePatientId: id,
+      });
+      if (raceDuplicate) redirect(`/patients/${id}?${duplicateRedirectQuery(raceDuplicate)}`);
+      redirect(`/patients/${id}?error=${encodeURIComponent('Ya existe otro paciente activo con ese teléfono o email')}`);
+    }
     redirect(`/patients/${id}?error=${encodeURIComponent('No se pudo actualizar el paciente')}`);
   }
 
