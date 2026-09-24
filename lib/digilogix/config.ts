@@ -1,6 +1,13 @@
 import 'server-only';
 
-export type DigilogixConfig = {
+/**
+ * Configuración técnica GLOBAL de TurnIA como plataforma/partner de Digilogix.
+ *
+ * Invariante SaaS: estos valores pertenecen al backend de TurnIA y se cargan
+ * una sola vez por ambiente. NUNCA se crean variables de entorno por
+ * profesional. La identidad de cada profesional vive en digilogix_connections.
+ */
+export type DigilogixPlatformConfig = {
   baseUrl: string;
   authLogin: string;
   authClient: string;
@@ -15,6 +22,14 @@ export type DigilogixConfig = {
 
 const DEFAULT_TEST_BASE_URL = 'https://test.api.firmador.digilogix.com.ar/api';
 const DEFAULT_TIME_ZONE = 'America/Argentina/Buenos_Aires';
+
+/**
+ * Configuración central única de TurnIA. Un profesional que conecta o
+ * desconecta Digilogix jamás modifica variables de entorno.
+ */
+export function isDigilogixPlatformConfigured(): boolean {
+  return Boolean(getDigilogixConfig());
+}
 
 export function isDigilogixFeatureVisible(): boolean {
   if (process.env.VERCEL_ENV === 'preview') return true;
@@ -41,7 +56,7 @@ export function areDigilogixLiveCallsEnabled(): boolean {
   return process.env.DIGILOGIX_LIVE_CALLS_ENABLED === 'true';
 }
 
-export function getDigilogixConfig(): DigilogixConfig | null {
+export function getDigilogixConfig(): DigilogixPlatformConfig | null {
   const authLogin = process.env.DIGILOGIX_AUTH_LOGIN?.trim();
   const authClient = process.env.DIGILOGIX_AUTH_CLIENT?.trim();
   const authPassword = process.env.DIGILOGIX_AUTH_PASSWORD?.trim();
