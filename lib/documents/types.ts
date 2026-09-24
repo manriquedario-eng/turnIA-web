@@ -16,7 +16,7 @@ export const DOCUMENT_TYPES: readonly DocumentType[] = [
   'otro',
 ];
 
-export type DocumentStatus = 'pending_signature' | 'signed_uploaded_unverified';
+export type DocumentStatus = 'pending_signature' | 'provider_signature_pending' | 'provider_signature_rejected' | 'signed_uploaded_unverified' | 'signed_provider_confirmed';
 
 /**
  * Fila de public.patient_documents, en camelCase, limitada a los campos que
