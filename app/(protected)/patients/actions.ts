@@ -391,6 +391,15 @@ export async function createPatient(formData: FormData) {
   });
 
   if (error) {
+    if (error.code === '23505') {
+      const raceDuplicate = await findDuplicatePatient(supabase, {
+        tenantId,
+        email: payload.email ?? null,
+        phoneE164: phoneNormalization.e164,
+      });
+      if (raceDuplicate) redirect(`/patients?${duplicateRedirectQuery(raceDuplicate)}`);
+      redirect(`/patients?error=${encodeURIComponent('Ya existe otro paciente activo con ese teléfono o email')}`);
+    }
     redirect(`/patients?error=${encodeURIComponent('No se pudo crear el paciente')}`);
   }
 
@@ -488,6 +497,16 @@ export async function updatePatient(formData: FormData) {
     .maybeSingle();
 
   if (error || !data) {
+    if (error?.code === '23505') {
+      const raceDuplicate = await findDuplicatePatient(supabase, {
+        tenantId,
+        email: payload.email ?? null,
+        phoneE164: phoneNormalization.e164,
+        excludePatientId: id,
+      });
+      if (raceDuplicate) redirect(`/patients/${id}?${duplicateRedirectQuery(raceDuplicate)}`);
+      redirect(`/patients/${id}?error=${encodeURIComponent('Ya existe otro paciente activo con ese teléfono o email')}`);
+    }
     redirect(`/patients/${id}?error=${encodeURIComponent('No se pudo actualizar el paciente')}`);
   }
 
