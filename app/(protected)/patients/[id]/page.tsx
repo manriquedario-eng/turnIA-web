@@ -15,6 +15,7 @@ import { SALE_CONDITIONS, VAT_CONDITIONS } from '@/lib/billing/constants';
 import { generateMercadoPagoCheckout } from '@/app/(protected)/agenda/actions';
 import { createBlankPrescriptionDraft } from '@/app/(protected)/patients/prescription-actions';
 import { isMisRxUiEnabled } from '@/lib/misrx/homologation';
+import { isDigilogixFeatureVisible } from '@/lib/digilogix/config';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -69,8 +70,9 @@ export default async function PatientDetailPage({
   const query = await searchParams;
   const { supabase, tenantId, user } = await requireTenant();
   const misRxUiEnabled = isMisRxUiEnabled();
+  const digilogixUiEnabled = isDigilogixFeatureVisible();
 
-  const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult, mercadoPagoResult] = await Promise.all([
+  const [patientResult, followUpResult, appointmentResult, paymentResult, recordResult, mercadoPagoResult, documentResult, digilogixConnectionResult] = await Promise.all([
     supabase
       .from('patients')
       .select('id,name,alias,use_alias_for_communications,phone,email,dni,birth_date,sex,institution_name,home_address,insurance_name,insurance_member_number,insurance_plan,care_location,default_price,created_at,phone_e164,whatsapp_consent,whatsapp_consent_at,appointment_reminders_opt_in,billing_entity_id,fiscal_cuit,fiscal_vat_condition_id,fiscal_address,fiscal_email')
@@ -110,6 +112,18 @@ export default async function PatientDetailPage({
       .eq('user_id', user.id)
       .eq('provider', 'mercadopago')
       .maybeSingle(),
+    supabase
+      .from('patient_documents')
+      .select('id,document_type,document_label,status,version,professional_user_id,created_at,signed_at,signature_provider,provider_state_description,provider_hash_verification')
+      .eq('patient_id', id)
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('digilogix_connections')
+      .select('status')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', user.id)
+      .maybeSingle(),
   ]);
 
   const patient = patientResult.data;
@@ -118,6 +132,8 @@ export default async function PatientDetailPage({
   const payments = paymentResult.data ?? [];
   const record = recordResult.data;
   const mercadoPagoConnected = mercadoPagoResult.data?.status === 'connected';
+  const documents = documentResult.data ?? [];
+  const digilogixConnected = digilogixUiEnabled && digilogixConnectionResult.data?.status === 'connected';
 
   if (!patient) notFound();
 
@@ -286,6 +302,9 @@ export default async function PatientDetailPage({
       {query.success === 'followup' ? <p className="alert success">Nota guardada.</p> : null}
       {query.success === 'record' ? <p className="alert success">Ficha clínica actualizada.</p> : null}
       {query.success === 'prescription-draft' ? <p className="alert success">Borrador de receta creado.</p> : null}
+      {query.success && !['updated', 'followup', 'record', 'prescription-draft'].includes(query.success) ? (
+        <p className="alert success">{query.success}</p>
+      ) : null}
 
       {/* Segunda pasada de rediseño: la ficha del paciente pasa de sentirse
           "tabla administrativa dentro de una card" a una ficha profesional —
@@ -386,6 +405,7 @@ export default async function PatientDetailPage({
           { id: 'actividad', label: 'Actividad' },
           { id: 'seguimientos', label: 'Seguimientos' },
           { id: 'datos', label: 'Datos' },
+          { id: 'documentos', label: 'Documentos' },
         ]}
       >
         <div data-tab="clinica">
@@ -733,6 +753,111 @@ export default async function PatientDetailPage({
                 <input type="hidden" name="id" value={patient.id} />
                 <button className="btn danger" type="submit">Archivar</button>
               </form>
+            </div>
+          </div>
+        </div>
+
+        <div data-tab="documentos">
+          <div className="stack">
+            <div className="card">
+              <div className="page-header" style={{ marginBottom: 12 }}>
+                <div>
+                  <h2 style={{ margin: 0 }}>Documentos y firma digital</h2>
+                  <p className="text-helper" style={{ margin: '6px 0 0' }}>
+                    Generá documentos desde TurnIA, descargá el original y, si conectaste Digilogix, autorizá la firma digital sin salir del flujo del paciente.
+                  </p>
+                </div>
+                {digilogixUiEnabled ? (
+                  <span className={`badge ${digilogixConnected ? 'badge-confirmado' : 'badge-pendiente'}`}>
+                    {digilogixConnected ? 'Digilogix conectado' : 'Firma digital no conectada'}
+                  </span>
+                ) : null}
+              </div>
+
+              <form action={`/api/documents/patient/${patient.id}/generate`} method="post" className="form-grid">
+                <input type="hidden" name="documentType" value="ficha_clinica" />
+                <label>
+                  Nombre del documento
+                  <input name="documentLabel" defaultValue="Ficha clínica" maxLength={200} />
+                </label>
+                <div className="form-actions">
+                  <button className="btn" type="submit">Generar ficha clínica para firma</button>
+                </div>
+              </form>
+              {!digilogixConnected && digilogixUiEnabled ? (
+                <p className="field-hint" style={{ marginBottom: 0 }}>
+                  Para firmar desde TurnIA, conectá Digilogix en <Link href="/settings#integraciones">Configuración → Integraciones</Link>. La descarga y el flujo manual siguen disponibles.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="card">
+              <h2>Documentos del paciente</h2>
+              {documents.length === 0 ? (
+                <EmptyState
+                  title="Todavía no hay documentos"
+                  description="Generá una ficha clínica para iniciar el circuito de firma."
+                />
+              ) : (
+                <div className="integration-list">
+                  {documents.map((document: any) => {
+                    const isOwner = document.professional_user_id === user.id;
+                    const canStartDigilogix = isOwner && digilogixConnected && ['pending_signature', 'provider_signature_rejected'].includes(document.status);
+                    const hasSignedCopy = ['signed_uploaded_unverified', 'signed_provider_confirmed'].includes(document.status);
+                    const statusText =
+                      document.status === 'pending_signature' ? 'Pendiente de firma'
+                      : document.status === 'provider_signature_pending' ? 'Pendiente en Digilogix'
+                      : document.status === 'provider_signature_rejected' ? 'Firma rechazada'
+                      : document.status === 'signed_provider_confirmed' ? 'Firmado con Digilogix'
+                      : 'Copia firmada cargada';
+
+                    return (
+                      <div className="integration-row" key={document.id}>
+                        <div className="integration-row-name">
+                          {document.document_label || 'Documento'}
+                          <span className={`badge ${document.status === 'signed_provider_confirmed' ? 'badge-confirmado' : document.status === 'provider_signature_rejected' ? 'badge-cancelado' : 'badge-pendiente'}`}>
+                            {statusText}
+                          </span>
+                        </div>
+                        <div className="integration-row-desc">
+                          Ficha clínica · versión {document.version}
+                          {document.signature_provider === 'digilogix' && document.provider_state_description
+                            ? ` · Digilogix: ${document.provider_state_description}`
+                            : ''}
+                          {document.status === 'signed_provider_confirmed'
+                            ? document.provider_hash_verification === 'verified'
+                              ? ' · Hash verificado por proveedor'
+                              : ' · Firma confirmada por proveedor; hash firmado no informado'
+                            : ''}
+                        </div>
+                        <div className="integration-row-action" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <a
+                            className="btn secondary btn-compact"
+                            href={`/api/documents/patient/${patient.id}/${document.id}/original`}
+                          >
+                            Descargar original
+                          </a>
+                          {hasSignedCopy ? (
+                            <a
+                              className="btn secondary btn-compact"
+                              href={`/api/documents/patient/${patient.id}/${document.id}/signed`}
+                            >
+                              Descargar firmado
+                            </a>
+                          ) : null}
+                          {canStartDigilogix ? (
+                            <form action={`/api/documents/patient/${patient.id}/${document.id}/digilogix`} method="post">
+                              <button className="btn btn-compact" type="submit">
+                                {document.status === 'provider_signature_rejected' ? 'Reintentar firma' : 'Firmar con Digilogix'}
+                              </button>
+                            </form>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
