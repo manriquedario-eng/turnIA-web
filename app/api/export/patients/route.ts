@@ -4,7 +4,7 @@
 
 import { type NextRequest } from 'next/server';
 import { requireTenant } from '@/lib/auth/require-user';
-import { fetchPatientsListExportData } from '@/lib/export/authorize';
+import { fetchPatientsListExportData, PatientsExportTooLargeError } from '@/lib/export/authorize';
 import { buildExportFilename } from '@/lib/export/filename';
 import { exportErrorResponse, exportFileResponse, logExportError, parseExportFormat } from '@/lib/export/response';
 import { buildPatientsListWorkbook } from '@/lib/export/xlsx/patients';
@@ -20,7 +20,16 @@ export async function GET(request: NextRequest) {
   const format = parseExportFormat(searchParams.get('format'), ['xlsx', 'pdf', 'docx']);
   if (!format) return exportErrorResponse('Formato inválido. Usá pdf, docx o xlsx.', 400);
 
-  const data = await fetchPatientsListExportData(supabase, user.id, tenantId, user.email ?? null);
+  let data;
+  try {
+    data = await fetchPatientsListExportData(supabase, user.id, tenantId, user.email ?? null);
+  } catch (err) {
+    if (err instanceof PatientsExportTooLargeError) {
+      return exportErrorResponse(err.message, 400);
+    }
+    logExportError('listado de pacientes — lectura de datos', err);
+    return exportErrorResponse('No pudimos leer los datos para exportar. Intentá nuevamente.', 500);
+  }
 
   let buffer: Buffer;
   try {

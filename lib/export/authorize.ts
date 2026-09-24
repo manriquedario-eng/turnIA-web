@@ -255,60 +255,151 @@ export async function fetchPatientExportData(
   };
 }
 
-/** Listado de pacientes del tenant actual — nunca información clínica (PARTE 8). */
+const PATIENTS_EXPORT_PAGE_SIZE = 1000;
+const PATIENTS_EXPORT_PATIENT_CHUNK = 200;
+const PATIENTS_EXPORT_MAX_PATIENTS = 10_000;
+const PATIENTS_EXPORT_MAX_RELATED_ROWS = 50_000;
+
+export class PatientsExportTooLargeError extends Error {
+  constructor(message = 'El volumen de datos supera el límite seguro de exportación.') {
+    super(message);
+    this.name = 'PatientsExportTooLargeError';
+  }
+}
+
+function chunkValues<T>(values: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+async function fetchAllActivePatientsForExport(
+  supabase: SupabaseClient,
+  tenantId: string,
+): Promise<any[]> {
+  const rows: any[] = [];
+
+  for (let offset = 0; ; offset += PATIENTS_EXPORT_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('patients')
+      .select('id,name,phone,email,dni,insurance_name,insurance_plan,default_price')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('name')
+      .range(offset, offset + PATIENTS_EXPORT_PAGE_SIZE - 1);
+
+    if (error) throw error;
+
+    const page = data ?? [];
+    rows.push(...page);
+
+    if (rows.length > PATIENTS_EXPORT_MAX_PATIENTS) {
+      throw new PatientsExportTooLargeError(
+        'Hay más de 10.000 pacientes activos. Acotá la exportación antes de generar el archivo.',
+      );
+    }
+
+    if (page.length < PATIENTS_EXPORT_PAGE_SIZE) break;
+  }
+
+  return rows;
+}
+
+async function fetchPatientRelationsForExport(
+  supabase: SupabaseClient,
+  tenantId: string,
+  patientIds: string[],
+  table: 'appointments' | 'payments',
+): Promise<any[]> {
+  if (patientIds.length === 0) return [];
+
+  const rows: any[] = [];
+
+  for (const ids of chunkValues(patientIds, PATIENTS_EXPORT_PATIENT_CHUNK)) {
+    for (let offset = 0; ; offset += PATIENTS_EXPORT_PAGE_SIZE) {
+      let query;
+      if (table === 'appointments') {
+        query = supabase
+          .from('appointments')
+          .select('id, patient_id, starts_at, status, quoted_amount')
+          .eq('tenant_id', tenantId)
+          .in('patient_id', ids)
+          .order('starts_at', { ascending: true });
+      } else {
+        query = supabase
+          .from('payments')
+          .select('patient_id, appointment_id, amount')
+          .eq('tenant_id', tenantId)
+          .in('patient_id', ids)
+          .order('created_at', { ascending: true });
+      }
+
+      const { data, error } = await query.range(offset, offset + PATIENTS_EXPORT_PAGE_SIZE - 1);
+      if (error) throw error;
+
+      const page = data ?? [];
+      rows.push(...page);
+
+      if (rows.length > PATIENTS_EXPORT_MAX_RELATED_ROWS) {
+        throw new PatientsExportTooLargeError(
+          'El historial relacionado supera 50.000 registros. Dividí la exportación antes de continuar.',
+        );
+      }
+
+      if (page.length < PATIENTS_EXPORT_PAGE_SIZE) break;
+    }
+  }
+
+  return rows;
+}
+
+/** Listado de pacientes del tenant actual — nunca información clínica. */
 export async function fetchPatientsListExportData(
   supabase: SupabaseClient,
   userId: string,
   tenantId: string,
   fallbackEmail: string | null,
 ): Promise<PatientsListExportData> {
-  const [{ data: patients }, professional] = await Promise.all([
-    supabase
-      .from('patients')
-      .select('id,name,phone,email,dni,insurance_name,insurance_plan,default_price')
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .order('name'),
+  const [patients, professional] = await Promise.all([
+    fetchAllActivePatientsForExport(supabase, tenantId),
     getProfessionalInfo(supabase, userId, tenantId, fallbackEmail),
   ]);
 
-  const patientIds = (patients ?? []).map((p) => p.id);
-  const appointmentsResult = patientIds.length
-    ? await supabase
-        .from('appointments')
-        .select('id, patient_id, starts_at, status, quoted_amount')
-        .eq('tenant_id', tenantId)
-        .in('patient_id', patientIds)
-    : { data: [] as any[] };
-
-  const paymentsResult = patientIds.length
-    ? await supabase
-        .from('payments')
-        .select('patient_id, appointment_id, amount')
-        .eq('tenant_id', tenantId)
-        .in('patient_id', patientIds)
-    : { data: [] as any[] };
+  const patientIds = patients.map((p) => p.id);
+  const [appointments, payments] = await Promise.all([
+    fetchPatientRelationsForExport(supabase, tenantId, patientIds, 'appointments'),
+    fetchPatientRelationsForExport(supabase, tenantId, patientIds, 'payments'),
+  ]);
 
   const now = Date.now();
   const nextByPatient = new Map<string, { starts_at: string; status: string | null }>();
   const balanceByAppointment = new Map<string, number>();
-  for (const payment of paymentsResult.data ?? []) {
+
+  for (const payment of payments) {
     if (!payment.appointment_id) continue;
-    balanceByAppointment.set(payment.appointment_id, (balanceByAppointment.get(payment.appointment_id) ?? 0) + Number(payment.amount ?? 0));
+    balanceByAppointment.set(
+      payment.appointment_id,
+      (balanceByAppointment.get(payment.appointment_id) ?? 0) + Number(payment.amount ?? 0),
+    );
   }
+
   const pendingByPatient = new Map<string, number>();
-  for (const appt of appointmentsResult.data ?? []) {
+  for (const appt of appointments) {
     if (isCancelled(appt.status) || !appt.patient_id) continue;
+
     if (new Date(appt.starts_at).getTime() >= now && !nextByPatient.has(appt.patient_id)) {
       nextByPatient.set(appt.patient_id, appt);
     }
+
     const quoted = Number(appt.quoted_amount ?? 0);
     const paid = balanceByAppointment.get(appt.id) ?? 0;
     const pending = Math.max(quoted - paid, 0);
     pendingByPatient.set(appt.patient_id, (pendingByPatient.get(appt.patient_id) ?? 0) + pending);
   }
 
-  const rows: PatientsListRow[] = (patients ?? []).map((p) => ({
+  const rows: PatientsListRow[] = patients.map((p) => ({
     name: p.name,
     phone: p.phone,
     email: p.email,
