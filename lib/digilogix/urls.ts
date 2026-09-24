@@ -1,9 +1,11 @@
 import 'server-only';
 
+const DIGITAL_SIGNATURE_PREVIEW_HOST =
+  'turn-ia-web-git-feat-digital-signature-manriquedario-9726.vercel.app';
+
 function getAppUrl(): string {
   if (process.env.VERCEL_ENV === 'preview') {
-    const vercelUrl = process.env.VERCEL_URL?.trim();
-    if (vercelUrl) return `https://${vercelUrl.replace(/\/+$/, '')}`;
+    return `https://${DIGITAL_SIGNATURE_PREVIEW_HOST}`;
   }
 
   const configured = process.env.APP_URL?.trim();
