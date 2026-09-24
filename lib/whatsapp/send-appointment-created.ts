@@ -8,10 +8,11 @@
 // `appointment_messages`, nunca en un throw que pudiera hacer fallar la
 // creación del turno que ya se guardó.
 //
-// Este módulo envía sólo el mensaje inicial `appointment_created`. Los
-// botones interactivos se adjuntan acá, pero su procesamiento vive en el
-// webhook; el recordatorio 24h y los avisos al profesional viven en módulos
-// separados para mantener responsabilidades aisladas.
+// Este módulo envía sólo el mensaje inicial `appointment_created`.
+// El alta del turno es informativa y NO incluye acciones. Los botones
+// Confirmar / Cancelar / Reprogramar se reservan exclusivamente para el
+// recordatorio 24h. El recordatorio y los avisos al profesional viven en
+// módulos separados para mantener responsabilidades aisladas.
 
 import { requireTenant } from '@/lib/auth/require-user';
 import { sendWhatsAppTemplate } from './provider';
@@ -93,46 +94,15 @@ export async function sendAppointmentCreatedMessage(
       return { attempted: true, ok: false, reason: 'No se pudo registrar el mensaje saliente.' };
     }
 
-    // 2) Obtener el token público del turno para que cada botón lleve una
-    // acción inequívoca. No usamos appointment_id en el payload público.
-    const { data: tokenRow, error: tokenError } = await supabase
-      .from('appointments')
-      .select('public_token')
-      .eq('id', appointmentId)
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
-
-    const publicToken = (tokenRow as { public_token?: string } | null)?.public_token ?? null;
-
-    if (tokenError || !publicToken) {
-      const errorMessage = 'El turno no tiene token público disponible para los botones de WhatsApp.';
-      await supabase
-        .from('appointment_messages')
-        .update({
-          status: 'failed',
-          failed_at: new Date().toISOString(),
-          error_message: errorMessage,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', messageRow.id)
-        .eq('tenant_id', tenantId);
-
-      return { attempted: true, ok: false, reason: errorMessage };
-    }
-
-    // 3) Intentar el envío real. Los tres payloads corresponden, por índice,
-    // a los botones de la plantilla: Confirmar / Cancelar / Reprogramar.
+    // 2) Enviar la plantilla informativa aprobada por Meta. El mensaje inicial
+    // no tiene acciones: Confirmar / Cancelar / Reprogramar aparecen recién
+    // en el recordatorio de 24 horas.
     const result = await sendWhatsAppTemplate({
       toE164: phoneE164,
       bodyParams: [patientName, dateLabel, timeLabel, professionalName],
-      quickReplyPayloads: [
-        `turnia:appointment:${publicToken}:confirm`,
-        `turnia:appointment:${publicToken}:cancel`,
-        `turnia:appointment:${publicToken}:reschedule`,
-      ],
     });
 
-    // 4) Reflejar el resultado en el mismo registro.
+    // 3) Reflejar el resultado en el mismo registro.
     if (result.ok) {
       await supabase
         .from('appointment_messages')
