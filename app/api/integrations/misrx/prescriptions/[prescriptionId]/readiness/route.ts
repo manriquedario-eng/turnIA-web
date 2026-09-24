@@ -244,6 +244,8 @@ export async function GET(
       const affiliateResult = await adapter.findAffiliate({
         convenioId: prescription.convention_id,
         affiliateId: prescription.affiliate_id,
+        dni: digits(patient?.dni) || undefined,
+        affiliateNumber: patient?.insurance_member_number?.trim() || undefined,
       });
 
       const affiliate = affiliateResult.ok
