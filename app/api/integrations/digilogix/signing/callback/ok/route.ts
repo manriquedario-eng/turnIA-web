@@ -3,9 +3,10 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 export function GET(request: Request) {
-  // Nunca marcar un documento como firmado por este redirect. La fuente de
-  // verdad será PostObtenerEstadoFirmaDigitalDocumento + verificación.
+  // El callback OK solo confirma que Digilogix devolvió el control.
+  // La verificación real se realiza en una ruta separada que consulta
+  // el estado del documento y valida criptográficamente la firma.
   return NextResponse.redirect(
-    new URL('/patients?ok=' + encodeURIComponent('La autorización de firma volvió desde Digilogix. TurnIA debe verificar el estado antes de marcar el documento como firmado.'), request.url),
+    new URL('/api/integrations/digilogix/signing/verification', request.url),
   );
 }
