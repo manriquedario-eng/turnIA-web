@@ -82,10 +82,18 @@ check(
 );
 
 check(
-  'Appointment button payloads are namespaced and token-bound',
-  created.includes('turnia:appointment:${publicToken}:confirm') &&
-    created.includes('turnia:appointment:${publicToken}:cancel') &&
-    created.includes('turnia:appointment:${publicToken}:reschedule'),
+  'Initial appointment WhatsApp is informational and has no actions',
+  !created.includes('quickReplyPayloads') &&
+    !created.includes('turnia:appointment:${publicToken}:confirm') &&
+    !created.includes('turnia:appointment:${publicToken}:cancel') &&
+    !created.includes('turnia:appointment:${publicToken}:reschedule'),
+);
+
+check(
+  'Reminder button payloads are namespaced and token-bound',
+  reminder.includes('turnia:appointment:${params.publicToken}:confirm') &&
+    reminder.includes('turnia:appointment:${params.publicToken}:cancel') &&
+    reminder.includes('turnia:appointment:${params.publicToken}:reschedule'),
 );
 
 check(
@@ -103,7 +111,7 @@ check(
 
 check(
   'WhatsApp button context is limited to patient appointment messages',
-  actions.includes("new Set(['appointment_created', 'appointment_reminder_24h'])") &&
+  actions.includes("new Set(['appointment_reminder_24h'])") &&
     actions.includes('allowedContextTypes.has(contextMessage.message_type)'),
 );
 
