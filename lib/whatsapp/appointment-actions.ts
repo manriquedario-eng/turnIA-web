@@ -27,12 +27,19 @@ export type ProcessWhatsAppAppointmentActionResult = {
   duplicate?: boolean;
 };
 
-const SUCCESS_TEXT: Record<AppointmentWhatsAppAction, string> = {
-  confirm: 'Perfecto, tu turno quedó confirmado.',
-  cancel: 'Tu turno fue cancelado correctamente.',
-  reschedule:
-    'Perfecto, ya le avisamos al profesional. Se va a contactar con vos para coordinar la reprogramación de tu turno.',
-};
+function successText(action: AppointmentWhatsAppAction, professionalName: string | null): string {
+  const professionalLabel = professionalName?.trim() || 'el profesional';
+
+  if (action === 'confirm') {
+    return `Muchas gracias por confirmar tu turno con ${professionalLabel}.`;
+  }
+
+  if (action === 'cancel') {
+    return 'Tu turno ha sido cancelado. Para cualquier modificación que necesites, comunicate con el profesional.';
+  }
+
+  return 'Ya pusimos en aviso al profesional para que se contacte con vos y puedan reprogramar el turno.';
+}
 
 function digits(value: string | null | undefined): string {
   return (value ?? '').replace(/\D/g, '');
@@ -52,7 +59,7 @@ export async function processWhatsAppAppointmentAction(
 
   const { data: appointment, error: appointmentError } = await supabase
     .from('appointments')
-    .select('id, tenant_id, patient_id, starts_at')
+    .select('id, tenant_id, patient_id, starts_at, professional_id')
     .eq('public_token', input.token)
     .maybeSingle();
 
@@ -74,6 +81,21 @@ export async function processWhatsAppAppointmentAction(
     .maybeSingle();
 
   if (patientError) throw patientError;
+
+  let professionalName: string | null = null;
+  if (appointment.professional_id) {
+    const { data: professional, error: professionalError } = await supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('id', appointment.professional_id)
+      .maybeSingle();
+
+    if (professionalError) throw professionalError;
+    professionalName =
+      typeof professional?.display_name === 'string' && professional.display_name.trim()
+        ? professional.display_name.trim()
+        : null;
+  }
 
   const senderDigits = digits(input.fromWaId);
   const patientDigits = digits(patient?.phone_e164);
@@ -218,7 +240,7 @@ export async function processWhatsAppAppointmentAction(
   return {
     ok: true,
     shouldReply: true,
-    replyText: SUCCESS_TEXT[input.action],
+    replyText: successText(input.action, professionalName),
     appointmentId: appointment.id,
   };
 }
