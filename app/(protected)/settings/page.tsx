@@ -376,6 +376,33 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                           <button className="btn danger btn-compact" type="submit">Desconectar</button>
                         </form>
                       </>
+                    ) : digilogixOnboardingRequired ? (
+                      <div className="stack" style={{ width: '100%', marginTop: 8 }}>
+                        <div className="alert" style={{ margin: 0 }}>
+                          <strong>Alta de certificado pendiente.</strong> Digilogix continúa el registro fuera de TurnIA.
+                          Revisá el correo enviado al email del firmante y seguí el enlace de Digilogix para completar
+                          validación de identidad, autenticador, PIN y emisión del certificado.
+                        </div>
+                        <div className="form-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <a
+                            className="btn secondary btn-compact"
+                            href="https://suscriptor.digilogix.com.ar/Login"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Continuar alta en Digilogix
+                          </a>
+                          <form action={testDigilogixConnection}>
+                            <button className="btn btn-compact" type="submit">Verificar conexión</button>
+                          </form>
+                          <form action={disconnectDigilogixIntegration}>
+                            <button className="btn danger btn-compact" type="submit">Cancelar conexión</button>
+                          </form>
+                        </div>
+                        <p className="field-hint" style={{ margin: 0 }}>
+                          Si no recibiste el correo, en el portal de Digilogix podés usar “No tengo usuario” con el mismo email cargado en TurnIA.
+                        </p>
+                      </div>
                     ) : digilogixConfigured ? (
                       <form action={connectDigilogixIntegration} className="form-grid" style={{ width: '100%', marginTop: 8 }}>
                         <label>
@@ -401,12 +428,10 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                           />
                         </label>
                         <p className="field-hint" style={{ gridColumn: '1 / -1', margin: 0 }}>
-                          TurnIA consulta si ya tenés un certificado vigente. Si no existe o venció, inicia el alta con Digilogix; el PIN y cualquier validación de identidad se completan únicamente en Digilogix.
+                          TurnIA consulta si ya tenés un certificado vigente. Si no existe o venció, inicia el alta con Digilogix. El registro y los datos sensibles del firmante se completan únicamente en Digilogix.
                         </p>
                         <div className="form-actions">
-                          <button className="btn secondary btn-compact" type="submit">
-                            {digilogixOnboardingRequired ? 'Verificar conexión' : 'Conectar firma digital'}
-                          </button>
+                          <button className="btn secondary btn-compact" type="submit">Conectar firma digital</button>
                         </div>
                       </form>
                     ) : (
