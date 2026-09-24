@@ -289,6 +289,8 @@ export async function POST(
   const affiliateResult = await adapter.findAffiliate({
     convenioId: prescription.convention_id,
     affiliateId: prescription.affiliate_id,
+    dni: digits(patient.dni) || undefined,
+    affiliateNumber: patient.insurance_member_number?.trim() || undefined,
   });
 
   if (!affiliateResult.ok) {
