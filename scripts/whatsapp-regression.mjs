@@ -187,10 +187,15 @@ check(
 );
 
 check(
-  '24h reminder scan has a high cap and explicit saturation signal',
-  reminder.includes('MAX_APPOINTMENTS_PER_REMINDER_RUN = 1000') &&
-    reminder.includes('truncated') &&
-    cronRoute.includes('truncated: result.truncated'),
+  '24h reminder scan uses stable pagination and isolates channel failures',
+  reminder.includes('REMINDER_PAGE_SIZE = 200') &&
+    reminder.includes(".order('starts_at', { ascending: true })") &&
+    reminder.includes(".order('id', { ascending: true })") &&
+    reminder.includes('.range(from, from + REMINDER_PAGE_SIZE - 1)') &&
+    reminder.includes('Promise.allSettled') &&
+    reminder.includes('rejectedChannels') &&
+    cronRoute.includes('errors: result.errors') &&
+    cronRoute.includes('pages: result.pages'),
 );
 
 check(
