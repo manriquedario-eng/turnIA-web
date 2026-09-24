@@ -144,10 +144,10 @@ function buildAppointmentConfirmationEmail(input: {
             <a href="${escapeHtml(publicUrl)}" style="display:block;text-align:center;background:#111827;color:#ffffff;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Confirmar turno</a>
           </td>
           <td style="padding:4px;">
-            <a href="${escapeHtml(publicUrl)}?action=reschedule" style="display:block;text-align:center;background:#f3f4f6;color:#111827;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Reprogramar</a>
+            <a href="${escapeHtml(publicUrl)}?action=cancel" style="display:block;text-align:center;background:#f3f4f6;color:#b91c1c;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Cancelar</a>
           </td>
           <td style="padding:4px;">
-            <a href="${escapeHtml(publicUrl)}?action=cancel" style="display:block;text-align:center;background:#f3f4f6;color:#b91c1c;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Cancelar</a>
+            <a href="${escapeHtml(publicUrl)}?action=reschedule" style="display:block;text-align:center;background:#f3f4f6;color:#111827;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Reprogramar</a>
           </td>
         </tr>
       </table>
