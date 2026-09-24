@@ -12,6 +12,7 @@ import { sha256Hex } from '@/lib/documents/hash';
 import { buildSignedStoragePath } from '@/lib/documents/paths';
 import { downloadDocumentPdf, removeDocumentObjectBestEffort, uploadProviderSignedPdf } from '@/lib/documents/storage';
 import { isPdfMagicBytes, isWithinMaxSignedSize } from '@/lib/documents/validation';
+import { createSupabaseServiceClient } from '@/lib/supabase/service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -132,8 +133,11 @@ export async function GET(
     );
   }
 
-  const { data: rpcData, error: rpcError } = await supabase
-    .rpc('complete_provider_patient_document_signature', {
+  const service = createSupabaseServiceClient();
+  const { data: rpcData, error: rpcError } = await service
+    .rpc('complete_provider_patient_document_signature_server', {
+      p_tenant_id: tenantId,
+      p_actor_user_id: user.id,
       p_document_id: documentCheck.data,
       p_signed_storage_path: signedPath,
       p_signed_sha256: sha256Hex(signedPdf),
