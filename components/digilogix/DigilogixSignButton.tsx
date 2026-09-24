@@ -27,7 +27,7 @@ export function DigilogixSignButton({ action }: { action: string }) {
                 animation: 'turnia-spin .8s linear infinite',
               }}
             />
-            Conectando con Digilogix…
+            Preparando firma segura con Digilogix…
             <style jsx>{`
               @keyframes turnia-spin {
                 to { transform: rotate(360deg); }
