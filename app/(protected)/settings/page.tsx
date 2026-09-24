@@ -2,12 +2,13 @@ import { requireTenant } from '@/lib/auth/require-user';
 import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago, updateAiTranscriptionSetting, saveArcaConnection, testArcaConnection, selectArcaActivity, updateArcaBillingPreferences, saveMisRxConnection, testMisRxConnection, disconnectMisRxIntegration, connectDigilogixIntegration, testDigilogixConnection, disconnectDigilogixIntegration } from './actions';
 import { isGoogleOAuthConfigured } from '@/lib/google/oauth';
 import { isMercadoPagoOAuthConfigured } from '@/lib/mercadopago/oauth';
-import { isWhatsAppConfigured } from '@/lib/whatsapp/provider';
+import { getWhatsAppIntegrationStatus } from '@/lib/whatsapp/provider';
 import { isEmailConfigured } from '@/lib/email/provider';
 import { isArcaWsaaConfigured, getArcaConnectionSummary } from '@/lib/arca/wsaa';
 import { getWsfeActivities } from '@/lib/arca/wsfe';
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
 import { FiscalProfileFields } from '@/components/settings/FiscalProfileFields';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { isFiscalProfileEnabled } from '@/lib/billing/fiscal-profile';
 import { getMisRxConnectionSummary, isMisRxConnectionConfigured } from '@/lib/misrx/connection';
 import { shouldShowMisRxForDeclaredProfession } from '@/lib/misrx/profession-eligibility';
@@ -32,7 +33,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const { supabase, user, tenantId } = await requireTenant();
   const digilogixVisible = isDigilogixFeatureVisible();
 
-  const [{ data: profile }, { data: settings }, { data: googleIntegration }, { data: mercadoPagoIntegration }, { data: misRxIntegration }, { data: digilogixConnection }, { data: transcriptionAccount, error: transcriptionAccountError }] = await Promise.all([
+  const [{ data: profile }, { data: settings }, { data: googleIntegration }, { data: mercadoPagoIntegration }, { data: misRxIntegration }, { data: digilogixConnection }, { data: transcriptionAccount, error: transcriptionAccountError }, { data: professionalContact }] = await Promise.all([
     supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
     // `profile` acá es la columna jsonb existente de `settings` (datos del
     // profesional/consultorio) — no confundir con la tabla `profiles`
@@ -76,6 +77,12 @@ export default async function SettingsPage({ searchParams }: PageProps) {
       .select('enabled,balance_seconds,lifetime_used_seconds')
       .eq('tenant_id', tenantId)
       .maybeSingle(),
+    supabase
+      .from('professional_contacts')
+      .select('phone_e164,email')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', user.id)
+      .maybeSingle(),
   ]);
 
   const preferences = settings?.preferences && typeof settings.preferences === 'object'
@@ -98,6 +105,14 @@ export default async function SettingsPage({ searchParams }: PageProps) {
     : '18:00';
 
   const text = (key: string) => (typeof professionalProfile[key] === 'string' ? professionalProfile[key] as string : '');
+  const professionalPhoneValue =
+    typeof professionalContact?.phone_e164 === 'string'
+      ? professionalContact.phone_e164
+      : text('professional_phone');
+  const professionalEmailValue =
+    typeof professionalContact?.email === 'string'
+      ? professionalContact.email
+      : text('professional_email');
 
   const googleConnected = googleIntegration?.status === 'connected';
   const googleConfigured = isGoogleOAuthConfigured();
@@ -113,7 +128,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const digilogixConnected = digilogixConnection?.status === 'connected';
   const digilogixOnboardingRequired = digilogixConnection?.status === 'onboarding_required';
   const digilogixError = digilogixConnection?.status === 'error';
-  const whatsappConfigured = isWhatsAppConfigured();
+  const whatsappStatus = getWhatsAppIntegrationStatus();
+  const whatsappConfigured = whatsappStatus.readyForInitialMessages;
   const emailConfigured = isEmailConfigured();
   const declaredProfessionAllowsMisRx = shouldShowMisRxForDeclaredProfession(professionalProfile.profession);
   const showMisRxIntegration = isMisRxUiEnabled() && Boolean(
@@ -194,8 +210,16 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                 <div className="form-section-divider" style={{ gridColumn: '1 / -1' }}>
                   <h3 style={{ margin: 0 }}>Datos de contacto</h3>
                 </div>
-                <label>Teléfono profesional<input name="professional_phone" defaultValue={text('professional_phone')} maxLength={200} /></label>
-                <label>Email profesional<input name="professional_email" type="email" defaultValue={text('professional_email')} maxLength={200} /></label>
+                <PhoneInput
+                  name="professional_phone"
+                  label="Teléfono profesional"
+                  defaultValue={professionalPhoneValue}
+                  defaultE164={professionalPhoneValue || null}
+                />
+                <label>Email profesional<input name="professional_email" type="email" defaultValue={professionalEmailValue} maxLength={200} /></label>
+                <p className="field-hint" style={{ gridColumn: '1 / -1', margin: '-10px 0 0' }}>
+                  Este teléfono se usa para avisos operativos de TurnIA, por ejemplo cuando un paciente solicita reprogramar.
+                </p>
                 <label>Dirección del consultorio<input name="office_address" defaultValue={text('office_address')} maxLength={200} /></label>
                 <label>Localidad<input name="locality" defaultValue={text('locality')} maxLength={200} /></label>
                 <label>Provincia<input name="province" defaultValue={text('province')} maxLength={200} /></label>
@@ -281,7 +305,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
           <div className="card">
             <h2>Integraciones</h2>
             <p className="text-helper">
-              Cada profesional conecta sus propias integraciones. Nada de esto se comparte entre consultorios.
+              Algunas integraciones se conectan por profesional. WhatsApp y el email transaccional son servicios centrales de TurnIA; Google, Mercado Pago y otras conexiones personales siguen siendo por profesional.
             </p>
 
             <div className="integration-list" style={{ marginTop: 8 }}>
@@ -498,14 +522,44 @@ export default async function SettingsPage({ searchParams }: PageProps) {
               <div className="integration-row">
                 <div className="integration-row-name">
                   WhatsApp
-                  <span className={`badge ${whatsappConfigured ? 'badge-confirmado' : 'badge-neutral'}`}>
-                    {whatsappConfigured ? 'Activo' : 'No disponible'}
+                  <span className={`badge ${whatsappConfigured ? 'badge-confirmado' : 'badge-pendiente'}`}>
+                    {whatsappConfigured ? 'Base lista' : 'Configuración incompleta'}
                   </span>
                 </div>
                 <div className="integration-row-desc">
-                  {whatsappConfigured
-                    ? 'Los mensajes salen según el consentimiento de cada paciente.'
-                    : 'El envío de WhatsApp todavía no está disponible en este consultorio.'}
+                  Integración central de TurnIA. Los mensajes al paciente respetan su consentimiento.
+                  <div className="stack" style={{ gap: 6, marginTop: 10 }}>
+                    <div>
+                      <span className={`badge ${whatsappStatus.baseConfigured ? 'badge-confirmado' : 'badge-neutral'}`}>
+                        {whatsappStatus.baseConfigured ? 'Credenciales base listas' : 'Faltan credenciales base'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className={`badge ${whatsappStatus.webhookConfigured ? 'badge-confirmado' : 'badge-neutral'}`}>
+                        {whatsappStatus.webhookConfigured ? 'Webhook configurado' : 'Webhook incompleto'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className={`badge ${whatsappStatus.initialTemplateConfigured ? 'badge-confirmado' : 'badge-pendiente'}`}>
+                        {whatsappStatus.initialTemplateConfigured ? 'Plantilla inicial configurada' : 'Plantilla inicial pendiente'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className={`badge ${whatsappStatus.reminderTemplateConfigured ? 'badge-confirmado' : 'badge-pendiente'}`}>
+                        {whatsappStatus.reminderTemplateConfigured ? 'Recordatorio 24 h configurado' : 'Recordatorio 24 h pendiente'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className={`badge ${whatsappStatus.professionalRescheduleTemplateConfigured ? 'badge-confirmado' : 'badge-pendiente'}`}>
+                        {whatsappStatus.professionalRescheduleTemplateConfigured
+                          ? 'Aviso de reprogramación al profesional configurado'
+                          : 'Aviso WhatsApp al profesional pendiente'}
+                      </span>
+                    </div>
+                    <div className="text-helper">
+                      Graph API: <strong>{whatsappStatus.apiVersion}</strong>
+                    </div>
+                  </div>
                 </div>
               </div>
 
