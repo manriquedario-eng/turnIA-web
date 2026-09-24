@@ -16,6 +16,7 @@ import { generateMercadoPagoCheckout } from '@/app/(protected)/agenda/actions';
 import { createBlankPrescriptionDraft } from '@/app/(protected)/patients/prescription-actions';
 import { isMisRxUiEnabled } from '@/lib/misrx/homologation';
 import { isDigilogixFeatureVisible } from '@/lib/digilogix/config';
+import { DigilogixSignButton } from '@/components/digilogix/DigilogixSignButton';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -846,11 +847,13 @@ export default async function PatientDetailPage({
                             </a>
                           ) : null}
                           {canStartDigilogix ? (
-                            <form action={`/api/documents/patient/${patient.id}/${document.id}/digilogix`} method="post">
-                              <button className="btn btn-compact" type="submit">
-                                {document.status === 'provider_signature_rejected' ? 'Reintentar firma' : 'Firmar con Digilogix'}
-                              </button>
-                            </form>
+                            document.status === 'provider_signature_rejected' ? (
+                              <form action={`/api/documents/patient/${patient.id}/${document.id}/digilogix`} method="post">
+                                <button className="btn btn-compact" type="submit">Reintentar firma</button>
+                              </form>
+                            ) : (
+                              <DigilogixSignButton action={`/api/documents/patient/${patient.id}/${document.id}/digilogix`} />
+                            )
                           ) : null}
                           {isOwner && digilogixConnected && document.status === 'provider_signature_pending' ? (
                             <form action={`/api/documents/patient/${patient.id}/${document.id}/digilogix/refresh`} method="post">
