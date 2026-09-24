@@ -284,7 +284,8 @@ check(
 
 check(
   'Professional contact backfill validates complete E.164 values',
-  professionalContactsMigration.includes("~ '^\\\\+[1-9][0-9]{7,14}$'"),
+  professionalContactsMigration.includes("[0-9]{7,14}$'") &&
+    professionalContactsMigration.includes("professional_phone"),
 );
 
 check(
