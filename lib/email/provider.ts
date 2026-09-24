@@ -30,6 +30,8 @@
 // EMAIL_FROM son las que se documentan y las que hay que usar de acá en
 // adelante.
 
+const EMAIL_REQUEST_TIMEOUT_MS = 10_000;
+
 export type SendEmailResult =
   | { ok: true; providerMessageId: string }
   | { ok: false; reason: 'not_configured' | 'invalid_recipient' | 'provider_error' | 'network_error'; errorMessage: string };
@@ -92,6 +94,7 @@ export async function sendTransactionalEmail(params: {
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
+      signal: AbortSignal.timeout(EMAIL_REQUEST_TIMEOUT_MS),
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
         'Content-Type': 'application/json',
