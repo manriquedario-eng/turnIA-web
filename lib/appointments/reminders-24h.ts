@@ -221,7 +221,7 @@ async function sendReminderWhatsApp(params: {
   timeLabel: string;
   startsAt: string;
   publicToken: string;
-): Promise<boolean> {
+}): Promise<boolean> {
   if (!params.phoneE164 || !params.whatsappConsent) return true;
 
   const templateName = process.env.WHATSAPP_REMINDER_TEMPLATE_NAME;
