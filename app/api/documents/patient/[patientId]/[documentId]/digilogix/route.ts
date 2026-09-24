@@ -149,11 +149,15 @@ export async function POST(
   <body>
     <main>
       <h1>Abriendo Digilogix…</h1>
-      <p>La firma ya fue iniciada en TurnIA. Te estamos llevando al entorno seguro de Digilogix para autorizarla.</p>
-      <p>Si no se abre automáticamente, usá el botón de abajo.</p>
-      <a href="${escapedAuthorizationUrl}">Continuar en Digilogix</a>
+      <div aria-hidden="true" style="width:40px;height:40px;border:4px solid #d1d5db;border-right-color:#111827;border-radius:999px;animation:spin .8s linear infinite;margin-bottom:18px"></div>
+      <p>La firma ya fue iniciada en TurnIA. Te estamos llevando automáticamente al entorno seguro de Digilogix para autorizarla.</p>
+      <p>No cierres esta ventana. Cuando termines de firmar, Digilogix te devolverá a TurnIA.</p>
+      <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
     </main>
-    <script>window.location.replace(${JSON.stringify(authorizationUrl)});</script>
+    <script>
+      window.location.replace(${JSON.stringify(authorizationUrl)});
+      setTimeout(function(){ window.location.replace(${JSON.stringify(authorizationUrl)}); }, 2500);
+    </script>
   </body>
 </html>`;
 
