@@ -5,7 +5,7 @@ import { requireTenant } from '@/lib/auth/require-user';
 import { getDigilogixConnection } from '@/lib/digilogix/connection';
 import { firstAuthorizationUrl, firstUploadedDocument } from '@/lib/digilogix/response';
 import { requestSinglePdfSignature } from '@/lib/digilogix/service';
-import { findDocumentForProviderSignature } from '@/lib/documents/authorize';
+import { findDocumentForProviderCallback, findDocumentForProviderSignature } from '@/lib/documents/authorize';
 import { documentErrorResponse } from '@/lib/documents/response';
 import { downloadDocumentPdf } from '@/lib/documents/storage';
 import { isPdfMagicBytes, isWithinMaxSignedSize } from '@/lib/documents/validation';
@@ -58,6 +58,24 @@ export async function POST(
     user.id,
   );
   if (!document) {
+    const pendingDocument = await findDocumentForProviderCallback(
+      supabase,
+      tenantId,
+      patientCheck.data,
+      documentCheck.data,
+      user.id,
+    );
+
+    if (pendingDocument) {
+      return NextResponse.redirect(
+        new URL(
+          `/patients/${patientCheck.data}?success=${encodeURIComponent('La firma con Digilogix ya está en curso. Usá “Verificar estado”.')}#documentos`,
+          request.url,
+        ),
+        { status: 303 },
+      );
+    }
+
     return documentErrorResponse('Documento no disponible para firma digital.', 404);
   }
 
