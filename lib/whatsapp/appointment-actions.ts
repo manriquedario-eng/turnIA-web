@@ -8,6 +8,7 @@ import {
   isServiceRoleConfigured,
 } from '@/lib/supabase/service';
 import { notifyProfessionalAboutRescheduleByToken } from '@/lib/appointments/reschedule-notifications';
+import { getMercadoPagoPaymentOfferByToken } from '@/lib/mercadopago/payment-offer';
 
 export type AppointmentWhatsAppAction = 'confirm' | 'cancel' | 'reschedule';
 
@@ -27,11 +28,18 @@ export type ProcessWhatsAppAppointmentActionResult = {
   duplicate?: boolean;
 };
 
-function successText(action: AppointmentWhatsAppAction, professionalName: string | null): string {
+function successText(
+  action: AppointmentWhatsAppAction,
+  professionalName: string | null,
+  paymentUrl?: string | null,
+): string {
   const professionalLabel = professionalName?.trim() || 'el profesional';
 
   if (action === 'confirm') {
-    return `Muchas gracias por confirmar tu turno con ${professionalLabel}.`;
+    const base = `Muchas gracias por confirmar tu turno con ${professionalLabel}.`;
+    return paymentUrl
+      ? `${base}\n\nSi querés abonar tu turno ahora con Mercado Pago, podés hacerlo acá:\n${paymentUrl}`
+      : base;
   }
 
   if (action === 'cancel') {
@@ -237,10 +245,18 @@ export async function processWhatsAppAppointmentAction(
     await notifyProfessionalAboutRescheduleByToken(input.token);
   }
 
+  let paymentUrl: string | null = null;
+  if (input.action === 'confirm') {
+    const offer = await getMercadoPagoPaymentOfferByToken(input.token);
+    if (offer.available) {
+      paymentUrl = `https://www.turniahealth.com.ar/pagar/${input.token}`;
+    }
+  }
+
   return {
     ok: true,
     shouldReply: true,
-    replyText: successText(input.action, professionalName),
+    replyText: successText(input.action, professionalName, paymentUrl),
     appointmentId: appointment.id,
   };
 }
