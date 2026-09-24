@@ -39,7 +39,7 @@ function buildMinimalPdf(): Buffer {
 }
 
 function describeShape(value: unknown, depth = 0): unknown {
-  if (depth >= 3) {
+  if (depth >= 4) {
     if (Array.isArray(value)) return { type: 'array', length: value.length };
     return { type: value === null ? 'null' : typeof value };
   }
