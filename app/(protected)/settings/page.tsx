@@ -30,6 +30,7 @@ function formatDuration(totalSeconds: number) {
 export default async function SettingsPage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
   const { supabase, user, tenantId } = await requireTenant();
+  const digilogixVisible = isDigilogixFeatureVisible();
 
   const [{ data: profile }, { data: settings }, { data: googleIntegration }, { data: mercadoPagoIntegration }, { data: misRxIntegration }, { data: digilogixConnection }, { data: transcriptionAccount, error: transcriptionAccountError }] = await Promise.all([
     supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
@@ -62,12 +63,14 @@ export default async function SettingsPage({ searchParams }: PageProps) {
       .eq('user_id', user.id)
       .eq('provider', 'misrx')
       .maybeSingle(),
-    supabase
-      .from('digilogix_connections')
-      .select('cuil,email,status,connected_at,last_certificate_check_at')
-      .eq('tenant_id', tenantId)
-      .eq('user_id', user.id)
-      .maybeSingle(),
+    digilogixVisible
+      ? supabase
+          .from('digilogix_connections')
+          .select('cuil,email,status,connected_at,last_certificate_check_at')
+          .eq('tenant_id', tenantId)
+          .eq('user_id', user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
     supabase
       .from('ai_transcription_accounts')
       .select('enabled,balance_seconds,lifetime_used_seconds')
@@ -107,7 +110,6 @@ export default async function SettingsPage({ searchParams }: PageProps) {
     ? await getMisRxConnectionSummary({ tenantId, userId: user.id })
     : null;
   const digilogixConfigured = Boolean(getDigilogixConfig()) && areDigilogixLiveCallsEnabled();
-  const digilogixVisible = isDigilogixFeatureVisible();
   const digilogixConnected = digilogixConnection?.status === 'connected';
   const digilogixOnboardingRequired = digilogixConnection?.status === 'onboarding_required';
   const digilogixError = digilogixConnection?.status === 'error';
