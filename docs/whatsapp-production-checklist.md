@@ -23,6 +23,8 @@ Confirmar en Meta:
 
 ### Plantilla de alta de turno
 
+Nombre aprobado en Meta: `appointment_created` (`es_AR`).
+
 Mensaje informativo / bienvenida. No lleva botones ni acciones.
 
 Parámetros BODY, en este orden:
@@ -33,6 +35,8 @@ Parámetros BODY, en este orden:
 4. Profesional
 
 ### Plantilla de recordatorio 24 h
+
+Nombre aprobado en Meta: `turniahealth_turno_registrado` (`es_AR`).
 
 Parámetros BODY, en este orden:
 
