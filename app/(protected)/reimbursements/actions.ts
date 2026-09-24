@@ -84,6 +84,20 @@ export async function createReimbursementCase(formData: FormData) {
     redirectWithError('Una o más sesiones seleccionadas ya no están disponibles para este reintegro. Revisá la selección.', context);
   }
 
+  const { data: existingLinks, error: existingLinksError } = await supabase
+    .from('reimbursement_case_appointments')
+    .select('appointment_id')
+    .eq('tenant_id', tenantId)
+    .in('appointment_id', appointmentIds);
+
+  if (existingLinksError) {
+    redirectWithError('No se pudo verificar si alguna sesión ya está incluida en otro reintegro.', context);
+  }
+
+  if ((existingLinks ?? []).length > 0) {
+    redirectWithError('Una o más sesiones seleccionadas ya están incluidas en otro reintegro. Revisá la selección.', context);
+  }
+
   const { data: reimbursement, error: reimbursementError } = await supabase
     .from('reimbursement_cases')
     .insert({
@@ -117,6 +131,11 @@ export async function createReimbursementCase(formData: FormData) {
 
   if (linkError) {
     await supabase.from('reimbursement_cases').delete().eq('id', reimbursement.id).eq('tenant_id', tenantId);
+
+    if (linkError.code === '23505') {
+      redirectWithError('Una o más sesiones ya fueron incluidas en otro reintegro mientras estabas creando este borrador. Volvé a revisar la selección.', context);
+    }
+
     redirectWithError(`No se pudieron asociar las sesiones: ${linkError.message}`, context);
   }
 
