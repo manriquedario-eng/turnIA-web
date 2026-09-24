@@ -398,11 +398,10 @@ export async function POST(request: NextRequest) {
 
         const expectedPhoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
         if (
-          expectedPhoneNumberId &&
-          value.metadata?.phone_number_id &&
-          value.metadata.phone_number_id !== expectedPhoneNumberId
+          !expectedPhoneNumberId ||
+          value.metadata?.phone_number_id !== expectedPhoneNumberId
         ) {
-          console.warn('WhatsApp webhook: evento para otro Phone Number ID ignorado');
+          console.warn('WhatsApp webhook: Phone Number ID ausente o no coincidente, evento ignorado');
           continue;
         }
 
