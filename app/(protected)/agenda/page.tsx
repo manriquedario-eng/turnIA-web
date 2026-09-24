@@ -27,8 +27,26 @@ type AppointmentRow = {
   currency: string | null;
   meeting_provider: string | null;
   meeting_url: string | null;
+  reschedule_requested_at: string | null;
   updated_at: string;
 };
+
+
+type AppointmentMessageSummary = {
+  appointment_id: string | null;
+  channel: string;
+  status: string;
+  created_at: string;
+};
+
+function communicationStatusLabel(status: string) {
+  if (status === 'read') return 'Leído';
+  if (status === 'delivered') return 'Entregado';
+  if (status === 'sent') return 'Enviado';
+  if (status === 'failed') return 'Error';
+  if (status === 'pending' || status === 'scheduled') return 'Pendiente';
+  return status;
+}
 
 function startOfDayIso(date: string) {
   return new Date(`${date}T00:00:00-03:00`).toISOString();
@@ -218,10 +236,11 @@ export default async function AgendaPage({
     { data: services },
     { data: googleIntegration },
     { data: mercadoPagoIntegration },
+    { data: pendingRescheduleData },
   ] = await Promise.all([
     supabase
       .from('appointments')
-      .select('id, patient_id, service_id, professional_id, starts_at, ends_at, modality, status, quoted_amount, currency, meeting_provider, meeting_url, updated_at')
+      .select('id, patient_id, service_id, professional_id, starts_at, ends_at, modality, status, quoted_amount, currency, meeting_provider, meeting_url, reschedule_requested_at, updated_at')
       .eq('tenant_id', tenantId)
       .gte('starts_at', startOfDayIso(rangeStart))
       .lte('starts_at', endOfDayIso(rangeEnd))
@@ -261,16 +280,52 @@ export default async function AgendaPage({
       .eq('user_id', user.id)
       .eq('provider', 'mercadopago')
       .maybeSingle(),
+    supabase
+      .from('appointments')
+      .select('id,patient_id,starts_at,status,reschedule_requested_at')
+      .eq('tenant_id', tenantId)
+      .not('reschedule_requested_at', 'is', null)
+      .order('reschedule_requested_at', { ascending: false })
+      .limit(20),
   ]);
 
   if (appointmentError) throw new Error(appointmentError.message);
   const appointments = (appointmentsData ?? []) as AppointmentRow[];
+
+  const appointmentIds = appointments.map((item) => item.id);
+  let communicationRows: AppointmentMessageSummary[] = [];
+
+  if (appointmentIds.length > 0) {
+    const { data: messageData, error: messageError } = await supabase
+      .from('appointment_messages')
+      .select('appointment_id,channel,status,created_at')
+      .eq('tenant_id', tenantId)
+      .in('appointment_id', appointmentIds)
+      .in('channel', ['whatsapp', 'email'])
+      .in('message_type', ['appointment_created', 'appointment_reminder_24h'])
+      .order('created_at', { ascending: false });
+
+    if (messageError) throw new Error(messageError.message);
+    communicationRows = (messageData ?? []) as AppointmentMessageSummary[];
+  }
+
+  const latestCommunicationByAppointment = new Map<string, { whatsapp?: string; email?: string }>();
+  for (const row of communicationRows) {
+    if (!row.appointment_id) continue;
+    const current = latestCommunicationByAppointment.get(row.appointment_id) ?? {};
+    if (row.channel === 'whatsapp' && !current.whatsapp) current.whatsapp = row.status;
+    if (row.channel === 'email' && !current.email) current.email = row.status;
+    latestCommunicationByAppointment.set(row.appointment_id, current);
+  }
 
   const googleConnected = googleIntegration?.status === 'connected';
   const mercadoPagoConnected = mercadoPagoIntegration?.status === 'connected';
 
   const patientMap = new Map((patients ?? []).map((p) => [p.id, p]));
   const serviceMap = new Map((services ?? []).map((s) => [s.id, s]));
+  const pendingRescheduleRequests = (pendingRescheduleData ?? []).filter(
+    (item) => !isCancelled(item.status)
+  );
   const editing = editId ? appointments.find((a) => a.id === editId) : undefined;
   const showDrawer = Boolean(editing) || wantsNew;
   const drawerDate = editing ? dateKeyInTz(editing.starts_at) : slotDate;
@@ -349,6 +404,48 @@ export default async function AgendaPage({
 
       {ok ? <p className="alert success">{ok}</p> : null}
       {error ? <p className="alert error">{error}</p> : null}
+
+      {pendingRescheduleRequests.length > 0 ? (
+        <div className="card">
+          <div className="page-header" style={{ marginBottom: 8 }}>
+            <div>
+              <h2 style={{ margin: 0 }}>Solicitudes de reprogramación</h2>
+              <p className="text-helper" style={{ margin: '4px 0 0' }}>
+                Hay {pendingRescheduleRequests.length} turno{pendingRescheduleRequests.length === 1 ? '' : 's'} esperando coordinación.
+              </p>
+            </div>
+          </div>
+          <div className="stack" style={{ gap: 8 }}>
+            {pendingRescheduleRequests.slice(0, 8).map((item) => {
+              const patient = item.patient_id ? patientMap.get(item.patient_id) : null;
+              const itemDate = dateKeyInTz(item.starts_at);
+              const itemTime = new Intl.DateTimeFormat('es-AR', {
+                timeZone: TZ,
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              }).format(new Date(item.starts_at));
+
+              return (
+                <div key={item.id} className="nav" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                  <div>
+                    <strong>{patient?.name ?? 'Paciente'}</strong>
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      {itemDate} · {itemTime}
+                    </div>
+                  </div>
+                  <Link
+                    className="btn secondary btn-compact"
+                    href={`/agenda?view=day&date=${itemDate}&edit=${item.id}#turno-drawer`}
+                  >
+                    Revisar solicitud
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: '16px 20px' }}>
@@ -590,6 +687,29 @@ export default async function AgendaPage({
                           {a.quoted_amount != null ? `${a.currency ?? 'ARS'} ${Number(a.quoted_amount).toLocaleString('es-AR')}` : '—'}
                         </span>
                         <StatusBadge status={a.status} label={statusLabel(a.status)} />
+                        {a.reschedule_requested_at && !cancelled ? (
+                          <span className="badge" title="El paciente pidió reprogramar este turno">
+                            Pidió reprogramar
+                          </span>
+                        ) : null}
+                        {(() => {
+                          const communication = latestCommunicationByAppointment.get(a.id);
+                          if (!communication) return null;
+                          return (
+                            <div className="nav" style={{ gap: 4, flexWrap: 'wrap' }}>
+                              {communication.whatsapp ? (
+                                <span className={`badge ${communication.whatsapp === 'failed' ? 'badge-pendiente' : 'badge-neutral'}`}>
+                                  WhatsApp: {communicationStatusLabel(communication.whatsapp)}
+                                </span>
+                              ) : null}
+                              {communication.email ? (
+                                <span className={`badge ${communication.email === 'failed' ? 'badge-pendiente' : 'badge-neutral'}`}>
+                                  Email: {communicationStatusLabel(communication.email)}
+                                </span>
+                              ) : null}
+                            </div>
+                          );
+                        })()}
                         {!cancelled ? (
                           <div className="appointment-row-actions">
                             {a.patient_id && patientMap.get(a.patient_id) && !patientMap.get(a.patient_id)?.deleted_at ? (
