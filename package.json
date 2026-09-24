@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "security:regression": "node scripts/security-regression.mjs"
+    "security:regression": "node scripts/security-regression.mjs",
+    "whatsapp:regression": "node scripts/whatsapp-regression.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.1.6",
