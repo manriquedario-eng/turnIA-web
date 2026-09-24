@@ -54,23 +54,24 @@ export async function POST(
     return documentErrorResponse('Documento no encontrado.', 404);
   }
 
-  const connection = await getDigilogixConnection(supabase, tenantId, user.id);
-  mark('connection_loaded');
+  const [connection, document] = await Promise.all([
+    getDigilogixConnection(supabase, tenantId, user.id),
+    findDocumentForProviderSignature(
+      supabase,
+      tenantId,
+      patientCheck.data,
+      documentCheck.data,
+      user.id,
+    ),
+  ]);
+  mark('prechecks_loaded');
+
   if (!connection || connection.status !== 'connected') {
     return NextResponse.json(
       { error: 'Conectá primero tu firma digital desde Configuración → Integraciones.' },
       { status: 409 },
     );
   }
-
-  const document = await findDocumentForProviderSignature(
-    supabase,
-    tenantId,
-    patientCheck.data,
-    documentCheck.data,
-    user.id,
-  );
-  mark('document_loaded');
   if (!document) {
     const pendingDocument = await findDocumentForProviderCallback(
       supabase,
