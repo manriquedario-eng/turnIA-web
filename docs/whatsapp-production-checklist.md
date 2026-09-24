@@ -1,6 +1,6 @@
 # TurnIA — Checklist de activación WhatsApp
 
-> Rama de trabajo: `feat/whatsapp-interactions`
+> Rama de trabajo: `feat/whatsapp-interactions-main-sync`
 > Regla: no promover a producción hasta completar esta lista y validar Meta.
 
 ## 1. Aislamiento
@@ -55,9 +55,10 @@ Botones, en este orden:
 
 Parámetros BODY, en este orden:
 
-1. Paciente
-2. Fecha actual del turno
-3. Hora actual del turno
+1. Profesional
+2. Paciente
+3. Fecha actual del turno
+4. Hora actual del turno
 
 Debe ser Utility. Puede incluir un botón/URL estático hacia TurnIA si Meta lo aprueba.
 
@@ -90,6 +91,9 @@ Antes de activar el webhook interactivo en producción, aplicar y revisar EN EST
 2. `supabase/migrations/20260923183500_professional_contacts.sql`
 3. `supabase/migrations/20260923185500_idempotent_reschedule_requests.sql`
 4. `supabase/migrations/20260923190500_clear_pending_reschedule_on_final_action.sql`
+5. `supabase/migrations/20260924121000_whatsapp_public_action_rpc_consistency.sql`
+6. `supabase/migrations/20260924122000_whatsapp_permissions_and_indexes.sql`
+7. `supabase/migrations/20260924204500_whatsapp_appointment_messages_service_role_grants.sql`
 
 Después confirmar:
 
@@ -103,6 +107,7 @@ Después confirmar:
   - `appointment_reminder_24h`
   - `professional_reschedule_requested`
 - Verificar que una reprogramación real genera un nuevo ciclo y permite un nuevo recordatorio/aviso sin duplicar el anterior.
+- Confirmar `service_role` con `SELECT, INSERT, UPDATE` sobre `appointment_messages`.
 - Confirmar columnas:
   - `delivered_at`
   - `read_at`
@@ -116,8 +121,7 @@ Validar:
 - POST webhook rechaza si falta App Secret.
 - Phone Number ID distinto es ignorado.
 - Sólo el mismo teléfono del paciente puede ejecutar una acción del turno.
-- El contexto del botón, cuando Meta lo envía, debe corresponder al mismo turno y a:
-  - `appointment_created`, o
+- El contexto del botón, cuando Meta lo envía, debe corresponder al mismo turno y exclusivamente a:
   - `appointment_reminder_24h`
 - Reintentos del mismo webhook no duplican acciones.
 - Errores transitorios devuelven respuesta reintentable.
