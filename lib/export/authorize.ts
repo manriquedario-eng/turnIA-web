@@ -323,30 +323,96 @@ export async function fetchPatientsListExportData(
   return { professional, rows, generatedAt: new Date().toISOString() };
 }
 
-/** Pagos y caja del tenant actual (PARTE 9). Sin filtro de período todavía — se exporta lo visible en /payments (últimos movimientos), igual que la pantalla. */
+const PAYMENTS_EXPORT_PAGE_SIZE = 1000;
+const PAYMENTS_EXPORT_MAX_ROWS = 10_000;
+
+export class PaymentsExportTooLargeError extends Error {
+  constructor() {
+    super('El período seleccionado contiene demasiados registros para una exportación segura.');
+    this.name = 'PaymentsExportTooLargeError';
+  }
+}
+
+type PaymentsExportRange = {
+  fromIso?: string;
+  toIso?: string;
+};
+
+async function fetchAllPaymentsForExport(
+  supabase: SupabaseClient,
+  tenantId: string,
+  range: PaymentsExportRange,
+): Promise<any[]> {
+  const rows: any[] = [];
+
+  for (let offset = 0; ; offset += PAYMENTS_EXPORT_PAGE_SIZE) {
+    let query = supabase
+      .from('payments')
+      .select('id, amount, currency, method, created_at, appointment_id, patients(name), appointments(starts_at)')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false });
+
+    if (range.fromIso) query = query.gte('created_at', range.fromIso);
+    if (range.toIso) query = query.lte('created_at', range.toIso);
+
+    const { data, error } = await query.range(offset, offset + PAYMENTS_EXPORT_PAGE_SIZE - 1);
+    if (error) throw error;
+
+    const page = data ?? [];
+    rows.push(...page);
+
+    if (rows.length > PAYMENTS_EXPORT_MAX_ROWS) throw new PaymentsExportTooLargeError();
+    if (page.length < PAYMENTS_EXPORT_PAGE_SIZE) break;
+  }
+
+  return rows;
+}
+
+async function fetchAllCashMovementsForExport(
+  supabase: SupabaseClient,
+  tenantId: string,
+  range: PaymentsExportRange,
+): Promise<any[]> {
+  const rows: any[] = [];
+
+  for (let offset = 0; ; offset += PAYMENTS_EXPORT_PAGE_SIZE) {
+    let query = supabase
+      .from('cash_movements')
+      .select('id, amount, method, kind, created_at')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false });
+
+    if (range.fromIso) query = query.gte('created_at', range.fromIso);
+    if (range.toIso) query = query.lte('created_at', range.toIso);
+
+    const { data, error } = await query.range(offset, offset + PAYMENTS_EXPORT_PAGE_SIZE - 1);
+    if (error) throw error;
+
+    const page = data ?? [];
+    rows.push(...page);
+
+    if (rows.length > PAYMENTS_EXPORT_MAX_ROWS) throw new PaymentsExportTooLargeError();
+    if (page.length < PAYMENTS_EXPORT_PAGE_SIZE) break;
+  }
+
+  return rows;
+}
+
+/** Pagos y caja del tenant actual, con período opcional y paginación real. */
 export async function fetchPaymentsExportData(
   supabase: SupabaseClient,
   userId: string,
   tenantId: string,
   fallbackEmail: string | null,
+  range: PaymentsExportRange = {},
 ): Promise<PaymentsExportData> {
-  const [{ data: payments }, { data: cashMovements }, professional] = await Promise.all([
-    supabase
-      .from('payments')
-      .select('id, amount, currency, method, created_at, appointment_id, patients(name), appointments(starts_at)')
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false })
-      .limit(500),
-    supabase
-      .from('cash_movements')
-      .select('id, amount, method, kind, created_at')
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false })
-      .limit(500),
+  const [payments, cashMovements, professional] = await Promise.all([
+    fetchAllPaymentsForExport(supabase, tenantId, range),
+    fetchAllCashMovementsForExport(supabase, tenantId, range),
     getProfessionalInfo(supabase, userId, tenantId, fallbackEmail),
   ]);
 
-  const paymentRows: PaymentExportRow[] = (payments ?? []).map((item: any) => ({
+  const paymentRows: PaymentExportRow[] = payments.map((item: any) => ({
     date: item.created_at,
     patientName: item.patients?.name ?? null,
     method: item.method ?? null,
@@ -355,7 +421,7 @@ export async function fetchPaymentsExportData(
     appointmentDate: item.appointments?.starts_at ?? null,
   }));
 
-  const cashRows: CashMovementExportRow[] = (cashMovements ?? []).map((item: any) => ({
+  const cashRows: CashMovementExportRow[] = cashMovements.map((item: any) => ({
     date: item.created_at,
     kind: item.kind === 'in' ? 'in' : 'out',
     concept: item.method ?? null,

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireTenant } from '@/lib/auth/require-user';
 import { registerCashMovement, registerPayment } from './actions';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -7,10 +8,18 @@ import { SimpleExportMenu } from '@/components/export/ExportMenu';
 export default async function PaymentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; error?: string }>;
+  searchParams: Promise<{ ok?: string; error?: string; export_from?: string; export_to?: string }>;
 }) {
   const { supabase, tenantId } = await requireTenant();
   const params = await searchParams;
+
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  const exportFrom = params.export_from && datePattern.test(params.export_from) ? params.export_from : '';
+  const exportTo = params.export_to && datePattern.test(params.export_to) ? params.export_to : '';
+  const exportRangeParams = new URLSearchParams();
+  if (exportFrom) exportRangeParams.set('from', exportFrom);
+  if (exportTo) exportRangeParams.set('to', exportTo);
+  const exportRangeSuffix = exportRangeParams.toString() ? `&${exportRangeParams.toString()}` : '';
 
   const [{ data: appointments }, { data: payments }, { data: cashMovements }] = await Promise.all([
     supabase
@@ -49,15 +58,40 @@ export default async function PaymentsPage({
         </div>
         <SimpleExportMenu
           links={[
-            { format: 'pdf', href: '/api/export/payments?format=pdf' },
-            { format: 'docx', href: '/api/export/payments?format=docx' },
-            { format: 'xlsx', href: '/api/export/payments?format=xlsx' },
+            { format: 'pdf', href: `/api/export/payments?format=pdf${exportRangeSuffix}` },
+            { format: 'docx', href: `/api/export/payments?format=docx${exportRangeSuffix}` },
+            { format: 'xlsx', href: `/api/export/payments?format=xlsx${exportRangeSuffix}` },
           ]}
         />
       </div>
 
       {params.ok ? <p className="alert success">{params.ok}</p> : null}
       {params.error ? <p className="alert error">{params.error}</p> : null}
+
+      <section className="card">
+        <div className="page-header" style={{ marginBottom: 10 }}>
+          <div>
+            <h2 style={{ margin: 0 }}>Período de exportación</h2>
+            <p className="text-helper" style={{ margin: '6px 0 0' }}>
+              Opcional. Si dejás las fechas vacías, TurnIA exporta todo el historial. Los archivos se generan paginados y nunca se recortan silenciosamente.
+            </p>
+          </div>
+        </div>
+        <form method="get" className="form-grid">
+          <label>
+            Desde
+            <input type="date" name="export_from" defaultValue={exportFrom} />
+          </label>
+          <label>
+            Hasta
+            <input type="date" name="export_to" defaultValue={exportTo} />
+          </label>
+          <div className="form-actions">
+            <button className="btn secondary" type="submit">Aplicar período</button>
+            {(exportFrom || exportTo) ? <Link className="btn-ghost" href="/payments">Limpiar período</Link> : null}
+          </div>
+        </form>
+      </section>
 
       {/* Mismo patrón "hero + franja secundaria" que Dashboard/Métricas —
           Caja actual es el número que más importa acá (cuánto hay en caja
