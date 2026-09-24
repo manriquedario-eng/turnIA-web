@@ -111,6 +111,8 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const digilogixConnected = digilogixConnection?.status === 'connected';
   const digilogixOnboardingRequired = digilogixConnection?.status === 'onboarding_required';
   const digilogixError = digilogixConnection?.status === 'error';
+  const digilogixHomologationCuilConfigured = process.env.VERCEL_ENV === 'preview' && Boolean(process.env.DIGILOGIX_TEST_CUIL?.trim());
+  const digilogixMatchesHomologationCuil = digilogixHomologationCuilConfigured && Boolean(digilogixConnection?.cuil) && digilogixConnection?.cuil === process.env.DIGILOGIX_TEST_CUIL?.trim();
   const whatsappConfigured = isWhatsAppConfigured();
   const emailConfigured = isEmailConfigured();
   const declaredProfessionAllowsMisRx = shouldShowMisRxForDeclaredProfession(professionalProfile.profession);
@@ -365,6 +367,11 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                     Firma documentos clínicos desde TurnIA mediante Digilogix. La firma se autoriza en el entorno seguro del proveedor y TurnIA conserva el PDF firmado y su trazabilidad.
                     {digilogixConnected ? ' Certificado vigente detectado.' : ''}
                     {digilogixOnboardingRequired ? ' El alta o renovación del certificado todavía debe completarse en Digilogix.' : ''}
+                    {digilogixOnboardingRequired && digilogixHomologationCuilConfigured
+                      ? digilogixMatchesHomologationCuil
+                        ? ' El CUIL cargado coincide con el CUIL de homologación previamente validado.'
+                        : ' El CUIL cargado NO coincide con el CUIL de homologación previamente validado.'
+                      : ''}
                   </div>
                   <div className="integration-row-action" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {digilogixConnected ? (
