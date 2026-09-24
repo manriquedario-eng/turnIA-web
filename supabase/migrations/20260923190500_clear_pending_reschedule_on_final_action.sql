@@ -52,7 +52,7 @@ begin
     return;
   end if;
 
-  return query select 'ok'::text;
+  return query select 'already_cancelled'::text;
 end;
 $$;
 
