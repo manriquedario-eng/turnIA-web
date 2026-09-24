@@ -43,6 +43,7 @@ export async function requestSinglePdfSignature(params: {
   certificateSerial?: string;
   showDocumentWhenAuthorizing?: boolean;
   visibleSignatureTemplate?: 1 | 2 | 3 | 4;
+  returnUrls?: { ok: string; error: string; rejected: string };
 }): Promise<DigilogixApiResult<DigilogixSignResponse>> {
   const cuil = normalizeCuil(params.cuil);
   if (!isValidCuil(cuil)) {
@@ -62,7 +63,7 @@ export async function requestSinglePdfSignature(params: {
     };
   }
 
-  const urls = getDigilogixSigningReturnUrls();
+  const urls = params.returnUrls ?? getDigilogixSigningReturnUrls();
   const hash = sha256Hex(params.pdf);
 
   return requestDocumentSignature({
