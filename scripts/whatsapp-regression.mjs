@@ -309,28 +309,3 @@ for (const name of passes) console.log(`PASS ${name}`);
 for (const failure of failures) console.error(`FAIL ${failure}`);
 
 if (failures.length) process.exit(1);
-"),
-);
-
-check(
-  'Completed appointments cannot be mutated from public or WhatsApp actions',
-  finalActionCleanupMigration.includes("v_status in ('completed', 'completado')") &&
-    idempotentRescheduleMigration.includes("v_status in ('completed', 'completado')"),
-);
-
-check(
-  'Post-migration professional alerts never fall back to another professional contact',
-  notification.includes('professionalContactTableUnavailable') &&
-    notification.includes("professionalContactError?.code === 'PGRST205'"),
-);
-
-check(
-  'Agenda delivery badges only summarize patient-facing messages',
-  agendaPage.includes(".in('message_type', ['appointment_created', 'appointment_reminder_24h'])"),
-);
-
-console.log(`WhatsApp regression: ${passes.length} PASS / ${failures.length} FAIL`);
-for (const name of passes) console.log(`PASS ${name}`);
-for (const failure of failures) console.error(`FAIL ${failure}`);
-
-if (failures.length) process.exit(1);
