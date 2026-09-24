@@ -852,6 +852,11 @@ export default async function PatientDetailPage({
                               </button>
                             </form>
                           ) : null}
+                          {isOwner && digilogixConnected && document.status === 'provider_signature_pending' ? (
+                            <form action={`/api/documents/patient/${patient.id}/${document.id}/digilogix/refresh`} method="post">
+                              <button className="btn secondary btn-compact" type="submit">Verificar estado</button>
+                            </form>
+                          ) : null}
                         </div>
                       </div>
                     );
