@@ -29,6 +29,15 @@ const settingsActions = read('app/(protected)/settings/actions.ts');
 const professionalContactsMigration = read('supabase/migrations/20260923183500_professional_contacts.sql');
 const idempotentRescheduleMigration = read('supabase/migrations/20260923185500_idempotent_reschedule_requests.sql');
 const finalActionCleanupMigration = read('supabase/migrations/20260923190500_clear_pending_reschedule_on_final_action.sql');
+const correctivePublicActionMigration = read('supabase/migrations/20260924121000_whatsapp_public_action_rpc_consistency.sql');
+
+const confirmRpcBlock = finalActionCleanupMigration.slice(
+  finalActionCleanupMigration.indexOf('create or replace function public.confirm_public_appointment'),
+  finalActionCleanupMigration.indexOf('create or replace function public.cancel_public_appointment'),
+);
+const cancelRpcBlock = finalActionCleanupMigration.slice(
+  finalActionCleanupMigration.indexOf('create or replace function public.cancel_public_appointment'),
+);
 const publicToken = read('lib/appointments/public-token.ts');
 const agendaPage = read('app/(protected)/agenda/page.tsx');
 
@@ -277,8 +286,13 @@ check(
 );
 
 check(
-  'Public cancellation keeps newer already_cancelled semantics',
-  finalActionCleanupMigration.includes("return query select 'already_cancelled'::text") &&
+  'Public action RPC result semantics are not crossed',
+  confirmRpcBlock.includes("return query select 'ok'::text;") &&
+    confirmRpcBlock.includes("return query select 'already_cancelled'::text;") &&
+    cancelRpcBlock.includes("if v_status in ('cancelled', 'cancelado') then") &&
+    cancelRpcBlock.includes("return query select 'already_cancelled'::text;") &&
+    cancelRpcBlock.includes("return query select 'ok'::text;") &&
+    correctivePublicActionMigration.includes("return query select 'already_cancelled'::text;") &&
     publicToken.includes("if (result === 'already_cancelled')"),
 );
 
