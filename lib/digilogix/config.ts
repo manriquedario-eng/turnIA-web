@@ -20,6 +20,9 @@ export type DigilogixPlatformConfig = {
   authTimeZone: string;
 };
 
+/** Alias de compatibilidad interna. Preferir DigilogixPlatformConfig. */
+export type DigilogixConfig = DigilogixPlatformConfig;
+
 const DEFAULT_TEST_BASE_URL = 'https://test.api.firmador.digilogix.com.ar/api';
 const DEFAULT_TIME_ZONE = 'America/Argentina/Buenos_Aires';
 
