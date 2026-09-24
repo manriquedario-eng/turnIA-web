@@ -88,6 +88,22 @@ export type WsfeInvoiceAuthorizationResult = {
   requestedAt: string;
 };
 
+export type WsfeInvoiceConsultResult = {
+  environment: ArcaEnvironment;
+  pointOfSale: number;
+  voucherType: number;
+  voucherNumber: number;
+  amount: number | null;
+  result: string;
+  authorizationCode: string | null;
+  authorizationType: string | null;
+  authorizationExpiresAt: string | null;
+  processedAt: string | null;
+  observations: string[];
+  events: string[];
+  checkedAt: string;
+};
+
 function escapeXml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -550,6 +566,91 @@ export async function getWsfeLastAuthorized(params: {
 }
 
 
+export async function getWsfeInvoiceByNumber(params: {
+  tenantId: string;
+  userId: string;
+  pointOfSale: number;
+  voucherType: number;
+  voucherNumber: number;
+  environment?: ArcaEnvironment;
+}): Promise<ArcaResult<WsfeInvoiceConsultResult>> {
+  const environment = params.environment ?? 'homologacion';
+
+  if (!Number.isInteger(params.pointOfSale) || params.pointOfSale <= 0) {
+    return { ok: false, reason: 'provider_error', errorMessage: 'Punto de venta inválido.' };
+  }
+  if (!Number.isInteger(params.voucherType) || params.voucherType <= 0) {
+    return { ok: false, reason: 'provider_error', errorMessage: 'Tipo de comprobante inválido.' };
+  }
+  if (!Number.isInteger(params.voucherNumber) || params.voucherNumber <= 0) {
+    return { ok: false, reason: 'provider_error', errorMessage: 'Número de comprobante inválido.' };
+  }
+
+  const auth = await getWsaaAuthContext({
+    tenantId: params.tenantId,
+    userId: params.userId,
+    environment,
+  });
+  if (!auth.ok) return auth;
+
+  const called = await callWsfe({
+    environment,
+    operationElement: 'FECompConsultar',
+    innerXml:
+      buildAuthXml(auth.data) +
+      '<ar:FeCompConsReq>' +
+        '<ar:CbteTipo>' + String(params.voucherType) + '</ar:CbteTipo>' +
+        '<ar:CbteNro>' + String(params.voucherNumber) + '</ar:CbteNro>' +
+        '<ar:PtoVta>' + String(params.pointOfSale) + '</ar:PtoVta>' +
+      '</ar:FeCompConsReq>',
+  });
+  if (!called.ok) return called;
+
+  const responseNode = asRecord(called.data.FECompConsultarResponse);
+  const resultNode = asRecord(responseNode.FECompConsultarResult);
+  const errors = extractMessages(resultNode.Errors, 'Err');
+  if (errors.length > 0) {
+    return {
+      ok: false,
+      reason: 'provider_error',
+      errorMessage: errors.join(' | ').slice(0, 500),
+    };
+  }
+
+  const resultGet = asRecord(resultNode.ResultGet);
+  if (Object.keys(resultGet).length === 0) {
+    return {
+      ok: false,
+      reason: 'provider_error',
+      errorMessage: 'ARCA no devolvió datos para el comprobante consultado.',
+    };
+  }
+
+  const observations = extractMessages(resultGet.Observaciones, 'Obs');
+  const events = extractMessages(resultNode.Events, 'Evt');
+  const authorizationCodeRaw = asString(resultGet.CodAutorizacion);
+  const authorizationCode = authorizationCodeRaw?.trim() ? authorizationCodeRaw.trim() : null;
+
+  return {
+    ok: true,
+    data: {
+      environment,
+      pointOfSale: asNumber(resultGet.PtoVta) ?? params.pointOfSale,
+      voucherType: asNumber(resultGet.CbteTipo) ?? params.voucherType,
+      voucherNumber: asNumber(resultGet.CbteDesde) ?? params.voucherNumber,
+      amount: asNumber(resultGet.ImpTotal),
+      result: asString(resultGet.Resultado) ?? '',
+      authorizationCode,
+      authorizationType: asString(resultGet.EmisionTipo),
+      authorizationExpiresAt: asString(resultGet.FchVto),
+      processedAt: asString(resultGet.FchProceso),
+      observations,
+      events,
+      checkedAt: new Date().toISOString(),
+    },
+  };
+}
+
 function argentinaTodayYYYYMMDD(): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Argentina/Buenos_Aires',
@@ -703,6 +804,7 @@ export async function authorizeWsfeInvoiceC(params: {
   recipientDocNumber: string;
   recipientVatConditionId: number;
   activityCode?: string | null;
+  voucherNumber?: number;
   environment?: ArcaEnvironment;
 }): Promise<ArcaResult<WsfeInvoiceAuthorizationResult>> {
   const environment = params.environment ?? 'homologacion';
@@ -746,16 +848,22 @@ export async function authorizeWsfeInvoiceC(params: {
     return { ok: false, reason: 'provider_error', errorMessage: 'Las fechas de la factura no son válidas.' };
   }
 
-  const last = await getWsfeLastAuthorized({
-    tenantId: params.tenantId,
-    userId: params.userId,
-    pointOfSale: params.pointOfSale,
-    voucherType,
-    environment,
-  });
-  if (!last.ok) return last;
+  let voucherNumber = params.voucherNumber ?? null;
+  if (voucherNumber != null && (!Number.isInteger(voucherNumber) || voucherNumber <= 0)) {
+    return { ok: false, reason: 'provider_error', errorMessage: 'Número de comprobante inválido.' };
+  }
 
-  const voucherNumber = (last.data.lastAuthorizedNumber ?? 0) + 1;
+  if (voucherNumber == null) {
+    const last = await getWsfeLastAuthorized({
+      tenantId: params.tenantId,
+      userId: params.userId,
+      pointOfSale: params.pointOfSale,
+      voucherType,
+      environment,
+    });
+    if (!last.ok) return last;
+    voucherNumber = (last.data.lastAuthorizedNumber ?? 0) + 1;
+  }
 
   const auth = await getWsaaAuthContext({
     tenantId: params.tenantId,
