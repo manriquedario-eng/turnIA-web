@@ -14,36 +14,92 @@
 //   WHATSAPP_PHONE_NUMBER_ID      Phone Number ID de WhatsApp Cloud API
 //   WHATSAPP_TEMPLATE_NAME        nombre de la plantilla aprobada por Meta
 //   WHATSAPP_TEMPLATE_LANG        código de idioma de la plantilla (ej. "es_AR")
-//   WHATSAPP_GRAPH_API_VERSION    opcional, default "v20.0"
+//   WHATSAPP_GRAPH_API_VERSION    opcional, default "v25.0"
 //
 // Ninguna de estas variables se hardcodea ni se versiona: se leen sólo desde
 // process.env en tiempo de ejecución server-side.
 
-export type WhatsAppTemplateComponent = {
-  type: 'body';
-  parameters: { type: 'text'; text: string }[];
-};
+export type WhatsAppTemplateComponent =
+  | {
+      type: 'body';
+      parameters: { type: 'text'; text: string }[];
+    }
+  | {
+      type: 'button';
+      sub_type: 'quick_reply';
+      index: string;
+      parameters: [{ type: 'payload'; payload: string }];
+    };
 
 export type WhatsAppSendResult =
   | { ok: true; providerMessageId: string }
   | { ok: false, reason: 'not_configured' | 'invalid_phone' | 'provider_error' | 'network_error'; errorMessage: string };
 
-function getConfig() {
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const templateName = process.env.WHATSAPP_TEMPLATE_NAME;
-  const templateLang = process.env.WHATSAPP_TEMPLATE_LANG || 'es_AR';
-  const apiVersion = process.env.WHATSAPP_GRAPH_API_VERSION || 'v20.0';
+const META_REQUEST_TIMEOUT_MS = 10_000;
 
-  if (!accessToken || !phoneNumberId || !templateName) {
-    return null;
-  }
-  return { accessToken, phoneNumberId, templateName, templateLang, apiVersion };
+function metaErrorMessage(json: any, status: number): string {
+  const code = json?.error?.code;
+  const subcode = json?.error?.error_subcode;
+  const message = json?.error?.message;
+
+  const parts = [
+    typeof code === 'number' ? `Meta #${code}` : null,
+    typeof subcode === 'number' ? `subcode ${subcode}` : null,
+    typeof message === 'string' ? message : null,
+  ].filter((part): part is string => Boolean(part));
+
+  return (parts.length ? parts.join(' — ') : `Meta respondió ${status}`).slice(0, 500);
 }
 
-/** true si hay credenciales suficientes para intentar un envío real. */
+function getBaseConfig() {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const apiVersion = process.env.WHATSAPP_GRAPH_API_VERSION || 'v25.0';
+
+  if (!accessToken || !phoneNumberId) {
+    return null;
+  }
+
+  return { accessToken, phoneNumberId, apiVersion };
+}
+
+export type WhatsAppIntegrationStatus = {
+  baseConfigured: boolean;
+  initialTemplateConfigured: boolean;
+  webhookConfigured: boolean;
+  reminderTemplateConfigured: boolean;
+  professionalRescheduleTemplateConfigured: boolean;
+  apiVersion: string;
+  readyForInitialMessages: boolean;
+};
+
+export function getWhatsAppIntegrationStatus(): WhatsAppIntegrationStatus {
+  const base = getBaseConfig();
+  const initialTemplateConfigured = Boolean(process.env.WHATSAPP_TEMPLATE_NAME);
+  const webhookConfigured = Boolean(
+    process.env.WHATSAPP_VERIFY_TOKEN &&
+    process.env.WHATSAPP_APP_SECRET &&
+    process.env.WHATSAPP_PHONE_NUMBER_ID
+  );
+  const reminderTemplateConfigured = Boolean(process.env.WHATSAPP_REMINDER_TEMPLATE_NAME);
+  const professionalRescheduleTemplateConfigured = Boolean(
+    process.env.WHATSAPP_PROFESSIONAL_RESCHEDULE_TEMPLATE_NAME
+  );
+
+  return {
+    baseConfigured: Boolean(base),
+    initialTemplateConfigured,
+    webhookConfigured,
+    reminderTemplateConfigured,
+    professionalRescheduleTemplateConfigured,
+    apiVersion: base?.apiVersion ?? process.env.WHATSAPP_GRAPH_API_VERSION ?? 'v25.0',
+    readyForInitialMessages: Boolean(base && initialTemplateConfigured),
+  };
+}
+
+/** true si hay credenciales + plantilla principal suficientes para enviar el mensaje inicial. */
 export function isWhatsAppConfigured(): boolean {
-  return getConfig() !== null;
+  return getWhatsAppIntegrationStatus().readyForInitialMessages;
 }
 
 /**
@@ -55,10 +111,16 @@ export function isWhatsAppConfigured(): boolean {
 export async function sendWhatsAppTemplate(params: {
   toE164: string;
   bodyParams: string[];
+  quickReplyPayloads?: string[];
+  templateName?: string;
+  templateLang?: string;
 }): Promise<WhatsAppSendResult> {
-  const config = getConfig();
-  if (!config) {
-    return { ok: false, reason: 'not_configured', errorMessage: 'Credenciales de WhatsApp no configuradas.' };
+  const config = getBaseConfig();
+  const templateName = params.templateName || process.env.WHATSAPP_TEMPLATE_NAME;
+  const templateLang = params.templateLang || process.env.WHATSAPP_TEMPLATE_LANG || 'es_AR';
+
+  if (!config || !templateName) {
+    return { ok: false, reason: 'not_configured', errorMessage: 'Credenciales o plantilla de WhatsApp no configuradas.' };
   }
 
   const to = params.toE164.replace(/^\+/, '');
@@ -66,10 +128,22 @@ export async function sendWhatsAppTemplate(params: {
     return { ok: false, reason: 'invalid_phone', errorMessage: 'Teléfono en formato E.164 inválido.' };
   }
 
-  const component: WhatsAppTemplateComponent = {
-    type: 'body',
-    parameters: params.bodyParams.map((text) => ({ type: 'text', text })),
-  };
+  const components: WhatsAppTemplateComponent[] = [
+    {
+      type: 'body',
+      parameters: params.bodyParams.map((text) => ({ type: 'text', text })),
+    },
+  ];
+
+  for (const [index, payload] of (params.quickReplyPayloads ?? []).entries()) {
+    if (index > 2) break;
+    components.push({
+      type: 'button',
+      sub_type: 'quick_reply',
+      index: String(index),
+      parameters: [{ type: 'payload', payload }],
+    });
+  }
 
   const url = `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}/messages`;
 
@@ -80,14 +154,15 @@ export async function sendWhatsAppTemplate(params: {
         Authorization: `Bearer ${config.accessToken}`,
         'Content-Type': 'application/json',
       },
+      signal: AbortSignal.timeout(META_REQUEST_TIMEOUT_MS),
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         to,
         type: 'template',
         template: {
-          name: config.templateName,
-          language: { code: config.templateLang },
-          components: [component],
+          name: templateName,
+          language: { code: templateLang },
+          components,
         },
       }),
     });
@@ -97,8 +172,11 @@ export async function sendWhatsAppTemplate(params: {
     if (!response.ok) {
       // Sanitizado: sólo el mensaje de error de Meta, nunca el token ni el
       // payload completo de la request.
-      const errorMessage = json?.error?.message || `Meta respondió ${response.status}`;
-      return { ok: false, reason: 'provider_error', errorMessage: String(errorMessage).slice(0, 500) };
+      return {
+        ok: false,
+        reason: 'provider_error',
+        errorMessage: metaErrorMessage(json, response.status),
+      };
     }
 
     const providerMessageId = json?.messages?.[0]?.id;
@@ -108,7 +186,82 @@ export async function sendWhatsAppTemplate(params: {
 
     return { ok: true, providerMessageId };
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Error de red desconocido';
+    const errorMessage =
+      err instanceof Error && err.name === 'TimeoutError'
+        ? 'Timeout al contactar WhatsApp Cloud API.'
+        : err instanceof Error
+          ? err.message
+          : 'Error de red desconocido';
+    return { ok: false, reason: 'network_error', errorMessage: errorMessage.slice(0, 500) };
+  }
+}
+
+
+/**
+ * Envía una respuesta de texto libre dentro de la ventana de atención abierta
+ * por una interacción del paciente (por ejemplo, al tocar un botón de una
+ * plantilla). No se usa para iniciar conversaciones.
+ */
+export async function sendWhatsAppTextMessage(params: {
+  toWaId: string;
+  text: string;
+}): Promise<WhatsAppSendResult> {
+  const config = getBaseConfig();
+
+  if (!config) {
+    return { ok: false, reason: 'not_configured', errorMessage: 'Credenciales de WhatsApp no configuradas.' };
+  }
+
+  const to = params.toWaId.replace(/^\+/, '');
+  if (!/^\d{8,15}$/.test(to)) {
+    return { ok: false, reason: 'invalid_phone', errorMessage: 'Teléfono de WhatsApp inválido.' };
+  }
+
+  const text = params.text.trim();
+  if (!text) {
+    return { ok: false, reason: 'provider_error', errorMessage: 'Respuesta de WhatsApp vacía.' };
+  }
+
+  const url = `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}/messages`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(META_REQUEST_TIMEOUT_MS),
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'text',
+        text: { body: text.slice(0, 4096) },
+      }),
+    });
+
+    const json = await response.json().catch(() => null);
+    if (!response.ok) {
+      return {
+        ok: false,
+        reason: 'provider_error',
+        errorMessage: metaErrorMessage(json, response.status),
+      };
+    }
+
+    const providerMessageId = json?.messages?.[0]?.id;
+    if (!providerMessageId) {
+      return { ok: false, reason: 'provider_error', errorMessage: 'Meta no devolvió un ID de mensaje.' };
+    }
+
+    return { ok: true, providerMessageId };
+  } catch (err) {
+    const errorMessage =
+      err instanceof Error && err.name === 'TimeoutError'
+        ? 'Timeout al contactar WhatsApp Cloud API.'
+        : err instanceof Error
+          ? err.message
+          : 'Error de red desconocido';
     return { ok: false, reason: 'network_error', errorMessage: errorMessage.slice(0, 500) };
   }
 }
