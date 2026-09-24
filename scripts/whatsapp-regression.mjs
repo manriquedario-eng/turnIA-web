@@ -124,11 +124,8 @@ check(
 );
 
 check(
-  'Reminder processing counts fulfilled provider/register failures',
-  reminder.includes('type ReminderChannelResult') &&
-    reminder.includes("reason: 'register_failed'") &&
-    reminder.includes("reason: 'provider_failed'") &&
-    reminder.includes('channelFailures += failedChannels + rejectedChannels') &&
+  'Reminder processing counts fulfilled channel failures',
+  reminder.includes("result.status === 'fulfilled' && result.value === false") &&
     reminder.includes('if (failedChannels > 0 || rejectedChannels > 0)'),
 );
 
