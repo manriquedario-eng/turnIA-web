@@ -183,19 +183,28 @@ async function sendReminderEmail(params: {
     </div>
   `.trim();
 
-  const result = await sendTransactionalEmail({
-    to: params.patientEmail,
-    subject,
-    html,
-    text,
-  });
+  try {
+    const result = await sendTransactionalEmail({
+      to: params.patientEmail,
+      subject,
+      html,
+      text,
+    });
 
-  await finishMessage({
-    id: row.id,
-    ok: result.ok,
-    providerMessageId: result.ok ? result.providerMessageId : undefined,
-    errorMessage: result.ok ? undefined : result.errorMessage,
-  });
+    await finishMessage({
+      id: row.id,
+      ok: result.ok,
+      providerMessageId: result.ok ? result.providerMessageId : undefined,
+      errorMessage: result.ok ? undefined : result.errorMessage,
+    });
+  } catch (error) {
+    await finishMessage({
+      id: row.id,
+      ok: false,
+      errorMessage: 'Error inesperado al enviar el recordatorio por email.',
+    });
+    throw error;
+  }
 }
 
 async function sendReminderWhatsApp(params: {
@@ -237,29 +246,38 @@ async function sendReminderWhatsApp(params: {
   });
   if (!row.id) return;
 
-  const result = await sendWhatsAppTemplate({
-    toE164: params.phoneE164,
-    bodyParams: [
-      params.patientName,
-      params.dateLabel,
-      params.timeLabel,
-      params.professionalName,
-    ],
-    quickReplyPayloads: [
-      `turnia:appointment:${params.publicToken}:confirm`,
-      `turnia:appointment:${params.publicToken}:cancel`,
-      `turnia:appointment:${params.publicToken}:reschedule`,
-    ],
-    templateName,
-    templateLang,
-  });
+  try {
+    const result = await sendWhatsAppTemplate({
+      toE164: params.phoneE164,
+      bodyParams: [
+        params.patientName,
+        params.dateLabel,
+        params.timeLabel,
+        params.professionalName,
+      ],
+      quickReplyPayloads: [
+        `turnia:appointment:${params.publicToken}:confirm`,
+        `turnia:appointment:${params.publicToken}:cancel`,
+        `turnia:appointment:${params.publicToken}:reschedule`,
+      ],
+      templateName,
+      templateLang,
+    });
 
-  await finishMessage({
-    id: row.id,
-    ok: result.ok,
-    providerMessageId: result.ok ? result.providerMessageId : undefined,
-    errorMessage: result.ok ? undefined : result.errorMessage,
-  });
+    await finishMessage({
+      id: row.id,
+      ok: result.ok,
+      providerMessageId: result.ok ? result.providerMessageId : undefined,
+      errorMessage: result.ok ? undefined : result.errorMessage,
+    });
+  } catch (error) {
+    await finishMessage({
+      id: row.id,
+      ok: false,
+      errorMessage: 'Error inesperado al enviar el recordatorio por WhatsApp.',
+    });
+    throw error;
+  }
 }
 
 export async function processAppointmentReminders24h(now = new Date()) {
