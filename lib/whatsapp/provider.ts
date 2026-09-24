@@ -116,8 +116,8 @@ export async function sendWhatsAppTemplate(params: {
   templateLang?: string;
 }): Promise<WhatsAppSendResult> {
   const config = getBaseConfig();
-  const templateName = params.templateName || process.env.WHATSAPP_TEMPLATE_NAME;
-  const templateLang = params.templateLang || process.env.WHATSAPP_TEMPLATE_LANG || 'es_AR';
+  const templateName = (params.templateName || process.env.WHATSAPP_TEMPLATE_NAME)?.trim();
+  const templateLang = (params.templateLang || process.env.WHATSAPP_TEMPLATE_LANG || 'es_AR').trim();
 
   if (!config || !templateName) {
     return { ok: false, reason: 'not_configured', errorMessage: 'Credenciales o plantilla de WhatsApp no configuradas.' };
@@ -128,10 +128,19 @@ export async function sendWhatsAppTemplate(params: {
     return { ok: false, reason: 'invalid_phone', errorMessage: 'Teléfono en formato E.164 inválido.' };
   }
 
+  const normalizedBodyParams = params.bodyParams.map((text) => text.trim());
+  if (normalizedBodyParams.some((text) => !text)) {
+    return {
+      ok: false,
+      reason: 'provider_error',
+      errorMessage: 'La plantilla contiene un parámetro BODY vacío; envío bloqueado localmente.',
+    };
+  }
+
   const components: WhatsAppTemplateComponent[] = [
     {
       type: 'body',
-      parameters: params.bodyParams.map((text) => ({ type: 'text', text })),
+      parameters: normalizedBodyParams.map((text) => ({ type: 'text', text })),
     },
   ];
 
