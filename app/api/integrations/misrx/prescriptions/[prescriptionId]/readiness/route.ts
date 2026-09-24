@@ -510,12 +510,8 @@ export async function GET(
   }
 
   const ready = checks.every((check) => check.ok);
-  const controlledPreviewIssuing =
-    process.env.VERCEL_ENV === 'preview' &&
-    prescription.id === '24e0131d-2ca6-4270-b23b-05dfd9dfcf4a';
-
   const liveIssuingEnabled = homologationActive
-    ? Boolean(homologation.issuingEnabled || controlledPreviewIssuing)
+    ? Boolean(homologation.issuingEnabled)
     : isMisRxProductionIssuingEnabled();
 
   return NextResponse.json({
