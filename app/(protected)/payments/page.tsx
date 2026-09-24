@@ -13,7 +13,7 @@ export default async function PaymentsPage({
   const { supabase, tenantId } = await requireTenant();
   const params = await searchParams;
 
-  const datePattern = /^\\d{4}-\\d{2}-\\d{2}$/;
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
   const exportFrom = params.export_from && datePattern.test(params.export_from) ? params.export_from : '';
   const exportTo = params.export_to && datePattern.test(params.export_to) ? params.export_to : '';
   const exportRangeParams = new URLSearchParams();
