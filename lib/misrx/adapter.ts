@@ -90,15 +90,6 @@ export class MisRxAdapter {
     const login = await loginToMisRx(this.credentials);
     if (!login.ok) return login;
 
-    if (Number(login.data.tipo) !== 3) {
-      return {
-        ok: false,
-        reason: 'unauthorized',
-        status: 403,
-        errorMessage: 'La cuenta MisRX conectada no corresponde a un prestador externo habilitable para prescribir.',
-      };
-    }
-
     const profileResult = await misRxRequest<MisRxProfessionalProfile>({
       path: '/usuario/perfil',
       accessToken: login.data.access_token,
