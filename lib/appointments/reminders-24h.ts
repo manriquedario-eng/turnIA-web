@@ -10,11 +10,6 @@ const TZ = 'America/Argentina/Buenos_Aires';
 const TURNIA_URL = 'https://www.turniahealth.com.ar';
 const REMINDER_PAGE_SIZE = 200;
 
-type ReminderChannelResult =
-  | { attempted: false; ok: true; reason: 'not_applicable' | 'duplicate' }
-  | { attempted: true; ok: true }
-  | { attempted: true; ok: false; reason: 'register_failed' | 'provider_failed' };
-
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('es-AR', {
     timeZone: TZ,
@@ -136,10 +131,8 @@ async function sendReminderEmail(params: {
   timeLabel: string;
   startsAt: string;
   publicToken: string;
-): Promise<ReminderChannelResult> {
-  if (!params.patientEmail || !isPlausibleEmail(params.patientEmail)) {
-    return { attempted: false, ok: true, reason: 'not_applicable' };
-  }
+): Promise<boolean> {
+  if (!params.patientEmail || !isPlausibleEmail(params.patientEmail)) return true;
 
   const row = await createMessageRow({
     tenantId: params.tenantId,
@@ -154,11 +147,7 @@ async function sendReminderEmail(params: {
       timeLabel: params.timeLabel,
     },
   });
-  if (!row.id) {
-    return row.duplicate
-      ? { attempted: false, ok: true, reason: 'duplicate' }
-      : { attempted: true, ok: false, reason: 'register_failed' };
-  }
+  if (!row.id) return row.duplicate;
 
   const base = `${TURNIA_URL}/t/${params.publicToken}`;
   const subject = `Recordatorio de turno — ${params.dateLabel} ${params.timeLabel}`;
@@ -209,9 +198,7 @@ async function sendReminderEmail(params: {
       errorMessage: result.ok ? undefined : result.errorMessage,
     });
 
-    return result.ok
-      ? { attempted: true, ok: true }
-      : { attempted: true, ok: false, reason: 'provider_failed' };
+    return result.ok;
   } catch (error) {
     await finishMessage({
       id: row.id,
@@ -234,10 +221,8 @@ async function sendReminderWhatsApp(params: {
   timeLabel: string;
   startsAt: string;
   publicToken: string;
-): Promise<ReminderChannelResult> {
-  if (!params.phoneE164 || !params.whatsappConsent) {
-    return { attempted: false, ok: true, reason: 'not_applicable' };
-  }
+): Promise<boolean> {
+  if (!params.phoneE164 || !params.whatsappConsent) return true;
 
   const templateName = process.env.WHATSAPP_REMINDER_TEMPLATE_NAME;
   const templateLang =
@@ -245,9 +230,7 @@ async function sendReminderWhatsApp(params: {
     process.env.WHATSAPP_TEMPLATE_LANG ||
     'es_AR';
 
-  if (!templateName) {
-    return { attempted: false, ok: true, reason: 'not_applicable' };
-  }
+  if (!templateName) return true;
 
   const row = await createMessageRow({
     tenantId: params.tenantId,
@@ -263,11 +246,7 @@ async function sendReminderWhatsApp(params: {
       recipientE164: params.phoneE164,
     },
   });
-  if (!row.id) {
-    return row.duplicate
-      ? { attempted: false, ok: true, reason: 'duplicate' }
-      : { attempted: true, ok: false, reason: 'register_failed' };
-  }
+  if (!row.id) return row.duplicate;
 
   try {
     const result = await sendWhatsAppTemplate({
@@ -294,9 +273,7 @@ async function sendReminderWhatsApp(params: {
       errorMessage: result.ok ? undefined : result.errorMessage,
     });
 
-    return result.ok
-      ? { attempted: true, ok: true }
-      : { attempted: true, ok: false, reason: 'provider_failed' };
+    return result.ok;
   } catch (error) {
     await finishMessage({
       id: row.id,
@@ -323,8 +300,6 @@ export async function processAppointmentReminders24h(now = new Date()) {
   let eligible = 0;
   let processed = 0;
   let errors = 0;
-  let channelAttempts = 0;
-  let channelFailures = 0;
   let pages = 0;
   let from = 0;
 
@@ -411,24 +386,12 @@ export async function processAppointmentReminders24h(now = new Date()) {
           }),
         ]);
 
-        let attemptedChannels = 0;
-        let failedChannels = 0;
-        let rejectedChannels = 0;
-
-        for (const channelResult of channelResults) {
-          if (channelResult.status === 'rejected') {
-            rejectedChannels += 1;
-            continue;
-          }
-
-          if (channelResult.value.attempted) {
-            attemptedChannels += 1;
-            if (!channelResult.value.ok) failedChannels += 1;
-          }
-        }
-
-        channelAttempts += attemptedChannels;
-        channelFailures += failedChannels + rejectedChannels;
+        const rejectedChannels = channelResults.filter(
+          (result) => result.status === 'rejected',
+        ).length;
+        const failedChannels = channelResults.filter(
+          (result) => result.status === 'fulfilled' && result.value === false,
+        ).length;
 
         if (failedChannels > 0 || rejectedChannels > 0) {
           errors += 1;
@@ -458,8 +421,6 @@ export async function processAppointmentReminders24h(now = new Date()) {
     eligible,
     processed,
     errors,
-    channelAttempts,
-    channelFailures,
     pages,
     window: { startsFrom, startsTo },
   };
