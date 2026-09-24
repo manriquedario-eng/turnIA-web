@@ -75,7 +75,7 @@ legacy_contacts as (
     s.tenant_id,
     smt.user_id,
     case
-      when nullif(btrim(s.profile->>'professional_phone'), '') ~ '^\+[1-9][0-9]{7,14}
+      when nullif(btrim(s.profile->>'professional_phone'), '') ~ '^\+[1-9][0-9]{7,14}$'
         then btrim(s.profile->>'professional_phone')
       else null
     end as phone_e164,
