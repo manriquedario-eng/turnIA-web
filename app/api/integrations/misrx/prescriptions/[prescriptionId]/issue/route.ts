@@ -311,8 +311,10 @@ export async function POST(
 
   if (
     !providerAffiliate ||
-    (localDni && providerDni && localDni !== providerDni) ||
-    (localCredential && providerCredential && localCredential !== providerCredential)
+    (!homologationActive && (
+      (localDni && providerDni && localDni !== providerDni) ||
+      (localCredential && providerCredential && localCredential !== providerCredential)
+    ))
   ) {
     return NextResponse.json(
       { error: 'El afiliado seleccionado ya no coincide con los datos actuales del paciente.' },
