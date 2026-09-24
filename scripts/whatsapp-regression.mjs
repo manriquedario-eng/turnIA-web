@@ -287,6 +287,7 @@ check(
   professionalContactsMigration.includes("~ '^\\\\+[1-9][0-9]{7,14}$'"),
 );
 
+check(
   'Completed appointments cannot be mutated from public or WhatsApp actions',
   finalActionCleanupMigration.includes("v_status in ('completed', 'completado')") &&
     idempotentRescheduleMigration.includes("v_status in ('completed', 'completado')"),
