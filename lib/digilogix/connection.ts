@@ -13,6 +13,11 @@ export type DigilogixConnectionStatus =
   | 'connected'
   | 'error';
 
+/**
+ * Vinculación por profesional. No contiene secretos de Digilogix:
+ * solamente identidad mínima y estado del certificado consultado al proveedor.
+ * PIN, contraseña, OTP y material criptográfico permanecen en Digilogix.
+ */
 export type DigilogixConnection = {
   cuil: string;
   email: string | null;
@@ -79,6 +84,13 @@ async function saveConnection(
   return { ok: true as const };
 }
 
+/**
+ * Flujo autoservicio multi-tenant:
+ * 1) usa la credencial técnica global de TurnIA para consultar Digilogix;
+ * 2) vincula únicamente al profesional autenticado por CUIL/email;
+ * 3) si no existe certificado, inicia el onboarding en Digilogix;
+ * 4) nunca recibe ni persiste contraseña, PIN u OTP del profesional.
+ */
 export async function connectOrRefreshDigilogix(params: {
   supabase: SupabaseClient;
   tenantId: string;
