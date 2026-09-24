@@ -10,6 +10,7 @@ import { sendAppointmentConfirmationEmail } from '@/lib/email/send-appointment-c
 import { assertNoOverlap, assertNotInPast } from '@/lib/appointments/scheduling';
 import { createMercadoPagoCheckoutForAppointment } from '@/lib/mercadopago/orders';
 import { resolvePatientCommunicationName } from '@/lib/patients/communication-name';
+import { runAppointmentCancellationSideEffects } from '@/lib/appointments/cancellation-side-effects';
 
 const MESSAGING_TZ = 'America/Argentina/Buenos_Aires';
 
@@ -561,18 +562,59 @@ export async function updateAppointment(formData: FormData) {
 }
 
 export async function cancelAppointment(formData: FormData) {
-  const { supabase, tenantId } = await requireTenant();
+  const { supabase, user, tenantId } = await requireTenant();
   const returnTo = safeReturn(formData);
   const id = z.string().uuid().safeParse(formData.get('id'));
   if (!id.success) redirect(`${returnTo}&error=Turno%20inválido`);
 
-  // NOTA (PARTE 4 del pedido, fase futura): mismo comentario que en
-  // updateAppointment — acá es donde correspondería llamar a
-  // cancelGoogleMeetForAppointment si el turno cancelado tenía
-  // external_calendar_event_id. No implementado en esta tarea.
-  const { error } = await supabase.from('appointments').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', id.data).eq('tenant_id', tenantId);
-  if (error) redirect(`${returnTo}&error=${encodeURIComponent(error.message)}`);
+  const { data: appointment, error: readError } = await supabase
+    .from('appointments')
+    .select('id,status,patient_id,professional_id,starts_at,external_calendar_event_id')
+    .eq('id', id.data)
+    .eq('tenant_id', tenantId)
+    .eq('professional_id', user.id)
+    .maybeSingle();
+
+  if (readError || !appointment) {
+    redirect(`${returnTo}&error=${encodeURIComponent('Turno no disponible')}`);
+  }
+
+  if (appointment.status === 'cancelled' || appointment.status === 'cancelado') {
+    redirect(`${returnTo}&ok=Turno%20ya%20cancelado`);
+  }
+
+  // La cancelación local ocurre primero. Google/email son efectos posteriores
+  // aislados: un fallo externo nunca revierte ni bloquea el estado cancelado.
+  const { data: cancelled, error } = await supabase
+    .from('appointments')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('id', appointment.id)
+    .eq('tenant_id', tenantId)
+    .eq('professional_id', user.id)
+    .eq('status', appointment.status)
+    .select('id')
+    .maybeSingle();
+
+  if (error || !cancelled) {
+    redirect(`${returnTo}&error=${encodeURIComponent('El turno cambió mientras intentabas cancelarlo. Actualizá la agenda y volvé a revisar.')}`);
+  }
+
+  try {
+    await runAppointmentCancellationSideEffects({
+      supabase,
+      tenantId,
+      professionalUserId: user.id,
+      appointmentId: appointment.id,
+      patientId: appointment.patient_id ?? null,
+      startsAt: appointment.starts_at,
+      externalCalendarEventId: appointment.external_calendar_event_id ?? null,
+    });
+  } catch {
+    console.error('[agenda] cancellation side effects failed', { appointmentId: appointment.id });
+  }
+
   revalidatePath('/agenda');
+  if (returnTo.startsWith('/patients/')) revalidatePath(returnTo);
   redirect(`${returnTo}&ok=Turno%20cancelado`);
 }
 
