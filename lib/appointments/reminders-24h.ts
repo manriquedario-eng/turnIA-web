@@ -8,7 +8,7 @@ import { sendWhatsAppTemplate } from '@/lib/whatsapp/provider';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 const TURNIA_URL = 'https://www.turniahealth.com.ar';
-const MAX_APPOINTMENTS_PER_REMINDER_RUN = 1000;
+const REMINDER_PAGE_SIZE = 200;
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('es-AR', {
@@ -274,103 +274,128 @@ export async function processAppointmentReminders24h(now = new Date()) {
   const startsFrom = new Date(now.getTime() + (23 * 60 + 45) * 60 * 1000).toISOString();
   const startsTo = new Date(now.getTime() + (24 * 60 + 15) * 60 * 1000).toISOString();
 
-  const { data: appointments, error } = await supabase
-    .from('appointments')
-    .select('id,tenant_id,patient_id,professional_id,starts_at,status,public_token')
-    .gte('starts_at', startsFrom)
-    .lte('starts_at', startsTo)
-    .order('starts_at', { ascending: true })
-    .limit(MAX_APPOINTMENTS_PER_REMINDER_RUN);
-
-  if (error) {
-    return { ok: false as const, reason: 'appointments_query_failed' };
-  }
-
-  const truncated = (appointments?.length ?? 0) >= MAX_APPOINTMENTS_PER_REMINDER_RUN;
-  if (truncated) {
-    console.warn('Appointment reminders 24h reached scan cap', {
-      cap: MAX_APPOINTMENTS_PER_REMINDER_RUN,
-      startsFrom,
-      startsTo,
-    });
-  }
-
+  let scanned = 0;
   let eligible = 0;
   let processed = 0;
+  let errors = 0;
+  let pages = 0;
+  let from = 0;
 
-  for (const appointment of appointments ?? []) {
-    if (
-      !appointment.patient_id ||
-      !appointment.public_token ||
-      isCancelled(appointment.status) ||
-      appointment.status === 'completed' ||
-      appointment.status === 'completado'
-    ) {
-      continue;
+  while (true) {
+    const { data: appointments, error } = await supabase
+      .from('appointments')
+      .select('id,tenant_id,patient_id,professional_id,starts_at,status,public_token')
+      .gte('starts_at', startsFrom)
+      .lte('starts_at', startsTo)
+      .order('starts_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + REMINDER_PAGE_SIZE - 1);
+
+    if (error) {
+      return { ok: false as const, reason: 'appointments_query_failed' };
     }
 
-    const [{ data: patient }, { data: professional }] = await Promise.all([
-      supabase
-        .from('patients')
-        .select('name,alias,use_alias_for_communications,email,phone_e164,whatsapp_consent,appointment_reminders_opt_in')
-        .eq('id', appointment.patient_id)
-        .eq('tenant_id', appointment.tenant_id)
-        .maybeSingle(),
-      appointment.professional_id
-        ? supabase
-            .from('profiles')
-            .select('display_name')
-            .eq('id', appointment.professional_id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-    ]);
+    const page = appointments ?? [];
+    pages += 1;
+    scanned += page.length;
 
-    if (!patient || !patient.appointment_reminders_opt_in) continue;
+    for (const appointment of page) {
+      try {
+        if (
+          !appointment.patient_id ||
+          !appointment.public_token ||
+          isCancelled(appointment.status) ||
+          appointment.status === 'completed' ||
+          appointment.status === 'completado'
+        ) {
+          continue;
+        }
 
-    eligible += 1;
+        const [{ data: patient }, { data: professional }] = await Promise.all([
+          supabase
+            .from('patients')
+            .select('name,alias,use_alias_for_communications,email,phone_e164,whatsapp_consent,appointment_reminders_opt_in')
+            .eq('id', appointment.patient_id)
+            .eq('tenant_id', appointment.tenant_id)
+            .maybeSingle(),
+          appointment.professional_id
+            ? supabase
+                .from('profiles')
+                .select('display_name')
+                .eq('id', appointment.professional_id)
+                .maybeSingle()
+            : Promise.resolve({ data: null }),
+        ]);
 
-    const patientName = resolvePatientCommunicationName(patient);
-    const professionalName = professional?.display_name || 'tu profesional';
-    const dateLabel = formatDate(appointment.starts_at);
-    const timeLabel = formatTime(appointment.starts_at);
+        if (!patient || !patient.appointment_reminders_opt_in) continue;
 
-    await Promise.all([
-      sendReminderEmail({
-        tenantId: appointment.tenant_id,
-        patientId: appointment.patient_id,
-        appointmentId: appointment.id,
-        patientEmail: patient.email ?? null,
-        patientName,
-        professionalName,
-        dateLabel,
-        timeLabel,
-        startsAt: appointment.starts_at,
-        publicToken: appointment.public_token,
-      }),
-      sendReminderWhatsApp({
-        tenantId: appointment.tenant_id,
-        patientId: appointment.patient_id,
-        appointmentId: appointment.id,
-        phoneE164: patient.phone_e164 ?? null,
-        whatsappConsent: Boolean(patient.whatsapp_consent),
-        patientName,
-        professionalName,
-        dateLabel,
-        timeLabel,
-        startsAt: appointment.starts_at,
-        publicToken: appointment.public_token,
-      }),
-    ]);
+        eligible += 1;
 
-    processed += 1;
+        const patientName = resolvePatientCommunicationName(patient);
+        const professionalName = professional?.display_name || 'tu profesional';
+        const dateLabel = formatDate(appointment.starts_at);
+        const timeLabel = formatTime(appointment.starts_at);
+
+        const channelResults = await Promise.allSettled([
+          sendReminderEmail({
+            tenantId: appointment.tenant_id,
+            patientId: appointment.patient_id,
+            appointmentId: appointment.id,
+            patientEmail: patient.email ?? null,
+            patientName,
+            professionalName,
+            dateLabel,
+            timeLabel,
+            startsAt: appointment.starts_at,
+            publicToken: appointment.public_token,
+          }),
+          sendReminderWhatsApp({
+            tenantId: appointment.tenant_id,
+            patientId: appointment.patient_id,
+            appointmentId: appointment.id,
+            phoneE164: patient.phone_e164 ?? null,
+            whatsappConsent: Boolean(patient.whatsapp_consent),
+            patientName,
+            professionalName,
+            dateLabel,
+            timeLabel,
+            startsAt: appointment.starts_at,
+            publicToken: appointment.public_token,
+          }),
+        ]);
+
+        const rejectedChannels = channelResults.filter(
+          (result) => result.status === 'rejected',
+        ).length;
+
+        if (rejectedChannels > 0) {
+          errors += 1;
+          console.error('Appointment reminder channel failed', {
+            appointmentId: appointment.id,
+            rejectedChannels,
+          });
+        }
+
+        processed += 1;
+      } catch {
+        errors += 1;
+        console.error('Appointment reminder processing failed', {
+          appointmentId: appointment.id,
+        });
+      }
+    }
+
+    if (page.length < REMINDER_PAGE_SIZE) break;
+    from += REMINDER_PAGE_SIZE;
   }
 
   return {
     ok: true as const,
-    scanned: appointments?.length ?? 0,
+    scanned,
     eligible,
     processed,
-    truncated,
+    errors,
+    pages,
     window: { startsFrom, startsTo },
   };
 }
