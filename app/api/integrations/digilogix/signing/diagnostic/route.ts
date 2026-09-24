@@ -4,6 +4,7 @@ import { areDigilogixLiveCallsEnabled, getDigilogixConfig } from '@/lib/digilogi
 import { firstAuthorizationUrl, firstUploadedDocument } from '@/lib/digilogix/response';
 import { requestSinglePdfSignature } from '@/lib/digilogix/service';
 import { isValidCuil } from '@/lib/digilogix/validation';
+import { sha256Hex } from '@/lib/documents/hash';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -170,7 +171,19 @@ export async function GET(request: Request) {
   }
 
   if (url.searchParams.get('redirect') === '1') {
-    return NextResponse.redirect(authorizationUrl);
+    const response = NextResponse.redirect(authorizationUrl);
+    const verificationContext = Buffer.from(JSON.stringify({
+      documentId: document.IdentificadorDocumento,
+      sourceHash: sha256Hex(pdf),
+    })).toString('base64url');
+    response.cookies.set('digilogix_preview_verification', verificationContext, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/api/integrations/digilogix/signing',
+      maxAge: 10 * 60,
+    });
+    return response;
   }
 
   return NextResponse.json(
