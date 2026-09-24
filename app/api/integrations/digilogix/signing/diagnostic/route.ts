@@ -38,6 +38,34 @@ function buildMinimalPdf(): Buffer {
   return Buffer.from(header + body + xref + trailer, 'latin1');
 }
 
+function describeShape(value: unknown, depth = 0): unknown {
+  if (depth >= 3) {
+    if (Array.isArray(value)) return { type: 'array', length: value.length };
+    return { type: value === null ? 'null' : typeof value };
+  }
+
+  if (Array.isArray(value)) {
+    return {
+      type: 'array',
+      length: value.length,
+      firstItem: value.length ? describeShape(value[0], depth + 1) : null,
+    };
+  }
+
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    return {
+      type: 'object',
+      keys: Object.keys(obj),
+      fields: Object.fromEntries(
+        Object.entries(obj).map(([key, fieldValue]) => [key, describeShape(fieldValue, depth + 1)]),
+      ),
+    };
+  }
+
+  return { type: value === null ? 'null' : typeof value };
+}
+
 /**
  * Homologación temporal de firma digital.
  * - Solo funciona en Vercel Preview.
@@ -135,6 +163,7 @@ export async function GET(request: Request) {
         codigoResultado: result.data.CodigoResultado,
         mensajeResultado: result.data.MensajeResultado,
         reason: 'missing_document_or_authorization_url',
+        providerShape: describeShape(result.data),
       },
       { status: 502, headers: { 'Cache-Control': 'no-store' } },
     );
