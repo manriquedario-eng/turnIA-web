@@ -139,12 +139,10 @@ export async function GET(request: NextRequest) {
   }
 
   const signedHash = state.Datos.HashSHA256FirmadoHexadecimal?.trim();
-  if (!signedHash) {
-    return NextResponse.json(
-      { ok: false, stage: 'signed_hash', reason: 'missing_signed_hash', providerShape: describeShape(state.Datos) },
-      { status: 502, headers: { 'Cache-Control': 'no-store' } },
-    );
-  }
+  const pdfBinary = signedPdf.toString('latin1');
+  const embeddedSignatureStructurePresent =
+    pdfBinary.includes('/ByteRange')
+    && pdfBinary.includes('/Contents');
 
   const cuil = process.env.DIGILOGIX_TEST_CUIL?.trim();
   if (!cuil || !isValidCuil(cuil)) {
@@ -182,6 +180,27 @@ export async function GET(request: NextRequest) {
       },
       { status: 502, headers: { 'Cache-Control': 'no-store' } },
     );
+  }
+
+  if (!signedHash) {
+    const response = NextResponse.json(
+      {
+        ok: true,
+        stage: 'signed_pdf_received_hash_unavailable',
+        documentState: state.Datos.CodigoEstado,
+        documentStateDescription: state.Datos.DescripcionEstado,
+        signedPdfValid: true,
+        signedPdfBytes: signedPdf.length,
+        embeddedSignatureStructurePresent,
+        signedHashPresent: false,
+        certificateAvailable: true,
+        cryptographicHashVerification: 'not_available_from_provider_response',
+        verificationLevel: 'provider_reports_signed_pdf_received_not_independently_verified',
+      },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
+    response.cookies.delete('digilogix_preview_verification');
+    return response;
   }
 
   const verificationResult = await verifyDigilogixSignedHash({
@@ -225,7 +244,9 @@ export async function GET(request: NextRequest) {
       signedPdfBytes: signedPdf.length,
       signedHashPresent: true,
       certificateAvailable: true,
+      embeddedSignatureStructurePresent,
       hashVerification: 'valid',
+      verificationLevel: 'provider_hash_verified',
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );
