@@ -33,8 +33,6 @@ export async function GET(request: NextRequest) {
     eligible: result.eligible,
     processed: result.processed,
     errors: result.errors,
-    channelAttempts: result.channelAttempts,
-    channelFailures: result.channelFailures,
     pages: result.pages,
   });
 }
