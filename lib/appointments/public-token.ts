@@ -227,7 +227,7 @@ export async function confirmAppointmentByToken(token: string): Promise<PublicAc
   }
 
   const result = (data as unknown as PublicMutationRpcRow).result;
-  if (result === 'ok' || result === 'already_requested') return { ok: true };
+  if (result === 'ok') return { ok: true };
   if (result === 'already_cancelled') {
     return { ok: false, error: 'Este turno ya está cancelado y no se puede confirmar.' };
   }
@@ -319,7 +319,7 @@ export async function requestRescheduleByToken(token: string, note: string): Pro
   }
 
   const result = (data as unknown as PublicMutationRpcRow).result;
-  if (result === 'ok') return { ok: true };
+  if (result === 'ok' || result === 'already_requested') return { ok: true };
   if (result === 'already_cancelled') {
     return { ok: false, error: 'Este turno ya está cancelado.' };
   }
