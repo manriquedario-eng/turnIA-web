@@ -17,6 +17,7 @@ const DEFAULT_TEST_BASE_URL = 'https://test.api.firmador.digilogix.com.ar/api';
 const DEFAULT_TIME_ZONE = 'America/Argentina/Buenos_Aires';
 
 export function isDigilogixFeatureVisible(): boolean {
+  if (process.env.VERCEL_ENV === 'preview') return true;
   return process.env.DIGILOGIX_FEATURE_VISIBLE === 'true';
 }
 
