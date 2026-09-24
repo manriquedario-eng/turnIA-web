@@ -220,3 +220,59 @@ export async function findPreviousDocumentForVersioning(
     .maybeSingle();
   return unwrap(data as PreviousDocumentForVersioning | null, error);
 }
+
+
+export type DocumentForProviderSignature = {
+  id: string;
+  patient_id: string;
+  tenant_id: string;
+  professional_user_id: string;
+  status: string;
+  document_type: DocumentType;
+  version: number;
+  original_storage_path: string;
+};
+
+export async function findDocumentForProviderSignature(
+  supabase: SupabaseClient,
+  tenantId: string,
+  patientId: string,
+  documentId: string,
+  userId: string,
+): Promise<DocumentForProviderSignature | null> {
+  const { data, error } = await supabase
+    .from('patient_documents')
+    .select('id, patient_id, tenant_id, professional_user_id, status, document_type, version, original_storage_path')
+    .eq('id', documentId)
+    .eq('patient_id', patientId)
+    .eq('tenant_id', tenantId)
+    .eq('professional_user_id', userId)
+    .in('status', ['pending_signature', 'provider_signature_rejected'])
+    .maybeSingle();
+  return unwrap(data as DocumentForProviderSignature | null, error);
+}
+
+export type DocumentForProviderCallback = DocumentForProviderSignature & {
+  provider_document_id: string | null;
+  signature_provider: string | null;
+};
+
+export async function findDocumentForProviderCallback(
+  supabase: SupabaseClient,
+  tenantId: string,
+  patientId: string,
+  documentId: string,
+  userId: string,
+): Promise<DocumentForProviderCallback | null> {
+  const { data, error } = await supabase
+    .from('patient_documents')
+    .select('id, patient_id, tenant_id, professional_user_id, status, document_type, version, original_storage_path, provider_document_id, signature_provider')
+    .eq('id', documentId)
+    .eq('patient_id', patientId)
+    .eq('tenant_id', tenantId)
+    .eq('professional_user_id', userId)
+    .eq('status', 'provider_signature_pending')
+    .eq('signature_provider', 'digilogix')
+    .maybeSingle();
+  return unwrap(data as DocumentForProviderCallback | null, error);
+}
