@@ -125,5 +125,44 @@ export async function POST(
     );
   }
 
-  return NextResponse.redirect(authorizationUrl, { status: 303 });
+  const escapedAuthorizationUrl = authorizationUrl
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  const html = `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta http-equiv="refresh" content="1;url=${escapedAuthorizationUrl}" />
+    <title>Abriendo Digilogix…</title>
+    <style>
+      body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:0;background:#f7f8fa;color:#172033}
+      main{max-width:560px;margin:12vh auto;padding:28px;background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.06)}
+      h1{font-size:22px;margin:0 0 10px}
+      p{line-height:1.5;color:#556070}
+      a{display:inline-block;margin-top:14px;padding:10px 16px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;font-weight:600}
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Abriendo Digilogix…</h1>
+      <p>La firma ya fue iniciada en TurnIA. Te estamos llevando al entorno seguro de Digilogix para autorizarla.</p>
+      <p>Si no se abre automáticamente, usá el botón de abajo.</p>
+      <a href="${escapedAuthorizationUrl}">Continuar en Digilogix</a>
+    </main>
+    <script>window.location.replace(${JSON.stringify(authorizationUrl)});</script>
+  </body>
+</html>`;
+
+  return new NextResponse(html, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Referrer-Policy': 'no-referrer',
+    },
+  });
 }
