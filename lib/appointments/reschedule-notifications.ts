@@ -47,7 +47,7 @@ async function createProfessionalAlertRow(params: {
 
   if (existing) {
     if (existing.status === 'failed') {
-      const { error: retryError } = await supabase
+      const { data: claimedRetry, error: retryError } = await supabase
         .from('appointment_messages')
         .update({
           status: 'pending',
@@ -60,9 +60,12 @@ async function createProfessionalAlertRow(params: {
           updated_at: new Date().toISOString(),
         })
         .eq('id', existing.id)
-        .eq('status', 'failed');
+        .eq('status', 'failed')
+        .select('id')
+        .maybeSingle();
 
-      if (!retryError) return existing.id as string;
+      if (retryError) return null;
+      if (claimedRetry?.id) return claimedRetry.id as string;
     }
 
     return null;
