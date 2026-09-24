@@ -411,14 +411,21 @@ export async function processAppointmentReminders24h(now = new Date()) {
           }),
         ]);
 
-        const rejectedChannels = channelResults.filter(
-          (result) => result.status === 'rejected',
-        ).length;
-        const fulfilledResults = channelResults
-          .filter((result): result is PromiseFulfilledResult<ReminderChannelResult> => result.status === 'fulfilled')
-          .map((result) => result.value);
-        const attemptedChannels = fulfilledResults.filter((result) => result.attempted).length;
-        const failedChannels = fulfilledResults.filter((result) => result.attempted && !result.ok).length;
+        let attemptedChannels = 0;
+        let failedChannels = 0;
+        let rejectedChannels = 0;
+
+        for (const channelResult of channelResults) {
+          if (channelResult.status === 'rejected') {
+            rejectedChannels += 1;
+            continue;
+          }
+
+          if (channelResult.value.attempted) {
+            attemptedChannels += 1;
+            if (!channelResult.value.ok) failedChannels += 1;
+          }
+        }
 
         channelAttempts += attemptedChannels;
         channelFailures += failedChannels + rejectedChannels;
