@@ -27,7 +27,6 @@ type AppointmentRow = {
   currency: string | null;
   meeting_provider: string | null;
   meeting_url: string | null;
-  reschedule_requested_at: string | null;
   updated_at: string;
 };
 
@@ -240,7 +239,7 @@ export default async function AgendaPage({
   ] = await Promise.all([
     supabase
       .from('appointments')
-      .select('id, patient_id, service_id, professional_id, starts_at, ends_at, modality, status, quoted_amount, currency, meeting_provider, meeting_url, reschedule_requested_at, updated_at')
+      .select('id, patient_id, service_id, professional_id, starts_at, ends_at, modality, status, quoted_amount, currency, meeting_provider, meeting_url, updated_at')
       .eq('tenant_id', tenantId)
       .gte('starts_at', startOfDayIso(rangeStart))
       .lte('starts_at', endOfDayIso(rangeEnd))
