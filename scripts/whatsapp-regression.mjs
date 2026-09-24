@@ -175,6 +175,17 @@ check(
 );
 
 check(
+  'Unexpected provider exceptions are converted into retryable failed rows',
+  reminder.includes('Error inesperado al enviar el recordatorio por email.') &&
+    reminder.includes('Error inesperado al enviar el recordatorio por WhatsApp.') &&
+    reminder.includes('throw error;') &&
+    notification.includes('Error inesperado al enviar el aviso por email.') &&
+    notification.includes('Error inesperado al enviar el aviso por WhatsApp.') &&
+    notification.includes('Professional reschedule email failed') &&
+    notification.includes('Professional reschedule WhatsApp failed'),
+);
+
+check(
   'Cron endpoint requires CRON_SECRET',
   cronRoute.includes('process.env.CRON_SECRET') &&
     cronRoute.includes("request.headers.get('authorization')") &&
