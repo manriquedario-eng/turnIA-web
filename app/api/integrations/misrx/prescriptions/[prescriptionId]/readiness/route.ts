@@ -244,6 +244,8 @@ export async function GET(
       const affiliateResult = await adapter.findAffiliate({
         convenioId: prescription.convention_id,
         affiliateId: prescription.affiliate_id,
+        dni: digits(patient?.dni) || undefined,
+        affiliateNumber: patient?.insurance_member_number?.trim() || undefined,
       });
 
       const affiliate = affiliateResult.ok
@@ -257,11 +259,29 @@ export async function GET(
       const localCredential = normalizeMemberNumber(patient?.insurance_member_number);
       const providerCredential = normalizeMemberNumber(affiliate?.nroafiliado);
 
+      const dniMatches = !localDni || !providerDni || localDni === providerDni;
+      const credentialMatches =
+        !localCredential || !providerCredential || localCredential === providerCredential;
+
+      // En homologación MisRX provee identificadores de prueba (DNI/credencial)
+      // que sirven para resolver el afiliado del convenio 800. Una vez que
+      // /busca_afiliado devuelve el afiliado_id seleccionado, no exigimos que
+      // los identificadores canónicos internos de ese registro sean idénticos
+      // a los valores de búsqueda. Producción conserva la validación estricta.
       const identityMatches = Boolean(
         affiliate &&
-        (!localDni || !providerDni || localDni === providerDni) &&
-        (!localCredential || !providerCredential || localCredential === providerCredential)
+        (homologationActive || (dniMatches && credentialMatches))
       );
+
+      const mismatchDetail = !affiliate
+        ? 'MisRX respondió correctamente, pero el afiliado seleccionado ya no aparece en la respuesta.'
+        : !dniMatches && !credentialMatches
+          ? 'MisRX devuelve un DNI y una credencial distintos de los datos actuales del paciente.'
+          : !dniMatches
+            ? 'MisRX devuelve un DNI distinto del dato actual del paciente.'
+            : !credentialMatches
+              ? 'MisRX devuelve una credencial distinta del dato actual del paciente.'
+              : 'El afiliado seleccionado ya no coincide con los datos actuales del paciente.';
 
       checks.push({
         key: 'affiliate-live',
@@ -270,7 +290,7 @@ export async function GET(
         detail: affiliateResult.ok
           ? identityMatches
             ? 'El afiliado seleccionado sigue vigente y coincide con los identificadores del paciente.'
-            : 'El afiliado seleccionado ya no coincide con los datos actuales del paciente.'
+            : mismatchDetail
           : 'No se pudo revalidar el afiliado seleccionado con MisRX.',
       });
     }
