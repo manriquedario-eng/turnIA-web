@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
     scanned: result.scanned,
     eligible: result.eligible,
     processed: result.processed,
-    truncated: result.truncated,
+    errors: result.errors,
+    pages: result.pages,
   });
 
   return NextResponse.json({
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
     scanned: result.scanned,
     eligible: result.eligible,
     processed: result.processed,
-    truncated: result.truncated,
+    errors: result.errors,
+    pages: result.pages,
   });
 }
