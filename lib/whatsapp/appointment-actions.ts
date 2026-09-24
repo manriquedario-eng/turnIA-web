@@ -132,7 +132,7 @@ export async function processWhatsAppAppointmentAction(
 
     if (contextError) throw contextError;
 
-    const allowedContextTypes = new Set(['appointment_created', 'appointment_reminder_24h']);
+    const allowedContextTypes = new Set(['appointment_reminder_24h']);
     if (!contextMessage || !allowedContextTypes.has(contextMessage.message_type)) {
       return { ok: false, shouldReply: false };
     }
@@ -213,7 +213,7 @@ export async function processWhatsAppAppointmentAction(
       .select('id')
       .eq('appointment_id', appointment.id)
       .eq('channel', 'whatsapp')
-      .in('message_type', ['appointment_created', 'appointment_reminder_24h'])
+      .eq('message_type', 'appointment_reminder_24h')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
