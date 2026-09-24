@@ -125,7 +125,7 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
 
   if (!appointment?.id || !appointment.tenant_id || !appointment.patient_id) return;
 
-  const [{ data: patient }, { data: settings }, professionalContactResult] = await Promise.all([
+  const [{ data: patient }, { data: settings }, { data: professionalProfile }, professionalContactResult] = await Promise.all([
     supabase
       .from('patients')
       .select('name')
@@ -139,6 +139,13 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
       .maybeSingle(),
     appointment.professional_id
       ? supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', appointment.professional_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    appointment.professional_id
+      ? supabase
           .from('professional_contacts')
           .select('phone_e164,email')
           .eq('tenant_id', appointment.tenant_id)
@@ -148,6 +155,10 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
   ]);
 
   const patientName = patient?.name || 'Paciente';
+  const professionalName =
+    typeof professionalProfile?.display_name === 'string' && professionalProfile.display_name.trim()
+      ? professionalProfile.display_name.trim()
+      : 'Profesional';
   const profile =
     settings?.profile && typeof settings.profile === 'object'
       ? (settings.profile as Record<string, unknown>)
@@ -263,7 +274,7 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
   // El WhatsApp al profesional es iniciado por TurnIA, por lo que usa una
   // plantilla Utility propia aprobada por Meta. Sin plantilla configurada,
   // se omite de forma segura sin intentar texto libre.
-  const templateName = process.env.WHATSAPP_PROFESSIONAL_RESCHEDULE_TEMPLATE_NAME;
+  const templateName = process.env.WHATSAPP_PROFESSIONAL_RESCHEDULE_TEMPLATE_NAME?.trim();
   const templateLang =
     process.env.WHATSAPP_PROFESSIONAL_RESCHEDULE_TEMPLATE_LANG ||
     process.env.WHATSAPP_TEMPLATE_LANG ||
@@ -285,7 +296,7 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
         try {
           const result = await sendWhatsAppTemplate({
             toE164: normalized.e164,
-            bodyParams: [patientName, dateLabel, timeLabel],
+            bodyParams: [professionalName, patientName, dateLabel, timeLabel],
             templateName,
             templateLang,
           });
