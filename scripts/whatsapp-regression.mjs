@@ -161,6 +161,20 @@ check(
 );
 
 check(
+  'Failed reminder and professional retries use an atomic claim',
+  reminder.includes("const { data: claimedRetry, error: retryError }") &&
+    reminder.includes(".eq('status', 'failed')") &&
+    reminder.includes(".select('id')") &&
+    reminder.includes('.maybeSingle()') &&
+    reminder.includes('if (claimedRetry?.id)') &&
+    notification.includes("const { data: claimedRetry, error: retryError }") &&
+    notification.includes(".eq('status', 'failed')") &&
+    notification.includes(".select('id')") &&
+    notification.includes('.maybeSingle()') &&
+    notification.includes('if (claimedRetry?.id)'),
+);
+
+check(
   'Cron endpoint requires CRON_SECRET',
   cronRoute.includes('process.env.CRON_SECRET') &&
     cronRoute.includes("request.headers.get('authorization')") &&
