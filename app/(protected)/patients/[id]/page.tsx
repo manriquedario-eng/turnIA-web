@@ -115,16 +115,22 @@ export default async function PatientDetailPage({
       .maybeSingle(),
     supabase
       .from('patient_documents')
-      .select('id,document_type,document_label,status,version,professional_user_id,created_at,signed_at,signature_provider,provider_state_description,provider_hash_verification')
+      .select(
+        digilogixUiEnabled
+          ? 'id,document_type,document_label,status,version,professional_user_id,created_at,signed_at,signature_provider,provider_state_description,provider_hash_verification'
+          : 'id,document_type,document_label,status,version,professional_user_id,created_at,signed_at'
+      )
       .eq('patient_id', id)
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false }),
-    supabase
-      .from('digilogix_connections')
-      .select('status')
-      .eq('tenant_id', tenantId)
-      .eq('user_id', user.id)
-      .maybeSingle(),
+    digilogixUiEnabled
+      ? supabase
+          .from('digilogix_connections')
+          .select('status')
+          .eq('tenant_id', tenantId)
+          .eq('user_id', user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const patient = patientResult.data;
