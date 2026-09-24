@@ -64,6 +64,13 @@ check(
 );
 
 check(
+  'Empty WhatsApp template body parameters are blocked before Meta',
+  provider.includes('normalizedBodyParams') &&
+    provider.includes('parámetro BODY vacío') &&
+    provider.includes("params.templateName || process.env.WHATSAPP_TEMPLATE_NAME)?.trim()"),
+);
+
+check(
   'Webhook fails closed without Meta App Secret',
   webhook.includes("const appSecret = process.env.WHATSAPP_APP_SECRET") &&
     webhook.includes("status: 403") &&
