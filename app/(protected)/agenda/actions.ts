@@ -351,7 +351,8 @@ export async function updateAppointment(formData: FormData) {
   const { supabase, user, tenantId } = await requireTenant();
   const returnTo = safeReturn(formData);
   const parsed = parseAppointment(formData);
-  if (!parsed.success || !parsed.data.id) redirect(`${returnTo}&error=Datos%20de%20turno%20inválidos`);
+  const expectedUpdatedAt = z.string().min(1).safeParse(formData.get('expected_updated_at'));
+  if (!parsed.success || !parsed.data.id || !expectedUpdatedAt.success) redirect(`${returnTo}&error=Datos%20de%20turno%20inválidos`);
 
   const startsAt = toMendozaIso(parsed.data.starts_at_local);
   const endsAt = toMendozaIso(parsed.data.ends_at_local);
@@ -367,12 +368,15 @@ export async function updateAppointment(formData: FormData) {
 
   const { data: existing, error: existingError } = await supabase
     .from('appointments')
-    .select('id,status,professional_id,patient_id,starts_at,ends_at,modality,meeting_url,external_calendar_event_id,public_token')
+    .select('id,status,professional_id,patient_id,starts_at,ends_at,modality,meeting_url,external_calendar_event_id,public_token,updated_at')
     .eq('id', parsed.data.id)
     .eq('tenant_id', tenantId)
     .maybeSingle();
 
   if (existingError || !existing) redirect(`${returnTo}&error=Turno%20no%20encontrado`);
+  if (existing.updated_at !== expectedUpdatedAt.data) {
+    redirect(editConflictReturn(returnTo, parsed.data.id, 'El turno cambió desde que abriste el editor. Recargá la agenda y revisá la versión más reciente antes de guardar.'));
+  }
   if (existing.status === 'cancelled' || existing.status === 'cancelado') {
     redirect(`${returnTo}&error=No%20se%20puede%20editar%20un%20turno%20cancelado`);
   }
@@ -403,8 +407,13 @@ export async function updateAppointment(formData: FormData) {
     })
     .eq('id', parsed.data.id)
     .eq('tenant_id', tenantId)
+    .eq('updated_at', expectedUpdatedAt.data)
     .select('id,patient_id,starts_at,ends_at,modality,meeting_url,external_calendar_event_id,public_token')
     .maybeSingle();
+
+  if (!error && !updated) {
+    redirect(editConflictReturn(returnTo, parsed.data.id, 'El turno cambió mientras estabas editando. Recargá la agenda y revisá la versión más reciente antes de volver a guardar.'));
+  }
 
   if (error || !updated) {
     redirect(`${returnTo}&error=${encodeURIComponent(error?.message || 'No se pudo guardar el cambio del turno')}`);
