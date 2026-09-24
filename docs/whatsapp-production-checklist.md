@@ -23,18 +23,14 @@ Confirmar en Meta:
 
 ### Plantilla de alta de turno
 
+Mensaje informativo / bienvenida. No lleva botones ni acciones.
+
 Parámetros BODY, en este orden:
 
-1. Paciente
+1. Paciente o alias de comunicación
 2. Fecha
 3. Hora
 4. Profesional
-
-Botones, en este orden:
-
-1. Confirmar
-2. Cancelar
-3. Reprogramar
 
 ### Plantilla de recordatorio 24 h
 
@@ -149,11 +145,13 @@ Paciente de prueba con:
 Crear un turno y comprobar:
 
 1. Email recibido.
-2. WhatsApp recibido.
+2. WhatsApp inicial recibido sin botones de acción.
 3. `appointment_messages` contiene los intentos.
 4. WhatsApp llega a `sent`.
 5. Meta actualiza a `delivered`.
 6. Si se abre, pasa a `read`.
+
+Las acciones Confirmar / Cancelar / Reprogramar se prueban únicamente desde el recordatorio 24 h.
 
 ### Confirmar
 
