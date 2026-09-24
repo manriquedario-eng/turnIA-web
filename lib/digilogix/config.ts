@@ -18,6 +18,13 @@ const DEFAULT_TIME_ZONE = 'America/Argentina/Buenos_Aires';
 
 export function isDigilogixFeatureVisible(): boolean {
   if (process.env.VERCEL_ENV === 'preview') return true;
+
+  const baseUrl = (process.env.DIGILOGIX_BASE_URL?.trim() || DEFAULT_TEST_BASE_URL).toLowerCase();
+  const isTestEndpoint = baseUrl.includes('test.api.firmador.digilogix.com.ar');
+
+  // Never expose the homologation endpoint as a production feature.
+  if (process.env.VERCEL_ENV === 'production' && isTestEndpoint) return false;
+
   return process.env.DIGILOGIX_FEATURE_VISIBLE === 'true';
 }
 
@@ -27,6 +34,10 @@ export function isDigilogixFeatureVisible(): boolean {
  * esta bandera en el entorno de preview/homologación.
  */
 export function areDigilogixLiveCallsEnabled(): boolean {
+  const baseUrl = (process.env.DIGILOGIX_BASE_URL?.trim() || DEFAULT_TEST_BASE_URL).toLowerCase();
+  const isTestEndpoint = baseUrl.includes('test.api.firmador.digilogix.com.ar');
+
+  if (process.env.VERCEL_ENV === 'production' && isTestEndpoint) return false;
   return process.env.DIGILOGIX_LIVE_CALLS_ENABLED === 'true';
 }
 
