@@ -9,6 +9,7 @@ import { findDocumentForProviderCallback, findDocumentForProviderSignature } fro
 import { documentErrorResponse } from '@/lib/documents/response';
 import { downloadDocumentPdf } from '@/lib/documents/storage';
 import { isPdfMagicBytes, isWithinMaxSignedSize } from '@/lib/documents/validation';
+import { createSupabaseServiceClient } from '@/lib/supabase/service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -127,8 +128,11 @@ export async function POST(
     );
   }
 
-  const { data: rpcData, error: rpcError } = await supabase
-    .rpc('start_provider_patient_document_signature', {
+  const service = createSupabaseServiceClient();
+  const { data: rpcData, error: rpcError } = await service
+    .rpc('start_provider_patient_document_signature_server', {
+      p_tenant_id: tenantId,
+      p_actor_user_id: user.id,
       p_document_id: documentCheck.data,
       p_provider: 'digilogix',
       p_provider_document_id: providerDocument.IdentificadorDocumento,
