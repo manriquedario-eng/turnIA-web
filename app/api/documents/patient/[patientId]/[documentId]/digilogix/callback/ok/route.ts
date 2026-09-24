@@ -10,7 +10,7 @@ import { getDocumentSignatureState } from '@/lib/digilogix/signing';
 import { findDocumentForProviderCallback } from '@/lib/documents/authorize';
 import { sha256Hex } from '@/lib/documents/hash';
 import { buildSignedStoragePath } from '@/lib/documents/paths';
-import { removeDocumentObjectBestEffort, uploadProviderSignedPdf } from '@/lib/documents/storage';
+import { downloadDocumentPdf, removeDocumentObjectBestEffort, uploadProviderSignedPdf } from '@/lib/documents/storage';
 import { isPdfMagicBytes, isWithinMaxSignedSize } from '@/lib/documents/validation';
 
 export const runtime = 'nodejs';
@@ -102,13 +102,16 @@ export async function GET(
       );
     }
 
+    const originalPdf = await downloadDocumentPdf(document.original_storage_path);
+    if (!originalPdf || !isWithinMaxSignedSize(originalPdf.byteLength) || !isPdfMagicBytes(originalPdf)) {
+      return NextResponse.redirect(
+        patientUrl(request, patientCheck.data, 'error', 'No pudimos recuperar el PDF original para validar la firma.'),
+      );
+    }
+
     const verification = await verifyDigilogixSignedHash({
       CertificadoBase64: certificate,
-      HashSHA256Hexadecimal: sha256Hex(
-        (await import('@/lib/documents/storage')).downloadDocumentPdf
-          ? (await (await import('@/lib/documents/storage')).downloadDocumentPdf(document.original_storage_path)) ?? Buffer.alloc(0)
-          : Buffer.alloc(0),
-      ),
+      HashSHA256Hexadecimal: sha256Hex(originalPdf),
       HashSHA256FirmadoHexadecimal: providerSignedHash,
     });
 
