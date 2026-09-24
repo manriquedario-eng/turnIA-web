@@ -52,7 +52,7 @@ begin
     return;
   end if;
 
-  return query select 'already_cancelled'::text;
+  return query select 'ok'::text;
 end;
 $$;
 
@@ -100,7 +100,7 @@ begin
     where a.id = v_id
       and (a.reschedule_requested_at is not null or a.reschedule_note is not null);
 
-    return query select 'ok'::text;
+    return query select 'already_cancelled'::text;
     return;
   end if;
 
