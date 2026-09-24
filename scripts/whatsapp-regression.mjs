@@ -31,6 +31,7 @@ const idempotentRescheduleMigration = read('supabase/migrations/20260923185500_i
 const finalActionCleanupMigration = read('supabase/migrations/20260923190500_clear_pending_reschedule_on_final_action.sql');
 const correctivePublicActionMigration = read('supabase/migrations/20260924121000_whatsapp_public_action_rpc_consistency.sql');
 const whatsappPermissionsMigration = read('supabase/migrations/20260924122000_whatsapp_permissions_and_indexes.sql');
+const appointmentMessagesServiceRoleMigration = read('supabase/migrations/20260924204500_whatsapp_appointment_messages_service_role_grants.sql');
 
 const confirmRpcBlock = finalActionCleanupMigration.slice(
   finalActionCleanupMigration.indexOf('create or replace function public.confirm_public_appointment'),
@@ -76,9 +77,10 @@ check(
 );
 
 check(
-  'Webhook scopes events to expected Phone Number ID',
+  'Webhook requires exact expected Phone Number ID',
   webhook.includes('WHATSAPP_PHONE_NUMBER_ID') &&
-    webhook.includes('value.metadata?.phone_number_id'),
+    webhook.includes("!expectedPhoneNumberId") &&
+    webhook.includes('value.metadata?.phone_number_id !== expectedPhoneNumberId'),
 );
 
 check(
@@ -119,6 +121,22 @@ check(
   'Transient action ledger DB failures are retryable',
   actions.includes('if (eventInsertError)') &&
     actions.includes('throw eventInsertError'),
+);
+
+check(
+  'Reminder processing counts fulfilled provider/register failures',
+  reminder.includes('type ReminderChannelResult') &&
+    reminder.includes("reason: 'register_failed'") &&
+    reminder.includes("reason: 'provider_failed'") &&
+    reminder.includes('channelFailures += failedChannels + rejectedChannels') &&
+    reminder.includes('if (failedChannels > 0 || rejectedChannels > 0)'),
+);
+
+check(
+  'Service role can access appointment message ledger for WhatsApp backend flows',
+  appointmentMessagesServiceRoleMigration.includes('grant select, insert, update') &&
+    appointmentMessagesServiceRoleMigration.includes('public.appointment_messages') &&
+    appointmentMessagesServiceRoleMigration.includes('to service_role'),
 );
 
 check(
