@@ -30,6 +30,7 @@ const professionalContactsMigration = read('supabase/migrations/20260923183500_p
 const idempotentRescheduleMigration = read('supabase/migrations/20260923185500_idempotent_reschedule_requests.sql');
 const finalActionCleanupMigration = read('supabase/migrations/20260923190500_clear_pending_reschedule_on_final_action.sql');
 const correctivePublicActionMigration = read('supabase/migrations/20260924121000_whatsapp_public_action_rpc_consistency.sql');
+const whatsappPermissionsMigration = read('supabase/migrations/20260924122000_whatsapp_permissions_and_indexes.sql');
 
 const confirmRpcBlock = finalActionCleanupMigration.slice(
   finalActionCleanupMigration.indexOf('create or replace function public.confirm_public_appointment'),
@@ -242,6 +243,20 @@ check(
   'Professional notification contacts are keyed per tenant and user',
   professionalContactsMigration.includes('primary key (tenant_id, user_id)') &&
     professionalContactsMigration.includes('user_id = auth.uid()'),
+);
+
+check(
+  'WhatsApp backend tables grant required service-role access',
+  whatsappPermissionsMigration.includes('grant select, insert, update on table public.whatsapp_inbound_events to service_role') &&
+    whatsappPermissionsMigration.includes('grant select on table public.professional_contacts to service_role'),
+);
+
+check(
+  'WhatsApp follow-up covers FK indexes and RLS init-plan optimization',
+  whatsappPermissionsMigration.includes('whatsapp_inbound_events_tenant_idx') &&
+    whatsappPermissionsMigration.includes('whatsapp_inbound_events_patient_idx') &&
+    whatsappPermissionsMigration.includes('professional_contacts_user_idx') &&
+    whatsappPermissionsMigration.includes('user_id = (select auth.uid())'),
 );
 
 check(
