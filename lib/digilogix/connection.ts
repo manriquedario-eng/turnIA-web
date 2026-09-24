@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createSupabaseServiceClient } from '@/lib/supabase/service';
 import { getDigilogixCertificate } from './certificates';
 import { certificateNeedsOnboardingOrRenewal, isCertificateAvailable } from './response';
 import { startProfessionalDigilogixOnboarding } from './service';
@@ -46,7 +47,7 @@ export async function getDigilogixConnection(
 }
 
 async function saveConnection(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   params: {
     tenantId: string;
     userId: string;
@@ -57,7 +58,8 @@ async function saveConnection(
   },
 ) {
   const now = new Date().toISOString();
-  const { error } = await supabase.from('digilogix_connections').upsert(
+  const service = createSupabaseServiceClient();
+  const { error } = await service.from('digilogix_connections').upsert(
     {
       tenant_id: params.tenantId,
       user_id: params.userId,
@@ -166,7 +168,8 @@ export async function disconnectDigilogix(
   tenantId: string,
   userId: string,
 ) {
-  const { error } = await supabase
+  const service = createSupabaseServiceClient();
+  const { error } = await service
     .from('digilogix_connections')
     .update({
       status: 'disconnected',
