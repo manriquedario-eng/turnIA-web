@@ -34,20 +34,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ patientId: string; documentId: string }> },
 ) {
-  const startedAt = Date.now();
-  const mark = (stage: string, extra: Record<string, unknown> = {}) => {
-    if (process.env.VERCEL_ENV === 'preview') {
-      console.info('digilogix-signing-timing', {
-        stage,
-        elapsedMs: Date.now() - startedAt,
-        ...extra,
-      });
-    }
-  };
-
   const { supabase, user, tenantId } = await requireTenant();
   const { patientId, documentId } = await params;
-  mark('auth_ready');
 
   const patientCheck = z.string().uuid().safeParse(patientId);
   const documentCheck = z.string().uuid().safeParse(documentId);
@@ -65,7 +53,6 @@ export async function POST(
       user.id,
     ),
   ]);
-  mark('prechecks_loaded');
 
   if (!connection || connection.status !== 'connected') {
     return NextResponse.json(
@@ -96,12 +83,10 @@ export async function POST(
   }
 
   const pdf = await downloadDocumentPdf(document.original_storage_path);
-  mark('pdf_downloaded', { bytes: pdf?.byteLength ?? 0 });
   if (!pdf || !isWithinMaxSignedSize(pdf.byteLength) || !isPdfMagicBytes(pdf)) {
     return documentErrorResponse('El PDF original no está disponible o no es válido.', 422);
   }
 
-  mark('provider_request_start');
   const providerResult = await requestSinglePdfSignature({
     pdf,
     cuil: connection.cuil,
@@ -111,7 +96,6 @@ export async function POST(
     returnUrls: callbackUrls(request, patientCheck.data, documentCheck.data),
   });
 
-  mark('provider_request_done', { ok: providerResult.ok });
   if (!providerResult.ok) {
     return NextResponse.json(
       { error: 'Digilogix no pudo iniciar la firma. Intentá nuevamente.' },
@@ -140,7 +124,6 @@ export async function POST(
     .single()
     .returns<StartProviderSignatureRpcResult>();
 
-  mark('state_persisted', { ok: !rpcError && Boolean(rpcData?.ok) });
   if (rpcError || !rpcData?.ok) {
     return NextResponse.json(
       { error: 'No pudimos registrar el inicio de la firma. Intentá nuevamente.' },
@@ -148,7 +131,6 @@ export async function POST(
     );
   }
 
-  mark('redirect_ready');
   const escapedAuthorizationUrl = authorizationUrl
     .replace(/&/g, '&amp;')
     .replace(/"/g, '&quot;')
