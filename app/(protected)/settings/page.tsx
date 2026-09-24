@@ -364,7 +364,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                     </span>
                   </div>
                   <div className="integration-row-desc">
-                    Firma documentos clínicos desde TurnIA mediante Digilogix. La firma se autoriza en el entorno seguro del proveedor y TurnIA conserva el PDF firmado y su trazabilidad.
+                    Conectá tu propia identidad de firma digital con Digilogix. TurnIA usa una integración técnica común para todos los profesionales; tu contraseña, PIN y códigos de autenticación se ingresan únicamente en Digilogix y nunca se guardan en TurnIA.
                     {digilogixConnected ? ' Certificado vigente detectado.' : ''}
                     {digilogixOnboardingRequired ? ' El alta o renovación del certificado todavía debe completarse en Digilogix.' : ''}
                   </div>
@@ -430,10 +430,10 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                           />
                         </label>
                         <p className="field-hint" style={{ gridColumn: '1 / -1', margin: 0 }}>
-                          TurnIA consulta si ya tenés un certificado vigente. Si no existe o venció, inicia el alta con Digilogix. El registro y los datos sensibles del firmante se completan únicamente en Digilogix.
+                          TurnIA usa tu CUIL y email solamente para vincular tu cuenta y consultar el estado del certificado. Si todavía no tenés firma digital, Digilogix continúa el alta por su propio portal. TurnIA nunca pide ni almacena tu contraseña, PIN u OTP.
                         </p>
                         <div className="form-actions">
-                          <button className="btn secondary btn-compact" type="submit">Conectar firma digital</button>
+                          <button className="btn secondary btn-compact" type="submit">Conectar con Digilogix</button>
                         </div>
                       </form>
                     ) : (
