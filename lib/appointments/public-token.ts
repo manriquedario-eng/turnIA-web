@@ -56,6 +56,7 @@
 // `resolveTokenState`, sin cambios.
 
 import { createSupabaseServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
+import { runAppointmentCancellationSideEffects } from '@/lib/appointments/cancellation-side-effects';
 
 export type PublicAppointment = {
   id: string;
@@ -246,6 +247,15 @@ export async function cancelAppointmentByToken(token: string): Promise<PublicAct
   if (!isPlausibleToken(token) || !isServiceRoleConfigured()) return { ok: false, error: 'Enlace inválido.' };
   const supabase = createSupabaseServiceClient();
 
+  // Contexto mínimo para efectos posteriores. La mutación NO confía en esta
+  // lectura: la cancelación y su idempotencia siguen resueltas atómicamente
+  // por cancel_public_appointment dentro de Postgres.
+  const { data: context } = await supabase
+    .from('appointments')
+    .select('id,tenant_id,patient_id,professional_id,starts_at,external_calendar_event_id')
+    .eq('public_token', token)
+    .maybeSingle();
+
   const { data, error } = await supabase.rpc('cancel_public_appointment', { p_token: token }).single();
 
   if (error || !data) {
@@ -253,11 +263,33 @@ export async function cancelAppointmentByToken(token: string): Promise<PublicAct
     return { ok: false, error: 'No pudimos cancelar el turno. Probá de nuevo en unos minutos.' };
   }
 
-  // La RPC ya es idempotente (ok si ya estaba cancelado y sigue vigente) —
-  // no hace falta ningún chequeo de `isCancelled` acá, esa lógica ahora vive
-  // únicamente en Postgres.
   const result = (data as unknown as PublicMutationRpcRow).result;
-  if (result === 'ok') return { ok: true };
+
+  if (result === 'already_cancelled') {
+    return { ok: true };
+  }
+
+  if (result === 'ok') {
+    if (context?.professional_id) {
+      try {
+        await runAppointmentCancellationSideEffects({
+          supabase,
+          tenantId: context.tenant_id,
+          professionalUserId: context.professional_id,
+          appointmentId: context.id,
+          patientId: context.patient_id ?? null,
+          startsAt: context.starts_at,
+          externalCalendarEventId: context.external_calendar_event_id ?? null,
+        });
+      } catch {
+        console.error('public-token: cancellation side effects failed', {
+          appointmentId: context.id,
+        });
+      }
+    }
+    return { ok: true };
+  }
+
   return { ok: false, error: GENERIC_LINK_UNAVAILABLE_MESSAGE };
 }
 
