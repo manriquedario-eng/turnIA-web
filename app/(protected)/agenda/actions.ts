@@ -368,7 +368,7 @@ export async function updateAppointment(formData: FormData) {
 
   const { data: existing, error: existingError } = await supabase
     .from('appointments')
-    .select('id,status,professional_id,patient_id,starts_at,ends_at,modality,meeting_url,external_calendar_event_id,public_token,updated_at')
+    .select('id,status,professional_id,patient_id,starts_at,ends_at,modality,meeting_url,external_calendar_event_id,public_token,reschedule_requested_at,updated_at')
     .eq('id', parsed.data.id)
     .eq('tenant_id', tenantId)
     .maybeSingle();
@@ -408,7 +408,11 @@ export async function updateAppointment(formData: FormData) {
       modality: parsed.data.modality,
       quoted_amount: parsed.data.quoted_amount ?? null,
       ...(schedulingChanged
-        ? { reschedule_requested_at: null, reschedule_note: null }
+        ? {
+            reschedule_requested_at: null,
+            reschedule_note: null,
+            ...(existing.reschedule_requested_at ? { status: 'confirmed' } : {}),
+          }
         : {}),
       updated_at: new Date().toISOString(),
     })
