@@ -42,6 +42,10 @@ const cancelRpcBlock = finalActionCleanupMigration.slice(
 );
 const publicToken = read('lib/appointments/public-token.ts');
 const agendaPage = read('app/(protected)/agenda/page.tsx');
+const paymentOffer = read('lib/mercadopago/payment-offer.ts');
+const paymentRoute = read('app/api/payments/appointment/[token]/route.ts');
+const mercadoPagoOrders = read('lib/mercadopago/orders.ts');
+const actionExpiryMigration = read('supabase/migrations/20260924212000_public_appointment_actions_expire_at_start.sql');
 
 check(
   'WhatsApp secrets are never NEXT_PUBLIC',
@@ -141,6 +145,45 @@ check(
   appointmentMessagesServiceRoleMigration.includes('grant select, insert, update') &&
     appointmentMessagesServiceRoleMigration.includes('public.appointment_messages') &&
     appointmentMessagesServiceRoleMigration.includes('to service_role'),
+);
+
+check(
+  'Public appointment mutations expire when the appointment starts',
+  actionExpiryMigration.includes("a.starts_at > clock_timestamp()") &&
+    actionExpiryMigration.includes('confirm_public_appointment') &&
+    actionExpiryMigration.includes('cancel_public_appointment') &&
+    actionExpiryMigration.includes('request_public_appointment_reschedule'),
+);
+
+check(
+  'Confirmed WhatsApp reply offers payment only when server-side eligibility passes',
+  actions.includes('getMercadoPagoPaymentOfferByToken') &&
+    actions.includes('if (offer.available)') &&
+    actions.includes('https://www.turniahealth.com.ar/pagar/'),
+);
+
+check(
+  'Public payment offer requires confirmed future appointment with remaining balance',
+  paymentOffer.includes("CONFIRMED_STATUSES") &&
+    paymentOffer.includes("startsAt <= Date.now()") &&
+    paymentOffer.includes("remainingAmount <= 0") &&
+    paymentOffer.includes("mercadopago_connections"),
+);
+
+check(
+  'Public payment route creates checkout only on explicit POST after eligibility recheck',
+  paymentRoute.includes('export async function POST') &&
+    paymentRoute.includes('getMercadoPagoPaymentOfferByToken') &&
+    paymentRoute.includes('createMercadoPagoCheckoutForAppointment') &&
+    !paymentRoute.includes('export async function GET'),
+);
+
+check(
+  'Mercado Pago checkout charges remaining balance and avoids stale reusable amounts',
+  mercadoPagoOrders.includes("from('payments')") &&
+    mercadoPagoOrders.includes('totalAmount - paidAmount') &&
+    mercadoPagoOrders.includes("fail('already_paid'") &&
+    mercadoPagoOrders.includes('Math.abs(orderAmount - amount) < 0.005'),
 );
 
 check(
