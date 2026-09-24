@@ -123,6 +123,11 @@ export function firstAuthorizationUrl(response: DigilogixSignResponse): string |
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') return null;
+    const allowedHosts = new Set([
+      'test.autorizacion.firmador.digilogix.com.ar',
+      'autorizacion.firmador.digilogix.com.ar',
+    ]);
+    if (!allowedHosts.has(parsed.hostname)) return null;
     return parsed.toString();
   } catch {
     return null;
