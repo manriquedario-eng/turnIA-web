@@ -230,6 +230,8 @@ check(
 check(
   'Professional WhatsApp alert uses an approved template path, not free text',
   notification.includes('WHATSAPP_PROFESSIONAL_RESCHEDULE_TEMPLATE_NAME') &&
+    notification.includes('WHATSAPP_PROFESSIONAL_RESCHEDULE_TEMPLATE_NAME?.trim()') &&
+    notification.includes('bodyParams: [professionalName, patientName, dateLabel, timeLabel]') &&
     notification.includes('sendWhatsAppTemplate') &&
     !notification.includes('sendWhatsAppTextMessage'),
 );
