@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
-import { authorizeWsfeInvoiceC, getWsfeActivities } from '@/lib/arca/wsfe';
+import { authorizeWsfeInvoiceC, getWsfeActivities, getWsfeInvoiceByNumber, getWsfeLastAuthorized } from '@/lib/arca/wsfe';
 import { vatConditionLabel } from '@/lib/billing/constants';
 import { isFiscalProfileEnabled } from '@/lib/billing/fiscal-profile';
 import { createSupabaseServiceClient } from '@/lib/supabase/service';
@@ -408,7 +408,69 @@ export async function authorizeBillingInvoice(formData: FormData) {
     redirect(`/billing/${existingInvoice.id}?error=La%20factura%20ya%20está%20siendo%20procesada%20o%20cambió%20de%20estado`);
   }
 
-  const currentInvoice = claimedInvoice;
+  const claimed = claimedInvoice;
+
+  // Reservamos el número ANTES de enviar FECAESolicitar y lo persistimos
+  // localmente. Si ARCA autoriza pero falla el guardado posterior, este
+  // número permite consultar exactamente ese comprobante con FECompConsultar.
+  const lastAuthorized = await getWsfeLastAuthorized({
+    tenantId,
+    userId: user.id,
+    pointOfSale: Number(claimed.point_of_sale),
+    voucherType: Number(claimed.voucher_type),
+    environment: 'homologacion',
+  });
+
+  if (!lastAuthorized.ok) {
+    await serviceClient
+      .from('billing_invoices')
+      .update({
+        status: 'draft',
+        arca_voucher_number: null,
+        arca_error_message: lastAuthorized.errorMessage.slice(0, 500),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', claimed.id)
+      .eq('tenant_id', tenantId)
+      .eq('professional_id', user.id)
+      .eq('status', 'authorizing');
+
+    revalidatePath(`/billing/${claimed.id}`);
+    redirect(`/billing/${claimed.id}?error=${encodeURIComponent(lastAuthorized.errorMessage)}`);
+  }
+
+  const reservedVoucherNumber = (lastAuthorized.data.lastAuthorizedNumber ?? 0) + 1;
+  const { data: reservedInvoice, error: reserveError } = await serviceClient
+    .from('billing_invoices')
+    .update({
+      arca_voucher_number: reservedVoucherNumber,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', claimed.id)
+    .eq('tenant_id', tenantId)
+    .eq('professional_id', user.id)
+    .eq('status', 'authorizing')
+    .select('*')
+    .maybeSingle();
+
+  if (reserveError || !reservedInvoice) {
+    await serviceClient
+      .from('billing_invoices')
+      .update({
+        status: 'draft',
+        arca_voucher_number: null,
+        arca_error_message: 'No se pudo reservar el número del comprobante antes de contactar ARCA.',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', claimed.id)
+      .eq('tenant_id', tenantId)
+      .eq('professional_id', user.id)
+      .eq('status', 'authorizing');
+
+    redirect(`/billing/${claimed.id}?error=${encodeURIComponent('No se pudo reservar de forma segura el número del comprobante. No se envió nada a ARCA.')}`);
+  }
+
+  const currentInvoice = reservedInvoice;
 
   const result = await authorizeWsfeInvoiceC({
     tenantId,
@@ -423,14 +485,33 @@ export async function authorizeBillingInvoice(formData: FormData) {
     recipientDocNumber: String(currentInvoice.recipient_doc_number),
     recipientVatConditionId: Number(currentInvoice.recipient_vat_condition_id),
     activityCode: currentInvoice.activity_code ?? null,
+    voucherNumber: reservedVoucherNumber,
     environment: 'homologacion',
   });
 
   if (!result.ok) {
+    if (result.reason === 'network_error') {
+      const uncertainMessage = ('Estado incierto: no se pudo confirmar la respuesta de ARCA. No vuelvas a emitir; usá Reconciliar con ARCA. ' + result.errorMessage).slice(0, 500);
+      await serviceClient
+        .from('billing_invoices')
+        .update({
+          arca_error_message: uncertainMessage,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', currentInvoice.id)
+        .eq('tenant_id', tenantId)
+        .eq('professional_id', user.id)
+        .eq('status', 'authorizing');
+
+      revalidatePath(`/billing/${currentInvoice.id}`);
+      redirect(`/billing/${currentInvoice.id}?error=${encodeURIComponent('No se pudo confirmar si ARCA procesó el comprobante. No vuelvas a emitir: usá Reconciliar con ARCA.')}`);
+    }
+
     await serviceClient
       .from('billing_invoices')
       .update({
         status: 'draft',
+        arca_voucher_number: null,
         arca_error_message: result.errorMessage.slice(0, 500),
         updated_at: new Date().toISOString(),
       })
@@ -441,6 +522,21 @@ export async function authorizeBillingInvoice(formData: FormData) {
 
     revalidatePath(`/billing/${currentInvoice.id}`);
     redirect(`/billing/${currentInvoice.id}?error=${encodeURIComponent(result.errorMessage)}`);
+  }
+
+  if (result.data.voucherNumber !== reservedVoucherNumber) {
+    await serviceClient
+      .from('billing_invoices')
+      .update({
+        arca_error_message: 'ARCA respondió con un número distinto del reservado. No vuelvas a emitir; reconciliá el comprobante.',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', currentInvoice.id)
+      .eq('tenant_id', tenantId)
+      .eq('professional_id', user.id)
+      .eq('status', 'authorizing');
+
+    redirect(`/billing/${currentInvoice.id}?error=${encodeURIComponent('ARCA respondió con un número inesperado. No vuelvas a emitir: usá Reconciliar con ARCA.')}`);
   }
 
   const approved = result.data.result === 'A' && Boolean(result.data.cae);
@@ -504,4 +600,153 @@ export async function authorizeBillingInvoice(formData: FormData) {
   revalidatePath('/billing');
   revalidatePath(`/billing/${currentInvoice.id}`);
   redirect(`/billing/${currentInvoice.id}?error=${encodeURIComponent(observations || 'ARCA rechazó el comprobante.')}`);
+}
+
+
+const reconcileInvoiceSchema = z.object({
+  invoice_id: z.string().uuid(),
+});
+
+function arcaCompactDateToIso(value: string | null): string | null {
+  if (!value) return null;
+  const compact = value.replace(/\D/g, '');
+  if (!/^\d{8}$/.test(compact)) return null;
+  return `${compact.slice(0, 4)}-${compact.slice(4, 6)}-${compact.slice(6, 8)}`;
+}
+
+export async function reconcileBillingInvoice(formData: FormData) {
+  const parsed = reconcileInvoiceSchema.safeParse({
+    invoice_id: formData.get('invoice_id'),
+  });
+  if (!parsed.success) redirect('/billing?error=Factura%20inválida');
+
+  const { supabase, user, tenantId } = await requireTenant();
+  const serviceClient = createSupabaseServiceClient();
+
+  const { data: invoice, error } = await supabase
+    .from('billing_invoices')
+    .select('*')
+    .eq('id', parsed.data.invoice_id)
+    .eq('tenant_id', tenantId)
+    .eq('professional_id', user.id)
+    .maybeSingle();
+
+  if (error || !invoice) {
+    redirect('/billing?error=Factura%20no%20disponible');
+  }
+  if (invoice.status !== 'authorizing') {
+    redirect(`/billing/${invoice.id}?error=${encodeURIComponent('Sólo se pueden reconciliar comprobantes pendientes de confirmación con ARCA.')}`);
+  }
+  if (invoice.environment !== 'homologacion') {
+    redirect(`/billing/${invoice.id}?error=${encodeURIComponent('La reconciliación automática está habilitada sólo para ARCA homologación.')}`);
+  }
+
+  const pointOfSale = Number(invoice.point_of_sale);
+  const voucherType = Number(invoice.voucher_type);
+  const voucherNumber = Number(invoice.arca_voucher_number);
+
+  if (
+    !Number.isInteger(pointOfSale) || pointOfSale <= 0 ||
+    !Number.isInteger(voucherType) || voucherType <= 0 ||
+    !Number.isInteger(voucherNumber) || voucherNumber <= 0
+  ) {
+    redirect(`/billing/${invoice.id}?error=${encodeURIComponent('Falta el número fiscal reservado; este comprobante no puede reconciliarse automáticamente.')}`);
+  }
+
+  const result = await getWsfeInvoiceByNumber({
+    tenantId,
+    userId: user.id,
+    pointOfSale,
+    voucherType,
+    voucherNumber,
+    environment: 'homologacion',
+  });
+
+  if (!result.ok) {
+    const message = ('No se pudo reconciliar con ARCA: ' + result.errorMessage).slice(0, 500);
+    await serviceClient
+      .from('billing_invoices')
+      .update({ arca_error_message: message, updated_at: new Date().toISOString() })
+      .eq('id', invoice.id)
+      .eq('tenant_id', tenantId)
+      .eq('professional_id', user.id)
+      .eq('status', 'authorizing');
+
+    revalidatePath(`/billing/${invoice.id}`);
+    redirect(`/billing/${invoice.id}?error=${encodeURIComponent(message)}`);
+  }
+
+  const remote = result.data;
+  const localTotal = Number(invoice.total);
+  const amountMatches =
+    remote.amount != null &&
+    Number.isFinite(localTotal) &&
+    Math.abs(remote.amount - localTotal) <= 0.005;
+
+  if (
+    remote.pointOfSale !== pointOfSale ||
+    remote.voucherType !== voucherType ||
+    remote.voucherNumber !== voucherNumber ||
+    !amountMatches
+  ) {
+    const mismatch = 'ARCA devolvió un comprobante que no coincide exactamente con la factura local. No se modificó el estado.';
+    await serviceClient
+      .from('billing_invoices')
+      .update({ arca_error_message: mismatch, updated_at: new Date().toISOString() })
+      .eq('id', invoice.id)
+      .eq('tenant_id', tenantId)
+      .eq('professional_id', user.id)
+      .eq('status', 'authorizing');
+
+    redirect(`/billing/${invoice.id}?error=${encodeURIComponent(mismatch)}`);
+  }
+
+  if (remote.result !== 'A' || !remote.authorizationCode || remote.authorizationType !== 'CAE') {
+    const notAuthorized = 'ARCA no devolvió un CAE autorizado para este número. La factura sigue pendiente y no se reemitió.';
+    await serviceClient
+      .from('billing_invoices')
+      .update({ arca_error_message: notAuthorized, updated_at: new Date().toISOString() })
+      .eq('id', invoice.id)
+      .eq('tenant_id', tenantId)
+      .eq('professional_id', user.id)
+      .eq('status', 'authorizing');
+
+    redirect(`/billing/${invoice.id}?error=${encodeURIComponent(notAuthorized)}`);
+  }
+
+  const now = new Date().toISOString();
+  const observations = remote.observations.join(' | ');
+  const { data: updated, error: updateError } = await serviceClient
+    .from('billing_invoices')
+    .update({
+      status: 'authorized',
+      arca_result: remote.result,
+      arca_cae: remote.authorizationCode,
+      arca_cae_expires_at: arcaCompactDateToIso(remote.authorizationExpiresAt),
+      arca_processed_at: now,
+      arca_error_message: observations || null,
+      authorized_at: now,
+      updated_at: now,
+    })
+    .eq('id', invoice.id)
+    .eq('tenant_id', tenantId)
+    .eq('professional_id', user.id)
+    .eq('status', 'authorizing')
+    .eq('arca_voucher_number', voucherNumber)
+    .select('id')
+    .maybeSingle();
+
+  if (updateError || !updated) {
+    console.error('[billing] ARCA reconciliation local update failed', {
+      invoiceId: invoice.id,
+      code: updateError?.code ?? null,
+      message: updateError?.message ?? 'no row updated',
+    });
+    redirect(`/billing/${invoice.id}?error=${encodeURIComponent('ARCA confirmó el CAE, pero TurnIA no pudo guardar la reconciliación. No vuelvas a emitir y contactá soporte.')}`);
+  }
+
+  revalidatePath('/billing');
+  revalidatePath(`/billing/${invoice.id}`);
+  if (invoice.patient_id) revalidatePath(`/patients/${invoice.patient_id}`);
+  redirect(`/billing/${invoice.id}?success=reconciled`);
 }
