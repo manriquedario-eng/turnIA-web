@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
 import { findDocumentForProviderCallback } from '@/lib/documents/authorize';
 import { getDocumentSignatureState } from '@/lib/digilogix/signing';
+import { createSupabaseServiceClient } from '@/lib/supabase/service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,8 +36,11 @@ export async function GET(
     const state = await getDocumentSignatureState(document.provider_document_id);
     const providerState = state.ok && state.data.CodigoResultado === 1 ? state.data.Datos : null;
 
-    await supabase
-      .rpc('mark_provider_patient_document_rejected', {
+    const service = createSupabaseServiceClient();
+    await service
+      .rpc('mark_provider_patient_document_rejected_server', {
+        p_tenant_id: tenantId,
+        p_actor_user_id: user.id,
         p_document_id: documentCheck.data,
         p_provider_state_code: providerState?.CodigoEstado ?? 0,
         p_provider_state_description: providerState?.DescripcionEstado ?? 'Firma rechazada o cancelada',
