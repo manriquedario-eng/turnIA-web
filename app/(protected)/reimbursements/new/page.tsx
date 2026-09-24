@@ -81,10 +81,29 @@ export default async function NewReimbursementPage({
       throw new Error(`No se pudieron cargar las sesiones del período: ${appointmentsError.message}`);
     }
 
-    appointments = (data ?? []).filter((appointment: any) => {
+    const candidateAppointments = (data ?? []).filter((appointment: any) => {
       const normalized = String(appointment.status ?? '').toLowerCase();
       return !['cancelado', 'cancelled', 'canceled'].includes(normalized);
     });
+
+    const candidateIds = candidateAppointments.map((appointment: any) => appointment.id);
+    let usedAppointmentIds = new Set<string>();
+
+    if (candidateIds.length > 0) {
+      const { data: existingLinks, error: existingLinksError } = await supabase
+        .from('reimbursement_case_appointments')
+        .select('appointment_id')
+        .eq('tenant_id', tenantId)
+        .in('appointment_id', candidateIds);
+
+      if (existingLinksError) {
+        throw new Error(`No se pudo verificar qué sesiones ya fueron usadas en reintegros: ${existingLinksError.message}`);
+      }
+
+      usedAppointmentIds = new Set((existingLinks ?? []).map((link: any) => link.appointment_id));
+    }
+
+    appointments = candidateAppointments.filter((appointment: any) => !usedAppointmentIds.has(appointment.id));
   }
 
   return (
