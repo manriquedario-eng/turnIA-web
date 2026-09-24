@@ -169,6 +169,10 @@ export async function GET(request: Request) {
     );
   }
 
+  if (url.searchParams.get('redirect') === '1') {
+    return NextResponse.redirect(authorizationUrl);
+  }
+
   return NextResponse.json(
     {
       ok: true,
