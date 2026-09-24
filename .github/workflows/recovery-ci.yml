@@ -6,6 +6,7 @@ on:
       - main
       - feat/turnia-visual-refresh
       - feat/whatsapp-interactions
+      - feat/whatsapp-interactions-main-sync
   pull_request:
     branches:
       - main
