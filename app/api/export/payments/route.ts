@@ -20,12 +20,17 @@ export async function GET(request: NextRequest) {
   const format = parseExportFormat(searchParams.get('format'), ['xlsx', 'pdf', 'docx']);
   if (!format) return exportErrorResponse('Formato inválido. Usá pdf, docx o xlsx.', 400);
 
-  const datePattern = /^\\d{4}-\\d{2}-\\d{2}$/;
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  const isValidDate = (value: string) => {
+    if (!datePattern.test(value)) return false;
+    const parsed = new Date(`${value}T12:00:00Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  };
   const from = searchParams.get('from')?.trim() || '';
   const to = searchParams.get('to')?.trim() || '';
 
-  if ((from && !datePattern.test(from)) || (to && !datePattern.test(to))) {
-    return exportErrorResponse('Período inválido. Usá fechas con formato AAAA-MM-DD.', 400);
+  if ((from && !isValidDate(from)) || (to && !isValidDate(to))) {
+    return exportErrorResponse('Período inválido. Ingresá fechas reales con formato AAAA-MM-DD.', 400);
   }
   if (from && to && from > to) {
     return exportErrorResponse('La fecha desde no puede ser posterior a la fecha hasta.', 400);
