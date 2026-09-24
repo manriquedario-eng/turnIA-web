@@ -89,13 +89,31 @@ export function certificateNeedsOnboardingOrRenewal(
   return response.CodigoResultado === 2 || response.CodigoResultado === 3;
 }
 
+function asUploadedDocument(value: unknown): DigilogixUploadedDocumentResult | null {
+  if (!value || typeof value !== 'object') return null;
+  const obj = value as Record<string, unknown>;
+  if (typeof obj.IdentificadorDocumento !== 'string' || !obj.IdentificadorDocumento.trim()) return null;
+  if (!Array.isArray(obj.Autorizaciones)) return null;
+  return obj as unknown as DigilogixUploadedDocumentResult;
+}
+
 export function firstUploadedDocument(
   response: DigilogixSignResponse,
 ): DigilogixUploadedDocumentResult | null {
   if (response.CodigoResultado !== 1) return null;
-  const first = response.Datos?.Resultados?.[0];
-  if (!first?.IdentificadorDocumento || !Array.isArray(first.Autorizaciones)) return null;
-  return first;
+
+  const datos = response.Datos as unknown;
+  if (!datos || typeof datos !== 'object') return null;
+
+  // Respuesta observada en homologación: Datos contiene directamente el documento.
+  const direct = asUploadedDocument(datos);
+  if (direct) return direct;
+
+  // Compatibilidad con la forma inicialmente documentada/modelada.
+  const obj = datos as Record<string, unknown>;
+  const resultados = obj.Resultados;
+  if (!Array.isArray(resultados) || !resultados.length) return null;
+  return asUploadedDocument(resultados[0]);
 }
 
 export function firstAuthorizationUrl(response: DigilogixSignResponse): string | null {
