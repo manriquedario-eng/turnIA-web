@@ -257,11 +257,15 @@ check(
     notification.includes('failed_at: params.ok ? null : new Date().toISOString()'),
 );
 
+const requestRescheduleFunction = publicToken.slice(
+  publicToken.indexOf('export async function requestRescheduleByToken'),
+);
+
 check(
   'Repeated pending reprogram clicks are idempotent',
   idempotentRescheduleMigration.includes("return query select 'already_requested'::text") &&
     idempotentRescheduleMigration.includes('a.reschedule_requested_at is null') &&
-    publicToken.includes("result === 'ok' || result === 'already_requested'"),
+    requestRescheduleFunction.includes("result === 'ok' || result === 'already_requested'"),
 );
 
 check(
@@ -270,6 +274,40 @@ check(
     finalActionCleanupMigration.includes("status = 'cancelled'") &&
     (finalActionCleanupMigration.match(/reschedule_requested_at = null/g) ?? []).length >= 2 &&
     (finalActionCleanupMigration.match(/reschedule_note = null/g) ?? []).length >= 2,
+);
+
+check(
+  'Public cancellation keeps newer already_cancelled semantics',
+  finalActionCleanupMigration.includes("return query select 'already_cancelled'::text") &&
+    publicToken.includes("if (result === 'already_cancelled')"),
+);
+
+check(
+  'Professional contact backfill validates complete E.164 values',
+  professionalContactsMigration.includes("~ '^\\+[1-9][0-9]{7,14}
+check(
+  'Completed appointments cannot be mutated from public or WhatsApp actions',
+  finalActionCleanupMigration.includes("v_status in ('completed', 'completado')") &&
+    idempotentRescheduleMigration.includes("v_status in ('completed', 'completado')"),
+);
+
+check(
+  'Post-migration professional alerts never fall back to another professional contact',
+  notification.includes('professionalContactTableUnavailable') &&
+    notification.includes("professionalContactError?.code === 'PGRST205'"),
+);
+
+check(
+  'Agenda delivery badges only summarize patient-facing messages',
+  agendaPage.includes(".in('message_type', ['appointment_created', 'appointment_reminder_24h'])"),
+);
+
+console.log(`WhatsApp regression: ${passes.length} PASS / ${failures.length} FAIL`);
+for (const name of passes) console.log(`PASS ${name}`);
+for (const failure of failures) console.error(`FAIL ${failure}`);
+
+if (failures.length) process.exit(1);
+"),
 );
 
 check(
