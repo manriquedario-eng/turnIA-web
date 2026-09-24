@@ -75,7 +75,7 @@ export type DocumentForSignedDownload = DocumentForOriginalDownload & {
   signed_storage_path: string | null;
 };
 
-/** Sólo matchea si ya tiene una copia firmada cargada (status=signed_uploaded_unverified) — si no, se trata como "no encontrado", mismo criterio que el resto de la capa de export. */
+/** Sólo matchea si ya tiene una copia firmada disponible, ya sea cargada manualmente o confirmada por el proveedor. */
 export async function findDocumentForSignedDownload(
   supabase: SupabaseClient,
   tenantId: string,
@@ -88,7 +88,7 @@ export async function findDocumentForSignedDownload(
     .eq('id', documentId)
     .eq('patient_id', patientId)
     .eq('tenant_id', tenantId)
-    .eq('status', 'signed_uploaded_unverified')
+    .in('status', ['signed_uploaded_unverified', 'signed_provider_confirmed'])
     .maybeSingle();
   return unwrap(data as DocumentForSignedDownload | null, error);
 }
