@@ -53,7 +53,7 @@ async function createMessageRow(params: {
 
   if (existing) {
     if (existing.status === 'failed') {
-      const { error: retryError } = await supabase
+      const { data: claimedRetry, error: retryError } = await supabase
         .from('appointment_messages')
         .update({
           status: 'pending',
@@ -66,9 +66,12 @@ async function createMessageRow(params: {
           updated_at: new Date().toISOString(),
         })
         .eq('id', existing.id)
-        .eq('status', 'failed');
+        .eq('status', 'failed')
+        .select('id')
+        .maybeSingle();
 
-      if (!retryError) return { id: existing.id as string, duplicate: false };
+      if (retryError) return { id: null as string | null, duplicate: false };
+      if (claimedRetry?.id) return { id: claimedRetry.id as string, duplicate: false };
     }
 
     return { id: null as string | null, duplicate: true };
