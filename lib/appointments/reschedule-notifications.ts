@@ -233,19 +233,30 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
         </div>
       `.trim();
 
-      const result = await sendTransactionalEmail({
-        to: professionalEmail,
-        subject,
-        html,
-        text,
-      });
+      try {
+        const result = await sendTransactionalEmail({
+          to: professionalEmail,
+          subject,
+          html,
+          text,
+        });
 
-      await finishProfessionalAlert({
-        messageRowId,
-        ok: result.ok,
-        providerMessageId: result.ok ? result.providerMessageId : undefined,
-        errorMessage: result.ok ? undefined : result.errorMessage,
-      });
+        await finishProfessionalAlert({
+          messageRowId,
+          ok: result.ok,
+          providerMessageId: result.ok ? result.providerMessageId : undefined,
+          errorMessage: result.ok ? undefined : result.errorMessage,
+        });
+      } catch {
+        await finishProfessionalAlert({
+          messageRowId,
+          ok: false,
+          errorMessage: 'Error inesperado al enviar el aviso por email.',
+        });
+        console.error('Professional reschedule email failed', {
+          appointmentId: appointment.id,
+        });
+      }
     }
   }
 
@@ -271,19 +282,30 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
       });
 
       if (messageRowId) {
-        const result = await sendWhatsAppTemplate({
-          toE164: normalized.e164,
-          bodyParams: [patientName, dateLabel, timeLabel],
-          templateName,
-          templateLang,
-        });
+        try {
+          const result = await sendWhatsAppTemplate({
+            toE164: normalized.e164,
+            bodyParams: [patientName, dateLabel, timeLabel],
+            templateName,
+            templateLang,
+          });
 
-        await finishProfessionalAlert({
-          messageRowId,
-          ok: result.ok,
-          providerMessageId: result.ok ? result.providerMessageId : undefined,
-          errorMessage: result.ok ? undefined : result.errorMessage,
-        });
+          await finishProfessionalAlert({
+            messageRowId,
+            ok: result.ok,
+            providerMessageId: result.ok ? result.providerMessageId : undefined,
+            errorMessage: result.ok ? undefined : result.errorMessage,
+          });
+        } catch {
+          await finishProfessionalAlert({
+            messageRowId,
+            ok: false,
+            errorMessage: 'Error inesperado al enviar el aviso por WhatsApp.',
+          });
+          console.error('Professional reschedule WhatsApp failed', {
+            appointmentId: appointment.id,
+          });
+        }
       }
     }
   }
