@@ -559,10 +559,10 @@ export async function connectDigilogixIntegration(formData: FormData) {
 
   revalidatePath('/settings');
   if (result.status === 'connected') {
-    redirect('/settings?ok=' + encodeURIComponent('Firma digital Digilogix conectada correctamente.') + '#integraciones');
+    redirect('/settings?tab=integraciones&ok=' + encodeURIComponent('Firma digital Digilogix conectada correctamente.') + '#integraciones');
   }
 
-  redirect('/settings?ok=' + encodeURIComponent('Iniciamos el alta de firma digital. Completá el proceso indicado por Digilogix y luego usá “Verificar conexión”.') + '#integraciones');
+  redirect('/settings?tab=integraciones&ok=' + encodeURIComponent('Digilogix inició el alta. Revisá el correo del firmante y completá el registro en Digilogix. Después usá “Verificar conexión”.') + '#integraciones');
 }
 
 export async function testDigilogixConnection() {
@@ -601,5 +601,5 @@ export async function disconnectDigilogixIntegration() {
   }
 
   revalidatePath('/settings');
-  redirect('/settings?ok=' + encodeURIComponent('Firma digital Digilogix desconectada de TurnIA.') + '#integraciones');
+  redirect('/settings?tab=integraciones&ok=' + encodeURIComponent('Firma digital Digilogix desconectada de TurnIA.') + '#integraciones');
 }
