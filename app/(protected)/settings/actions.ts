@@ -8,6 +8,8 @@ import { getWsfeActivities } from '@/lib/arca/wsfe';
 import { disconnectGoogleOAuthConnection } from '@/lib/google/oauth';
 import { disconnectMercadoPagoOAuthConnection } from '@/lib/mercadopago/oauth';
 import { connectMisRx, disconnectMisRx, testStoredMisRxConnection } from '@/lib/misrx/connection';
+import { connectOrRefreshDigilogix, disconnectDigilogix, getDigilogixConnection } from '@/lib/digilogix/connection';
+import { areDigilogixLiveCallsEnabled, getDigilogixConfig } from '@/lib/digilogix/config';
 import {
   saveArcaConnection as saveArcaConnectionCore,
   testArcaConnection as testArcaConnectionCore,
@@ -519,4 +521,85 @@ export async function updateArcaBillingPreferences(formData: FormData) {
   revalidatePath('/settings');
   revalidatePath('/billing');
   redirect('/settings?ok=Preferencias%20de%20facturaci%C3%B3n%20ARCA%20guardadas#facturacion');
+}
+
+
+const digilogixConnectionSchema = z.object({
+  cuil: z.string().trim().min(1, 'Ingresá tu CUIL'),
+  email: z.string().trim().email('Ingresá un email válido').max(200),
+});
+
+export async function connectDigilogixIntegration(formData: FormData) {
+  const { supabase, user, tenantId } = await requireTenant();
+
+  if (!getDigilogixConfig() || !areDigilogixLiveCallsEnabled()) {
+    redirect('/settings?error=' + encodeURIComponent('La firma digital todavía no está disponible.') + '#integraciones');
+  }
+
+  const parsed = digilogixConnectionSchema.safeParse({
+    cuil: formData.get('cuil'),
+    email: formData.get('email'),
+  });
+  if (!parsed.success) {
+    redirect('/settings?error=' + encodeURIComponent(parsed.error.issues[0]?.message ?? 'Datos de firma digital inválidos') + '#integraciones');
+  }
+
+  const result = await connectOrRefreshDigilogix({
+    supabase,
+    tenantId,
+    userId: user.id,
+    cuil: parsed.data.cuil,
+    email: parsed.data.email,
+    beginOnboardingWhenNeeded: true,
+  });
+
+  if (!result.ok) {
+    redirect('/settings?error=' + encodeURIComponent(result.errorMessage) + '#integraciones');
+  }
+
+  revalidatePath('/settings');
+  if (result.status === 'connected') {
+    redirect('/settings?ok=' + encodeURIComponent('Firma digital Digilogix conectada correctamente.') + '#integraciones');
+  }
+
+  redirect('/settings?ok=' + encodeURIComponent('Iniciamos el alta de firma digital. Completá el proceso indicado por Digilogix y luego usá “Verificar conexión”.') + '#integraciones');
+}
+
+export async function testDigilogixConnection() {
+  const { supabase, user, tenantId } = await requireTenant();
+  const existing = await getDigilogixConnection(supabase, tenantId, user.id);
+  if (!existing) {
+    redirect('/settings?error=' + encodeURIComponent('Primero configurá tu firma digital.') + '#integraciones');
+  }
+
+  const result = await connectOrRefreshDigilogix({
+    supabase,
+    tenantId,
+    userId: user.id,
+    cuil: existing.cuil,
+    email: existing.email,
+    beginOnboardingWhenNeeded: false,
+  });
+
+  if (!result.ok) {
+    redirect('/settings?error=' + encodeURIComponent(result.errorMessage) + '#integraciones');
+  }
+
+  revalidatePath('/settings');
+  redirect(
+    result.status === 'connected'
+      ? '/settings?ok=' + encodeURIComponent('Certificado Digilogix vigente y disponible.') + '#integraciones'
+      : '/settings?error=' + encodeURIComponent('El certificado todavía no está disponible. Si ya completaste el alta, probá nuevamente en unos minutos.') + '#integraciones'
+  );
+}
+
+export async function disconnectDigilogixIntegration() {
+  const { supabase, user, tenantId } = await requireTenant();
+  const result = await disconnectDigilogix(supabase, tenantId, user.id);
+  if (!result.ok) {
+    redirect('/settings?error=' + encodeURIComponent(result.errorMessage) + '#integraciones');
+  }
+
+  revalidatePath('/settings');
+  redirect('/settings?ok=' + encodeURIComponent('Firma digital Digilogix desconectada de TurnIA.') + '#integraciones');
 }
