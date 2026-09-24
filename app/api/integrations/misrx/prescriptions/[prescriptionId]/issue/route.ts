@@ -124,11 +124,7 @@ export async function POST(
   );
 
   if (homologationActive) {
-    const controlledPreviewIssuing =
-      process.env.VERCEL_ENV === 'preview' &&
-      prescription.id === '24e0131d-2ca6-4270-b23b-05dfd9dfcf4a';
-
-    if (!homologation.issuingEnabled && !controlledPreviewIssuing) {
+    if (!homologation.issuingEnabled) {
       return NextResponse.json(
         { error: 'La emisión de homologación está bloqueada por configuración.' },
         { status: 403 },
