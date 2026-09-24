@@ -262,7 +262,16 @@ export async function GET(
       const dniMatches = !localDni || !providerDni || localDni === providerDni;
       const credentialMatches =
         !localCredential || !providerCredential || localCredential === providerCredential;
-      const identityMatches = Boolean(affiliate && dniMatches && credentialMatches);
+
+      // En homologación MisRX provee identificadores de prueba (DNI/credencial)
+      // que sirven para resolver el afiliado del convenio 800. Una vez que
+      // /busca_afiliado devuelve el afiliado_id seleccionado, no exigimos que
+      // los identificadores canónicos internos de ese registro sean idénticos
+      // a los valores de búsqueda. Producción conserva la validación estricta.
+      const identityMatches = Boolean(
+        affiliate &&
+        (homologationActive || (dniMatches && credentialMatches))
+      );
 
       const mismatchDetail = !affiliate
         ? 'MisRX respondió correctamente, pero el afiliado seleccionado ya no aparece en la respuesta.'
