@@ -14,6 +14,25 @@ import { isValidCuil } from '@/lib/digilogix/validation';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function describeShape(value: unknown, depth = 0): unknown {
+  if (depth >= 3) {
+    if (Array.isArray(value)) return { type: 'array', length: value.length };
+    return { type: value === null ? 'null' : typeof value };
+  }
+  if (Array.isArray(value)) {
+    return { type: 'array', length: value.length, firstItem: value.length ? describeShape(value[0], depth + 1) : null };
+  }
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    return {
+      type: 'object',
+      keys: Object.keys(obj),
+      fields: Object.fromEntries(Object.entries(obj).map(([key, v]) => [key, describeShape(v, depth + 1)])),
+    };
+  }
+  return { type: value === null ? 'null' : typeof value };
+}
+
 type VerificationContext = {
   documentId: string;
   sourceHash: string;
@@ -122,7 +141,7 @@ export async function GET(request: NextRequest) {
   const signedHash = state.Datos.HashSHA256FirmadoHexadecimal?.trim();
   if (!signedHash) {
     return NextResponse.json(
-      { ok: false, stage: 'signed_hash', reason: 'missing_signed_hash' },
+      { ok: false, stage: 'signed_hash', reason: 'missing_signed_hash', providerShape: describeShape(state.Datos) },
       { status: 502, headers: { 'Cache-Control': 'no-store' } },
     );
   }
