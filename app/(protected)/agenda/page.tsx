@@ -148,11 +148,22 @@ function isCancelled(status: string | null) {
 // escanear la agenda del día sin leer cada badge. Cualquier estado no
 // contemplado simplemente no agrega clase (la card queda neutra, como
 // antes).
-function statusAccentClass(status: string | null) {
+function statusAccentClass(status: string | null, rescheduleRequestedAt?: string | null) {
+  if (rescheduleRequestedAt) return 'status-accent-reschedule-requested';
+
   const value = (status ?? '').toLowerCase();
   if (['confirmado', 'confirmed', 'pendiente', 'pending', 'programado', 'scheduled'].includes(value)) {
     return `status-accent-${value}`;
   }
+  return '';
+}
+
+function monthChipStateClass(status: string | null, rescheduleRequestedAt?: string | null) {
+  if (isCancelled(status)) return 'is-cancelled';
+  if (rescheduleRequestedAt) return 'is-reschedule-requested';
+
+  const value = (status ?? '').toLowerCase();
+  if (value === 'confirmed' || value === 'confirmado') return 'is-confirmed';
   return '';
 }
 
@@ -512,7 +523,7 @@ export default async function AgendaPage({
                           <div key={a.id} className="month-chip-row">
                             <Link
                               href={`${returnTo}&edit=${a.id}#turno-drawer`}
-                              className={`month-chip ${isCancelled(a.status) ? 'is-cancelled' : ''}`}
+                              className={`month-chip ${monthChipStateClass(a.status, a.reschedule_requested_at)}`}
                               title={`${formatTime(a.starts_at)} · ${patientNameOf(a)}${isOnline ? ' · Online' : ''}`}
                             >
                               {formatTime(a.starts_at)} {patientNameOf(a)}{isOnline ? ' · Online' : ''}
@@ -621,7 +632,7 @@ export default async function AgendaPage({
                   const service = a.service_id ? serviceMap.get(a.service_id) : undefined;
                   const cancelled = isCancelled(a.status);
                   const isNext = nextAppointment?.id === a.id;
-                  const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : '', statusAccentClass(a.status)].filter(Boolean).join(' ');
+                  const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : '', statusAccentClass(a.status, a.reschedule_requested_at)].filter(Boolean).join(' ');
                   const isOnline = a.modality === 'online';
 
                   // Botón de Mercado Pago: sólo si el turno no está
