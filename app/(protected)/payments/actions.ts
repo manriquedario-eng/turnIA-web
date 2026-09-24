@@ -45,7 +45,12 @@ export async function registerPayment(formData: FormData) {
     p_idempotency_key: parsed.data.idempotency_key,
   });
 
-  if (error) redirect(`/payments?error=${encodeURIComponent(error.message || 'No se pudo registrar el pago')}`);
+  if (error) {
+    if (error.message?.includes('payment_exceeds_remaining_balance')) {
+      redirect('/payments?error=El%20importe%20supera%20el%20saldo%20pendiente%20del%20turno');
+    }
+    redirect(`/payments?error=${encodeURIComponent('No se pudo registrar el pago')}`);
+  }
 
   const result = Array.isArray(data) ? data[0] : data;
   const created = result?.created !== false;
