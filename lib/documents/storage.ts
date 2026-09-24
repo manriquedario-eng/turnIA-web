@@ -34,6 +34,11 @@ export async function uploadOriginalPdf(path: string, buffer: Buffer): Promise<U
   return uploadPdf(path, buffer);
 }
 
+/** Guarda un PDF firmado devuelto por un proveedor server-side. El path se construye con buildSignedStoragePath y nunca proviene del proveedor. */
+export async function uploadProviderSignedPdf(path: string, buffer: Buffer): Promise<UploadResult> {
+  return uploadPdf(path, buffer);
+}
+
 /**
  * Descarga el objeto real desde Storage. Ya NO se usa para servir descargas
  * al browser (eso ahora es una signed URL, ver `createDocumentDownloadUrl`)

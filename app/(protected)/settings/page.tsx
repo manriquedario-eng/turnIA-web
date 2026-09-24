@@ -1,5 +1,5 @@
 import { requireTenant } from '@/lib/auth/require-user';
-import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago, updateAiTranscriptionSetting, saveArcaConnection, testArcaConnection, selectArcaActivity, updateArcaBillingPreferences, saveMisRxConnection, testMisRxConnection, disconnectMisRxIntegration } from './actions';
+import { updateSettings, disconnectGoogleCalendar, disconnectMercadoPago, updateAiTranscriptionSetting, saveArcaConnection, testArcaConnection, selectArcaActivity, updateArcaBillingPreferences, saveMisRxConnection, testMisRxConnection, disconnectMisRxIntegration, connectDigilogixIntegration, testDigilogixConnection, disconnectDigilogixIntegration } from './actions';
 import { isGoogleOAuthConfigured } from '@/lib/google/oauth';
 import { isMercadoPagoOAuthConfigured } from '@/lib/mercadopago/oauth';
 import { isWhatsAppConfigured } from '@/lib/whatsapp/provider';
@@ -12,6 +12,7 @@ import { isFiscalProfileEnabled } from '@/lib/billing/fiscal-profile';
 import { getMisRxConnectionSummary, isMisRxConnectionConfigured } from '@/lib/misrx/connection';
 import { shouldShowMisRxForDeclaredProfession } from '@/lib/misrx/profession-eligibility';
 import { isMisRxUiEnabled } from '@/lib/misrx/homologation';
+import { isDigilogixFeatureVisible, areDigilogixLiveCallsEnabled, getDigilogixConfig } from '@/lib/digilogix/config';
 
 type PageProps = {
   searchParams?: Promise<{ ok?: string; error?: string }>;
@@ -29,8 +30,9 @@ function formatDuration(totalSeconds: number) {
 export default async function SettingsPage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
   const { supabase, user, tenantId } = await requireTenant();
+  const digilogixVisible = isDigilogixFeatureVisible();
 
-  const [{ data: profile }, { data: settings }, { data: googleIntegration }, { data: mercadoPagoIntegration }, { data: misRxIntegration }, { data: transcriptionAccount, error: transcriptionAccountError }] = await Promise.all([
+  const [{ data: profile }, { data: settings }, { data: googleIntegration }, { data: mercadoPagoIntegration }, { data: misRxIntegration }, { data: digilogixConnection }, { data: transcriptionAccount, error: transcriptionAccountError }] = await Promise.all([
     supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
     // `profile` acá es la columna jsonb existente de `settings` (datos del
     // profesional/consultorio) — no confundir con la tabla `profiles`
@@ -61,6 +63,14 @@ export default async function SettingsPage({ searchParams }: PageProps) {
       .eq('user_id', user.id)
       .eq('provider', 'misrx')
       .maybeSingle(),
+    digilogixVisible
+      ? supabase
+          .from('digilogix_connections')
+          .select('cuil,email,status,connected_at,last_certificate_check_at')
+          .eq('tenant_id', tenantId)
+          .eq('user_id', user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
     supabase
       .from('ai_transcription_accounts')
       .select('enabled,balance_seconds,lifetime_used_seconds')
@@ -99,6 +109,10 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const misRxConnection = misRxConfigured
     ? await getMisRxConnectionSummary({ tenantId, userId: user.id })
     : null;
+  const digilogixConfigured = Boolean(getDigilogixConfig()) && areDigilogixLiveCallsEnabled();
+  const digilogixConnected = digilogixConnection?.status === 'connected';
+  const digilogixOnboardingRequired = digilogixConnection?.status === 'onboarding_required';
+  const digilogixError = digilogixConnection?.status === 'error';
   const whatsappConfigured = isWhatsAppConfigured();
   const emailConfigured = isEmailConfigured();
   const declaredProfessionAllowsMisRx = shouldShowMisRxForDeclaredProfession(professionalProfile.profession);
@@ -332,6 +346,104 @@ export default async function SettingsPage({ searchParams }: PageProps) {
                   )}
                 </div>
               </div>
+
+              {digilogixVisible ? (
+                <div className="integration-row">
+                  <div className="integration-row-name">
+                    Digilogix · Firma digital
+                    <span className={`badge ${digilogixConnected ? 'badge-confirmado' : digilogixError ? 'badge-cancelado' : digilogixConfigured ? 'badge-pendiente' : 'badge-neutral'}`}>
+                      {digilogixConnected
+                        ? 'Conectado'
+                        : digilogixOnboardingRequired
+                          ? 'Alta pendiente'
+                          : digilogixError
+                            ? 'Revisar conexión'
+                            : digilogixConfigured
+                              ? 'No conectado'
+                              : 'No disponible'}
+                    </span>
+                  </div>
+                  <div className="integration-row-desc">
+                    Firma documentos clínicos desde TurnIA mediante Digilogix. La firma se autoriza en el entorno seguro del proveedor y TurnIA conserva el PDF firmado y su trazabilidad.
+                    {digilogixConnected ? ' Certificado vigente detectado.' : ''}
+                    {digilogixOnboardingRequired ? ' El alta o renovación del certificado todavía debe completarse en Digilogix.' : ''}
+                  </div>
+                  <div className="integration-row-action" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {digilogixConnected ? (
+                      <>
+                        <form action={testDigilogixConnection}>
+                          <button className="btn secondary btn-compact" type="submit">Verificar conexión</button>
+                        </form>
+                        <form action={disconnectDigilogixIntegration}>
+                          <button className="btn danger btn-compact" type="submit">Desconectar</button>
+                        </form>
+                      </>
+                    ) : digilogixOnboardingRequired ? (
+                      <div className="stack" style={{ width: '100%', marginTop: 8 }}>
+                        <div className="alert" style={{ margin: 0 }}>
+                          <strong>Alta de certificado pendiente.</strong> Digilogix continúa el registro fuera de TurnIA.
+                          Revisá el correo enviado al email del firmante y seguí el enlace de Digilogix para completar
+                          validación de identidad, autenticador, PIN y emisión del certificado.
+                        </div>
+                        <div className="form-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <a
+                            className="btn secondary btn-compact"
+                            href="https://suscriptor.digilogix.com.ar/Login"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Continuar alta en Digilogix
+                          </a>
+                          <form action={testDigilogixConnection}>
+                            <button className="btn btn-compact" type="submit">Verificar conexión</button>
+                          </form>
+                          <form action={disconnectDigilogixIntegration}>
+                            <button className="btn danger btn-compact" type="submit">Cancelar conexión</button>
+                          </form>
+                        </div>
+                        <p className="field-hint" style={{ margin: 0 }}>
+                          Si no recibiste el correo, en el portal de Digilogix podés usar “No tengo usuario” con el mismo email cargado en TurnIA.
+                        </p>
+                      </div>
+                    ) : digilogixConfigured ? (
+                      <form action={connectDigilogixIntegration} className="form-grid" style={{ width: '100%', marginTop: 8 }}>
+                        <label>
+                          CUIL del firmante
+                          <input
+                            name="cuil"
+                            inputMode="numeric"
+                            defaultValue={digilogixConnection?.cuil ?? ''}
+                            placeholder="11 dígitos"
+                            maxLength={14}
+                            required
+                          />
+                        </label>
+                        <label>
+                          Email del firmante
+                          <input
+                            name="email"
+                            type="email"
+                            defaultValue={digilogixConnection?.email ?? text('professional_email')}
+                            placeholder="tu@email.com"
+                            maxLength={200}
+                            required
+                          />
+                        </label>
+                        <p className="field-hint" style={{ gridColumn: '1 / -1', margin: 0 }}>
+                          TurnIA consulta si ya tenés un certificado vigente. Si no existe o venció, inicia el alta con Digilogix. El registro y los datos sensibles del firmante se completan únicamente en Digilogix.
+                        </p>
+                        <div className="form-actions">
+                          <button className="btn secondary btn-compact" type="submit">Conectar firma digital</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <span className="btn secondary btn-compact" aria-disabled="true" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                        Conectar
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : null}
 
               {showMisRxIntegration ? (
                 <div className="integration-row">

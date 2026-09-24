@@ -8,7 +8,11 @@ type TabId = (typeof TAB_IDS)[number];
 function tabFromHash(): TabId {
   if (typeof window === 'undefined') return 'preferencias';
   const hash = window.location.hash.replace('#', '');
-  return (TAB_IDS as readonly string[]).includes(hash) ? (hash as TabId) : 'preferencias';
+  if ((TAB_IDS as readonly string[]).includes(hash)) return hash as TabId;
+  const queryTab = new URLSearchParams(window.location.search).get('tab');
+  return (TAB_IDS as readonly string[]).includes(queryTab ?? '')
+    ? (queryTab as TabId)
+    : 'preferencias';
 }
 
 /**

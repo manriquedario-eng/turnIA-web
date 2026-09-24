@@ -57,14 +57,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const patientIdCheck = z.string().uuid().safeParse(patientId);
   if (!patientIdCheck.success) return NextResponse.json({ error: 'Paciente inválido.' }, { status: 400 });
 
-  let json: unknown;
+  const contentType = request.headers.get('content-type') ?? '';
+  const wantsHtmlRedirect = contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data');
+  let payload: unknown;
   try {
-    json = await request.json();
+    if (wantsHtmlRedirect) {
+      const form = await request.formData();
+      payload = {
+        documentType: form.get('documentType'),
+        documentLabel: form.get('documentLabel'),
+        supersedesDocumentId: form.get('supersedesDocumentId'),
+      };
+    } else {
+      payload = await request.json();
+    }
   } catch {
     return NextResponse.json({ error: 'Solicitud inválida.' }, { status: 400 });
   }
 
-  const parsed = bodySchema.safeParse(json);
+  const parsed = bodySchema.safeParse(payload);
   if (!parsed.success) return NextResponse.json({ error: 'Datos inválidos.' }, { status: 400 });
 
   const documentLabel = parsed.data.documentLabel ?? null;
@@ -141,6 +152,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const reason = rpcData?.reason ?? null;
     return NextResponse.json({ error: messageForDocumentRpcReason(reason) }, { status: statusForDocumentRpcReason(reason) });
+  }
+
+  if (wantsHtmlRedirect) {
+    return NextResponse.redirect(
+      new URL(
+        `/patients/${patientIdCheck.data}?success=${encodeURIComponent('Documento generado y listo para firmar.')}#documentos`,
+        request.url,
+      ),
+      { status: 303 },
+    );
   }
 
   return NextResponse.json({
