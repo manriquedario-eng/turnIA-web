@@ -50,6 +50,8 @@ import { reconcileMercadoPagoOrder } from '@/lib/mercadopago/reconcile';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+const MAX_MP_WEBHOOK_BODY_BYTES = 1024 * 1024; // 1 MiB
+
 // ---------------------------------------------------------------------------
 // Tipo mínimo del payload de notificaciones de Mercado Pago (sólo lo que
 // este endpoint necesita reconocer para loguear de forma segura; no es un
@@ -116,6 +118,12 @@ function parseWebhookPayload(rawBody: string): MercadoPagoWebhookPayload | null 
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {
+  const declaredLength = Number(request.headers.get('content-length') ?? '0');
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_MP_WEBHOOK_BODY_BYTES) {
+    console.warn('Mercado Pago webhook: payload demasiado grande, notificación rechazada');
+    return NextResponse.json({ error: 'payload_too_large' }, { status: 413 });
+  }
+
   // Headers y query params se leen ANTES del body: la firma de Mercado
   // Pago NO cubre el body (a diferencia de Meta/WhatsApp) — sólo cubre
   // `data.id` (query), `x-request-id` (header) y `ts` (dentro del propio
@@ -169,6 +177,11 @@ export async function POST(request: NextRequest) {
   } catch {
     console.error('Mercado Pago webhook: no se pudo leer el body del request (firma ya validada)');
     return NextResponse.json({ received: true }, { status: 200 });
+  }
+
+  if (Buffer.byteLength(rawBody, 'utf8') > MAX_MP_WEBHOOK_BODY_BYTES) {
+    console.warn('Mercado Pago webhook: payload demasiado grande, notificación rechazada');
+    return NextResponse.json({ error: 'payload_too_large' }, { status: 413 });
   }
 
   const queryDataId = signatureDataId ?? searchParams.get('id');
