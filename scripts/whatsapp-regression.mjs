@@ -46,6 +46,7 @@ const paymentOffer = read('lib/mercadopago/payment-offer.ts');
 const paymentRoute = read('app/api/payments/appointment/[token]/route.ts');
 const mercadoPagoOrders = read('lib/mercadopago/orders.ts');
 const actionExpiryMigration = read('supabase/migrations/20260924212000_public_appointment_actions_expire_at_start.sql');
+const cancellationSideEffects = read('lib/appointments/cancellation-side-effects.ts');
 
 check(
   'WhatsApp secrets are never NEXT_PUBLIC',
@@ -161,6 +162,15 @@ check(
     actionExpiryMigration.includes('confirm_public_appointment') &&
     actionExpiryMigration.includes('cancel_public_appointment') &&
     actionExpiryMigration.includes('request_public_appointment_reschedule'),
+);
+
+check(
+  'Cancelling an appointment never refunds or reverses recorded payments automatically',
+  cancellationSideEffects.includes('NO devuelve ni revierte pagos') &&
+    !cancellationSideEffects.includes("from('payments')") &&
+    !cancellationSideEffects.includes("from('mercadopago_orders')") &&
+    !cancellationSideEffects.includes("from('cash_movements')") &&
+    !cancellationSideEffects.includes('refund'),
 );
 
 check(
