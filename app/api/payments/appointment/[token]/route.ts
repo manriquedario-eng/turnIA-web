@@ -20,7 +20,8 @@ export async function POST(
   const origin = request.headers.get('origin');
   const fetchSite = request.headers.get('sec-fetch-site');
   if (
-    (origin && origin !== request.nextUrl.origin) ||
+    !origin ||
+    origin !== request.nextUrl.origin ||
     fetchSite === 'cross-site'
   ) {
     return NextResponse.json({ ok: false }, { status: 403 });
