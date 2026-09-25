@@ -12,7 +12,7 @@ import { VoiceTranscriptionTextarea } from '@/components/patients/VoiceTranscrip
 import { ExportMenu, type ExportMenuItem } from '@/components/export/ExportMenu';
 import { statusLabel, modalityLabel, paymentMethodLabel } from '@/lib/labels';
 import { SALE_CONDITIONS, VAT_CONDITIONS } from '@/lib/billing/constants';
-import { generateMercadoPagoCheckout } from '@/app/(protected)/agenda/actions';
+import { cancelAppointment, generateMercadoPagoCheckout } from '@/app/(protected)/agenda/actions';
 import { createBlankPrescriptionDraft } from '@/app/(protected)/patients/prescription-actions';
 import { isMisRxUiEnabled } from '@/lib/misrx/homologation';
 import { isDigilogixFeatureVisible } from '@/lib/digilogix/config';
@@ -370,6 +370,13 @@ export default async function PatientDetailPage({
                   >
                     Reprogramar
                   </Link>
+                  <form action={cancelAppointment}>
+                    <input type="hidden" name="id" value={nextAppointment.id} />
+                    <input type="hidden" name="return_to" value={`/patients/${patient.id}`} />
+                    <button className="btn-ghost danger" type="submit">
+                      Cancelar
+                    </button>
+                  </form>
                   {canChargeNextAppointment ? (
                     <form action={generateMercadoPagoCheckout}>
                       <input type="hidden" name="appointment_id" value={nextAppointment.id} />
