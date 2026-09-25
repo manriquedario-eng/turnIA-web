@@ -94,6 +94,7 @@ Antes de activar el webhook interactivo en producción, aplicar y revisar EN EST
 5. `supabase/migrations/20260924121000_whatsapp_public_action_rpc_consistency.sql`
 6. `supabase/migrations/20260924122000_whatsapp_permissions_and_indexes.sql`
 7. `supabase/migrations/20260924204500_whatsapp_appointment_messages_service_role_grants.sql`
+8. `supabase/migrations/20260924212000_public_appointment_actions_expire_at_start.sql`
 
 Después confirmar:
 
@@ -101,6 +102,7 @@ Después confirmar:
 - Existe `public.professional_contacts` con clave `tenant_id + user_id`.
 - La RPC de reprogramación devuelve `already_requested` si ya existe una solicitud pendiente.
 - Confirmar o cancelar limpia cualquier solicitud de reprogramación pendiente.
+- Confirmar / Cancelar / Reprogramar dejan de mutar cuando `starts_at` ya pasó, aunque el link público siga legible durante su gracia.
 - Confirmar RLS habilitada y sin políticas de acceso para anon/authenticated.
 - Confirmar columna `dedupe_key` en `appointment_messages`.
 - Confirmar índice único por `appointment_id + message_type + channel + dedupe_key` para:
@@ -166,6 +168,12 @@ Las acciones Confirmar / Cancelar / Reprogramar se prueban únicamente desde el 
 - tocar Confirmar
 - TurnIA cambia el turno a confirmado
 - respuesta de WhatsApp al paciente
+- si el turno tiene saldo pendiente, email válido y Mercado Pago del profesional disponible, la respuesta ofrece el link `/pagar/[token]`
+- abrir `/pagar/[token]` NO crea una orden: el paciente debe tocar “Pagar con Mercado Pago”
+- el checkout usa el saldo pendiente server-side, nunca un importe recibido del navegador
+- un turno sin saldo pendiente no ofrece pago
+- el POST de inicio de pago tiene rate-limit y bloqueo cross-site
+- la redirección externa usa `Referrer-Policy: no-referrer`
 - no se duplica al reenviar webhook
 
 ### Cancelar
