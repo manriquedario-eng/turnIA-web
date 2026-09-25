@@ -19,6 +19,7 @@ const webhook = read('app/api/whatsapp/webhook/route.ts');
 const actions = read('lib/whatsapp/appointment-actions.ts');
 const created = read('lib/whatsapp/send-appointment-created.ts');
 const reminder = read('lib/appointments/reminders-24h.ts');
+const pendingReminderRoute = read('app/api/reminders/pending/route.ts');
 const notification = read('lib/appointments/reschedule-notifications.ts');
 const migration = read('supabase/migrations/20260923174500_whatsapp_interaction_hardening.sql');
 const cronRoute = read('app/api/cron/appointment-reminders-24h/route.ts');
@@ -155,6 +156,16 @@ check(
   'Reminder processing counts fulfilled channel failures',
   reminder.includes("result.status === 'fulfilled' && result.value === false") &&
     reminder.includes('if (failedChannels > 0 || rejectedChannels > 0)'),
+);
+
+
+check(
+  'Patient birthdays surface through the global reminder notifications',
+  pendingReminderRoute.includes("from('patients')") &&
+    pendingReminderRoute.includes("birth_date") &&
+    pendingReminderRoute.includes("Cumpleaños de") &&
+    pendingReminderRoute.includes("birthday:") &&
+    pendingReminderRoute.includes("America/Argentina/Buenos_Aires"),
 );
 
 check(
