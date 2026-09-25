@@ -187,6 +187,12 @@ check(
 );
 
 check(
+  'External Mercado Pago redirect suppresses appointment token referrer',
+  paymentRoute.includes("Referrer-Policy") &&
+    paymentRoute.includes("no-referrer"),
+);
+
+check(
   'Mercado Pago checkout charges remaining balance and avoids stale reusable amounts',
   mercadoPagoOrders.includes("from('payments')") &&
     mercadoPagoOrders.includes('totalAmount - paidAmount') &&
