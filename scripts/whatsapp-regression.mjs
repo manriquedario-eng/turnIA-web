@@ -53,6 +53,8 @@ const publicPaymentPage = read('app/pagar/[token]/page.tsx');
 const requestIp = read('lib/request-ip.ts');
 const mercadoPagoReconcile = read('lib/mercadopago/reconcile.ts');
 const mercadoPagoBalanceGuardMigration = read('supabase/migrations/20260924214500_mercadopago_reconciliation_balance_guard.sql');
+const mercadoPagoWebhook = read('app/api/mercadopago/webhook/route.ts');
+const cashMovementIndexesMigration = read('supabase/migrations/20260924220500_cash_movements_payment_indexes.sql');
 
 check(
   'WhatsApp secrets are never NEXT_PUBLIC',
@@ -272,6 +274,19 @@ check(
     mercadoPagoReconcile.includes("rpcReason === 'payment_exceeds_remaining_balance'") &&
     mercadoPagoReconcile.includes("rpcReason === 'appointment_amount_unavailable'") &&
     mercadoPagoReconcile.includes('transient: false'),
+);
+
+check(
+  'Mercado Pago webhook rejects oversized payloads',
+  mercadoPagoWebhook.includes('MAX_MP_WEBHOOK_BODY_BYTES') &&
+    mercadoPagoWebhook.includes("status: 413") &&
+    mercadoPagoWebhook.includes("Buffer.byteLength(rawBody, 'utf8')"),
+);
+
+check(
+  'Cash movements are indexed for payment reconciliation',
+  cashMovementIndexesMigration.includes('cash_movements_payment_id_idx') &&
+    cashMovementIndexesMigration.includes('cash_movements_tenant_id_idx'),
 );
 
 check(
