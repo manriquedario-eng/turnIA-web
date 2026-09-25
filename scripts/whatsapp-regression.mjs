@@ -18,6 +18,7 @@ const provider = read('lib/whatsapp/provider.ts');
 const webhook = read('app/api/whatsapp/webhook/route.ts');
 const actions = read('lib/whatsapp/appointment-actions.ts');
 const created = read('lib/whatsapp/send-appointment-created.ts');
+const initialEmail = read('lib/email/send-appointment-created.ts');
 const reminder = read('lib/appointments/reminders-24h.ts');
 const pendingReminderRoute = read('app/api/reminders/pending/route.ts');
 const notification = read('lib/appointments/reschedule-notifications.ts');
@@ -117,6 +118,15 @@ check(
     !created.includes('turnia:appointment:${publicToken}:confirm') &&
     !created.includes('turnia:appointment:${publicToken}:cancel') &&
     !created.includes('turnia:appointment:${publicToken}:reschedule'),
+);
+
+
+check(
+  'Initial appointment email is informational and has no action or payment buttons',
+  !initialEmail.includes('Confirmar turno') &&
+    !initialEmail.includes('Cancelar</a>') &&
+    !initialEmail.includes('Reprogramar</a>') &&
+    !initialEmail.includes('Pagar con Mercado Pago'),
 );
 
 check(
