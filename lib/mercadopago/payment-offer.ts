@@ -36,6 +36,7 @@ export type MercadoPagoPaymentOffer =
         | 'patient_email_required'
         | 'no_amount'
         | 'already_paid'
+        | 'payment_review_required'
         | 'internal_error';
     };
 
@@ -83,7 +84,7 @@ export async function getMercadoPagoPaymentOfferByToken(
     return { available: false, reason: 'appointment_started' };
   }
 
-  const [connectionResult, patientResult, serviceResult, paymentsResult] =
+  const [connectionResult, patientResult, serviceResult, paymentsResult, orderReviewResult] =
     await Promise.all([
       supabase
         .from('mercadopago_connections')
@@ -112,16 +113,32 @@ export async function getMercadoPagoPaymentOfferByToken(
         .select('amount')
         .eq('tenant_id', appointment.tenant_id)
         .eq('appointment_id', appointment.id),
+      supabase
+        .from('mercadopago_orders')
+        .select('status,status_detail,payment_id')
+        .eq('tenant_id', appointment.tenant_id)
+        .eq('appointment_id', appointment.id)
+        .not('payment_id', 'is', null),
     ]);
 
   if (
     connectionResult.error ||
     patientResult.error ||
     serviceResult.error ||
-    paymentsResult.error
+    paymentsResult.error ||
+    orderReviewResult.error
   ) {
     console.error('Mercado Pago public offer: dependency lookup failed');
     return { available: false, reason: 'internal_error' };
+  }
+
+  const requiresPaymentReview = (orderReviewResult.data ?? []).some(
+    (order) =>
+      order.status === 'refunded' ||
+      order.status_detail === 'partially_refunded',
+  );
+  if (requiresPaymentReview) {
+    return { available: false, reason: 'payment_review_required' };
   }
 
   const connection = connectionResult.data;
