@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 function messageForReason(reason: string): string {
   if (reason === 'already_paid') return 'Este turno ya no tiene saldo pendiente.';
+  if (reason === 'payment_review_required') return 'Este turno tiene un pago en revisión y no admite un nuevo cobro online por ahora.';
   if (reason === 'not_confirmed') return 'El pago online se habilita cuando el turno está confirmado.';
   if (reason === 'appointment_started') return 'El pago online de este turno ya no está disponible desde este enlace.';
   if (reason === 'not_connected') return 'El profesional todavía no tiene disponible el cobro online para este turno.';
