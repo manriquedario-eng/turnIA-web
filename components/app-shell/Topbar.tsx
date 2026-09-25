@@ -42,7 +42,7 @@ export function Topbar({
         {pathname !== '/dashboard' ? (
           <button
             type="button"
-            className="menu-toggle"
+            className="topbar-back"
             onClick={() => {
               if (window.history.length > 1) router.back();
               else router.push('/dashboard');
