@@ -1,6 +1,16 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getAppointmentByPublicToken } from '@/lib/appointments/public-token';
 import { confirmAppointmentPublic, cancelAppointmentPublic, requestReschedulePublic } from './actions';
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+  },
+  referrer: 'no-referrer',
+};
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
