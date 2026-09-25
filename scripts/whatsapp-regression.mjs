@@ -88,6 +88,13 @@ check(
 );
 
 check(
+  'Webhook rejects oversized payloads before processing',
+  webhook.includes('MAX_WEBHOOK_BODY_BYTES') &&
+    webhook.includes("status: 413") &&
+    webhook.includes("Buffer.byteLength(rawBody, 'utf8')"),
+);
+
+check(
   'Webhook requires exact expected Phone Number ID',
   webhook.includes('WHATSAPP_PHONE_NUMBER_ID') &&
     webhook.includes("!expectedPhoneNumberId") &&
