@@ -81,15 +81,11 @@ export function isPlausibleToken(value: string | null | undefined): value is str
 /**
  * Log sanitizado de un error de Supabase en el flujo público por token.
  * Nunca recibe ni loguea el token completo, credenciales ni datos clínicos —
- * sólo los primeros 8 caracteres del token (suficiente para correlacionar
- * con logs/DB sin exponer el identificador completo) y los campos propios
- * del PostgrestError (code/message/hint/details), que nunca contienen
- * secretos ni PII: son metadata del motor de base de datos.
+ * sólo campos técnicos del PostgrestError (code/message/hint/details).
+ * El token, incluso parcial, no se registra.
  */
-function logSupabaseError(operation: string, token: string, error: { code?: string; message?: string; hint?: string; details?: string }) {
-  const tokenPrefix = typeof token === 'string' ? token.slice(0, 8) : 'n/a';
+function logSupabaseError(operation: string, _token: string, error: { code?: string; message?: string; hint?: string; details?: string }) {
   console.error(`public-token: fallo de Supabase en ${operation}`, {
-    tokenPrefix,
     code: error.code ?? null,
     message: error.message ?? null,
     hint: error.hint ?? null,
