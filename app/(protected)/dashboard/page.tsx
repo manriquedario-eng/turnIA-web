@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { statusLabel, modalityLabel } from '@/lib/labels';
 import { resolveDisplayName } from '@/lib/identity';
 import { setReminderStatus } from '@/app/(protected)/reminders/actions';
-import { IconCheck, IconPlus, IconChevronRight } from '@/components/ui/icons';
+import { IconCheck, IconPlus, IconLeaf, IconChevronRight } from '@/components/ui/icons';
 
 // PARTE 5 del pedido: todo bloque del Dashboard que representa un recurso
 // existente (turno, paciente, pago pendiente, lista de espera, aviso) debe
