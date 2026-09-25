@@ -315,7 +315,7 @@ async function sendReminderWhatsApp(params: {
   }
 }
 
-export async function processAppointmentReminders24h(now = new Date()) {
+export async function processAppointmentReminders24h(now = new Date(), options?: { tenantId?: string }) {
   if (!isServiceRoleConfigured()) {
     return { ok: false as const, reason: 'service_role_not_configured' };
   }
@@ -335,11 +335,17 @@ export async function processAppointmentReminders24h(now = new Date()) {
   let from = 0;
 
   while (true) {
-    const { data: appointments, error } = await supabase
+    let appointmentsQuery = supabase
       .from('appointments')
       .select('id,tenant_id,patient_id,professional_id,starts_at,status,public_token')
       .gte('starts_at', startsFrom)
-      .lte('starts_at', startsTo)
+      .lte('starts_at', startsTo);
+
+    if (options?.tenantId) {
+      appointmentsQuery = appointmentsQuery.eq('tenant_id', options.tenantId);
+    }
+
+    const { data: appointments, error } = await appointmentsQuery
       .order('starts_at', { ascending: true })
       .order('id', { ascending: true })
       .range(from, from + REMINDER_PAGE_SIZE - 1);
