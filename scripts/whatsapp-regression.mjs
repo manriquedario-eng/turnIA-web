@@ -170,7 +170,8 @@ check(
     !cancellationSideEffects.includes("from('payments')") &&
     !cancellationSideEffects.includes("from('mercadopago_orders')") &&
     !cancellationSideEffects.includes("from('cash_movements')") &&
-    !cancellationSideEffects.includes('refund'),
+    !cancellationSideEffects.includes('createMercadoPagoRefund') &&
+    !cancellationSideEffects.includes('refundMercadoPago'),
 );
 
 check(
