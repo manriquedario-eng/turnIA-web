@@ -48,6 +48,8 @@ const mercadoPagoOrders = read('lib/mercadopago/orders.ts');
 const actionExpiryMigration = read('supabase/migrations/20260924212000_public_appointment_actions_expire_at_start.sql');
 const cancellationSideEffects = read('lib/appointments/cancellation-side-effects.ts');
 const agendaActions = read('app/(protected)/agenda/actions.ts');
+const mercadoPagoReconcile = read('lib/mercadopago/reconcile.ts');
+const mercadoPagoBalanceGuardMigration = read('supabase/migrations/20260924214500_mercadopago_reconciliation_balance_guard.sql');
 
 check(
   'WhatsApp secrets are never NEXT_PUBLIC',
@@ -232,6 +234,22 @@ check(
     mercadoPagoOrders.includes('totalAmount - paidAmount') &&
     mercadoPagoOrders.includes("fail('already_paid'") &&
     mercadoPagoOrders.includes('Math.abs(orderAmount - amount) < 0.005'),
+);
+
+check(
+  'Mercado Pago reconciliation rechecks remaining balance before recording payment',
+  mercadoPagoBalanceGuardMigration.includes('payment_exceeds_remaining_balance') &&
+    mercadoPagoBalanceGuardMigration.includes('v_paid_amount + v_order.amount') &&
+    mercadoPagoBalanceGuardMigration.includes('grant execute on function public.record_mercadopago_payment') &&
+    mercadoPagoBalanceGuardMigration.includes('to service_role'),
+);
+
+check(
+  'Mercado Pago balance conflicts are classified as non-transient review cases',
+  mercadoPagoReconcile.includes("reason: 'payment_review_required'") &&
+    mercadoPagoReconcile.includes("rpcReason === 'payment_exceeds_remaining_balance'") &&
+    mercadoPagoReconcile.includes("rpcReason === 'appointment_amount_unavailable'") &&
+    mercadoPagoReconcile.includes('transient: false'),
 );
 
 check(
