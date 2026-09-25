@@ -179,6 +179,14 @@ check(
 );
 
 check(
+  'Public payment initiation has cross-site and persistent rate-limit guards',
+  paymentRoute.includes("fetchSite === 'cross-site'") &&
+    paymentRoute.includes("scope: 'public-payment-token'") &&
+    paymentRoute.includes("scope: 'public-payment-ip'") &&
+    paymentRoute.includes('checkRateLimit'),
+);
+
+check(
   'Mercado Pago checkout charges remaining balance and avoids stale reusable amounts',
   mercadoPagoOrders.includes("from('payments')") &&
     mercadoPagoOrders.includes('totalAmount - paidAmount') &&
