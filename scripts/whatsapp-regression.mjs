@@ -171,6 +171,13 @@ check(
 );
 
 check(
+  'Public payment offer blocks refund or chargeback review cases',
+  paymentOffer.includes("reason: 'payment_review_required'") &&
+    paymentOffer.includes("order.status === 'refunded'") &&
+    paymentOffer.includes("order.status_detail === 'partially_refunded'"),
+);
+
+check(
   'Public payment route creates checkout only on explicit POST after eligibility recheck',
   paymentRoute.includes('export async function POST') &&
     paymentRoute.includes('getMercadoPagoPaymentOfferByToken') &&
