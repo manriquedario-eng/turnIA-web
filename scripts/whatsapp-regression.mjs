@@ -50,6 +50,7 @@ const cancellationSideEffects = read('lib/appointments/cancellation-side-effects
 const agendaActions = read('app/(protected)/agenda/actions.ts');
 const publicAppointmentPage = read('app/t/[token]/page.tsx');
 const publicPaymentPage = read('app/pagar/[token]/page.tsx');
+const requestIp = read('lib/request-ip.ts');
 const mercadoPagoReconcile = read('lib/mercadopago/reconcile.ts');
 const mercadoPagoBalanceGuardMigration = read('supabase/migrations/20260924214500_mercadopago_reconciliation_balance_guard.sql');
 
@@ -234,6 +235,13 @@ check(
     publicPaymentPage.includes("index: false") &&
     publicPaymentPage.includes("follow: false") &&
     publicPaymentPage.includes("referrer: 'no-referrer'"),
+);
+
+check(
+  'Rate-limit client IP prefers Vercel header when a proxy is in front',
+  requestIp.includes("x-vercel-forwarded-for") &&
+    requestIp.includes("x-forwarded-for") &&
+    requestIp.indexOf("x-vercel-forwarded-for") < requestIp.lastIndexOf("x-forwarded-for"),
 );
 
 check(
