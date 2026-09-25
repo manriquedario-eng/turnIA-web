@@ -96,6 +96,7 @@ Antes de activar el webhook interactivo en producción, aplicar y revisar EN EST
 7. `supabase/migrations/20260924204500_whatsapp_appointment_messages_service_role_grants.sql`
 8. `supabase/migrations/20260924212000_public_appointment_actions_expire_at_start.sql`
 9. `supabase/migrations/20260924214500_mercadopago_reconciliation_balance_guard.sql`
+10. `supabase/migrations/20260924220500_cash_movements_payment_indexes.sql`
 
 Después confirmar:
 
