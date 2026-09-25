@@ -197,6 +197,17 @@ check(
     actions.includes("url.protocol !== 'https:'"),
 );
 
+
+check(
+  '24h email reminder offers the same token-bound Mercado Pago payment page',
+  reminder.includes('buildPublicPaymentUrl(params.publicToken)') &&
+    reminder.includes('Pagar con Mercado Pago') &&
+    reminder.includes('/pagar/${token}') &&
+    reminder.includes("process.env.VERCEL_ENV === 'preview'") &&
+    reminder.includes('process.env.VERCEL_URL') &&
+    reminder.includes('process.env.APP_URL'),
+);
+
 check(
   'Appointment creation does not pre-create Mercado Pago checkout',
   agendaActions.includes('Mercado Pago NO se genera al crear el turno') &&
