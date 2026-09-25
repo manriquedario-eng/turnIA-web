@@ -67,5 +67,7 @@ export async function POST(
     return backToPaymentPage(request, token);
   }
 
-  return NextResponse.redirect(checkout.checkoutUrl, 303);
+  const response = NextResponse.redirect(checkout.checkoutUrl, 303);
+  response.headers.set('Referrer-Policy', 'no-referrer');
+  return response;
 }
