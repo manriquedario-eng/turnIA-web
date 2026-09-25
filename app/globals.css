@@ -1805,6 +1805,21 @@ table tbody tr:hover {
   background: var(--color-surface-sunken);
 }
 
+
+.topbar-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--color-text);
+  padding: 8px;
+  border-radius: var(--radius-sm);
+}
+
+.topbar-back:hover {
+  background: var(--color-surface-sunken);
+}
+
 .app-main {
   flex: 1;
   min-width: 0;
