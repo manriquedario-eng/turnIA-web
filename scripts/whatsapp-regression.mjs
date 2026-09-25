@@ -186,7 +186,15 @@ check(
   'Confirmed WhatsApp reply offers payment only when server-side eligibility passes',
   actions.includes('getMercadoPagoPaymentOfferByToken') &&
     actions.includes('if (offer.available)') &&
-    actions.includes('https://www.turniahealth.com.ar/pagar/'),
+    actions.includes('buildPublicPaymentUrl(input.token)'),
+);
+
+check(
+  'WhatsApp payment links stay scoped to preview or production environment',
+  actions.includes("process.env.VERCEL_ENV === 'preview'") &&
+    actions.includes('process.env.VERCEL_URL') &&
+    actions.includes('process.env.APP_URL') &&
+    actions.includes("url.protocol !== 'https:'"),
 );
 
 check(
