@@ -32,6 +32,22 @@ function isCancelled(status: string | null): boolean {
   return status === 'cancelled' || status === 'cancelado';
 }
 
+function buildPublicPaymentUrl(token: string): string | null {
+  const previewHost =
+    process.env.VERCEL_ENV === 'preview' ? process.env.VERCEL_URL?.trim() : null;
+  const baseUrl = previewHost
+    ? `https://${previewHost}`
+    : process.env.APP_URL?.trim() || TURNIA_URL;
+
+  try {
+    const url = new URL(`/pagar/${token}`, baseUrl);
+    if (url.protocol !== 'https:') return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 async function createMessageRow(params: {
   tenantId: string;
   patientId: string;
@@ -150,6 +166,7 @@ async function sendReminderEmail(params: {
   if (!row.id) return row.duplicate;
 
   const base = `${TURNIA_URL}/t/${params.publicToken}`;
+  const paymentUrl = buildPublicPaymentUrl(params.publicToken);
   const subject = `Recordatorio de turno — ${params.dateLabel} ${params.timeLabel}`;
   const text = [
     `Hola ${params.patientName},`,
@@ -160,6 +177,13 @@ async function sendReminderEmail(params: {
     `Profesional: ${params.professionalName}`,
     '',
     `Confirmar, cancelar o solicitar reprogramación: ${base}`,
+    ...(paymentUrl
+      ? [
+          '',
+          'Después de confirmar el turno, si querés, podés abonarlo con Mercado Pago:',
+          paymentUrl,
+        ]
+      : []),
     '',
     'Este es un mensaje automático de TurnIA.',
   ].join('\n');
@@ -179,6 +203,13 @@ async function sendReminderEmail(params: {
           <td style="padding:4px;"><a href="${base}?action=reschedule" style="display:block;text-align:center;background:#f3f4f6;color:#111827;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Reprogramar</a></td>
         </tr>
       </table>
+      ${paymentUrl ? `
+        <div style="margin:24px 0;padding:16px;border:1px solid #e5e7eb;border-radius:10px;">
+          <p style="margin:0 0 12px;color:#374151;">Después de confirmar el turno, si querés, podés abonarlo ahora.</p>
+          <a href="${paymentUrl}" style="display:inline-block;background:#009ee3;color:#ffffff;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:600;">Pagar con Mercado Pago</a>
+          <p style="font-size:12px;color:#6b7280;margin:12px 0 0;">Si el turno ya fue pagado por otro canal, TurnIA no habilitará un segundo cobro.</p>
+        </div>
+      ` : ''}
       <p style="font-size:12px;color:#9ca3af;">Este es un mensaje automático de TurnIA.</p>
     </div>
   `.trim();
