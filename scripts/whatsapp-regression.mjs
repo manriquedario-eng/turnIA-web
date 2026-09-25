@@ -116,10 +116,11 @@ check(
 );
 
 check(
-  'WhatsApp actions bind Meta context to sent appointment message when supplied',
-  actions.includes('input.contextMessageId') &&
+  'WhatsApp actions require exact Meta context bound to the sent reminder',
+  actions.includes('if (!input.contextMessageId)') &&
     actions.includes("eq('provider_message_id', input.contextMessageId)") &&
-    actions.includes("eq('appointment_id', appointment.id)"),
+    actions.includes("eq('appointment_id', appointment.id)") &&
+    actions.includes('const outboundMessageId = contextMessage.id'),
 );
 
 check(
