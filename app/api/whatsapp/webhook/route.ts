@@ -50,6 +50,8 @@ import {
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+const MAX_WEBHOOK_BODY_BYTES = 1024 * 1024; // 1 MiB
+
 // ---------------------------------------------------------------------------
 // Tipos mínimos de los eventos de WhatsApp Cloud API (sólo lo que este
 // endpoint necesita reconocer; no es un tipado exhaustivo del payload de
@@ -339,6 +341,12 @@ function isValidMetaSignature(rawBody: string, signatureHeader: string | null, a
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {
+  const declaredLength = Number(request.headers.get('content-length') ?? '0');
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_WEBHOOK_BODY_BYTES) {
+    console.warn('WhatsApp webhook: payload demasiado grande, evento rechazado');
+    return NextResponse.json({ error: 'payload_too_large' }, { status: 413 });
+  }
+
   // Se lee el body como texto primero (no con request.json()) porque la
   // validación de firma necesita el string crudo exacto que Meta firmó.
   let rawBody: string;
@@ -350,6 +358,11 @@ export async function POST(request: NextRequest) {
     // Meta ante un problema que no se va a resolver reintentando.
     console.error('WhatsApp webhook: no se pudo leer el body del request');
     return NextResponse.json({ received: true }, { status: 200 });
+  }
+
+  if (Buffer.byteLength(rawBody, 'utf8') > MAX_WEBHOOK_BODY_BYTES) {
+    console.warn('WhatsApp webhook: payload demasiado grande, evento rechazado');
+    return NextResponse.json({ error: 'payload_too_large' }, { status: 413 });
   }
 
   // WHATSAPP_APP_SECRET es obligatorio para aceptar cualquier POST — ver
