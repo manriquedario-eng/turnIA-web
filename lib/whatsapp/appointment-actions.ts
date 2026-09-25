@@ -53,6 +53,22 @@ function digits(value: string | null | undefined): string {
   return (value ?? '').replace(/\D/g, '');
 }
 
+function buildPublicPaymentUrl(token: string): string | null {
+  const previewHost =
+    process.env.VERCEL_ENV === 'preview' ? process.env.VERCEL_URL?.trim() : null;
+  const baseUrl = previewHost
+    ? `https://${previewHost}`
+    : process.env.APP_URL?.trim() || 'https://www.turniahealth.com.ar';
+
+  try {
+    const url = new URL(`/pagar/${token}`, baseUrl);
+    if (url.protocol !== 'https:') return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 export async function processWhatsAppAppointmentAction(
   input: ProcessWhatsAppAppointmentActionInput,
 ): Promise<ProcessWhatsAppAppointmentActionResult> {
@@ -229,7 +245,7 @@ export async function processWhatsAppAppointmentAction(
   if (input.action === 'confirm') {
     const offer = await getMercadoPagoPaymentOfferByToken(input.token);
     if (offer.available) {
-      paymentUrl = `https://www.turniahealth.com.ar/pagar/${input.token}`;
+      paymentUrl = buildPublicPaymentUrl(input.token);
     }
   }
 
