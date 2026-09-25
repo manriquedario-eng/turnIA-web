@@ -176,7 +176,8 @@ type ReconcileFailureReason =
   | 'reference_mismatch'
   | 'amount_mismatch'
   | 'unexpected_remote_status'
-  | 'rpc_error';
+  | 'rpc_error'
+  | 'payment_review_required';
 
 export type ReconcileMercadoPagoOrderResult =
   | { ok: true; outcome: 'payment_recorded' | 'payment_already_recorded'; localOrderId: string; paymentId: string }
@@ -381,10 +382,24 @@ export async function reconcileMercadoPagoOrder(mpOrderId: string): Promise<Reco
         | undefined;
 
       if (!row?.ok || !row.payment_id) {
+        const rpcReason = row?.reason ?? 'unknown';
         console.error('Mercado Pago reconcile: record_mercadopago_payment devolvió ok=false', {
           localOrderId: localOrder.id,
-          reason: row?.reason ?? 'unknown',
+          reason: rpcReason,
         });
+
+        if (
+          rpcReason === 'payment_exceeds_remaining_balance' ||
+          rpcReason === 'appointment_amount_unavailable'
+        ) {
+          return {
+            ok: false,
+            reason: 'payment_review_required',
+            transient: false,
+            localOrderId: localOrder.id,
+          };
+        }
+
         return { ok: false, reason: 'rpc_error', transient: false, localOrderId: localOrder.id };
       }
 
