@@ -127,23 +127,26 @@ export async function processWhatsAppAppointmentAction(
     return { ok: false, shouldReply: false };
   }
 
-  // When Meta provides the replied-to message id, bind the action to an actual
-  // WhatsApp message TurnIA sent for this same appointment.
-  if (input.contextMessageId) {
-    const { data: contextMessage, error: contextError } = await supabase
-      .from('appointment_messages')
-      .select('id,message_type')
-      .eq('appointment_id', appointment.id)
-      .eq('channel', 'whatsapp')
-      .eq('provider_message_id', input.contextMessageId)
-      .maybeSingle();
+  // Quick-reply actions are valid only when Meta identifies the exact
+  // outgoing reminder that contained the button. Never fall back to a
+  // different/latest message if context is absent or mismatched.
+  if (!input.contextMessageId) {
+    return { ok: false, shouldReply: false };
+  }
 
-    if (contextError) throw contextError;
+  const { data: contextMessage, error: contextError } = await supabase
+    .from('appointment_messages')
+    .select('id,message_type')
+    .eq('appointment_id', appointment.id)
+    .eq('channel', 'whatsapp')
+    .eq('provider_message_id', input.contextMessageId)
+    .maybeSingle();
 
-    const allowedContextTypes = new Set(['appointment_reminder_24h']);
-    if (!contextMessage || !allowedContextTypes.has(contextMessage.message_type)) {
-      return { ok: false, shouldReply: false };
-    }
+  if (contextError) throw contextError;
+
+  const allowedContextTypes = new Set(['appointment_reminder_24h']);
+  if (!contextMessage || !allowedContextTypes.has(contextMessage.message_type)) {
+    return { ok: false, shouldReply: false };
   }
 
   const { error: eventInsertError } = await supabase
@@ -203,32 +206,9 @@ export async function processWhatsAppAppointmentAction(
     })
     .eq('provider_message_id', input.providerMessageId);
 
-  // Store the patient's semantic response on the exact outgoing message when
-  // Meta supplied context; otherwise fall back to the latest WhatsApp row.
-  let outboundMessageId: string | null = null;
-  if (input.contextMessageId) {
-    const { data } = await supabase
-      .from('appointment_messages')
-      .select('id')
-      .eq('appointment_id', appointment.id)
-      .eq('channel', 'whatsapp')
-      .eq('provider_message_id', input.contextMessageId)
-      .maybeSingle();
-    outboundMessageId = data?.id ?? null;
-  } else {
-    const { data, error } = await supabase
-      .from('appointment_messages')
-      .select('id')
-      .eq('appointment_id', appointment.id)
-      .eq('channel', 'whatsapp')
-      .eq('message_type', 'appointment_reminder_24h')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) throw error;
-    outboundMessageId = data?.id ?? null;
-  }
+  // Store the patient's semantic response on the exact reminder that
+  // supplied the validated quick-reply context.
+  const outboundMessageId = contextMessage.id;
 
   if (outboundMessageId) {
     await supabase
