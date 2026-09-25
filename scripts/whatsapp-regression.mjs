@@ -48,6 +48,8 @@ const mercadoPagoOrders = read('lib/mercadopago/orders.ts');
 const actionExpiryMigration = read('supabase/migrations/20260924212000_public_appointment_actions_expire_at_start.sql');
 const cancellationSideEffects = read('lib/appointments/cancellation-side-effects.ts');
 const agendaActions = read('app/(protected)/agenda/actions.ts');
+const publicAppointmentPage = read('app/t/[token]/page.tsx');
+const publicPaymentPage = read('app/pagar/[token]/page.tsx');
 const mercadoPagoReconcile = read('lib/mercadopago/reconcile.ts');
 const mercadoPagoBalanceGuardMigration = read('supabase/migrations/20260924214500_mercadopago_reconciliation_balance_guard.sql');
 
@@ -216,10 +218,22 @@ check(
 
 check(
   'Public payment initiation has cross-site and persistent rate-limit guards',
-  paymentRoute.includes("fetchSite === 'cross-site'") &&
+  paymentRoute.includes("!origin") &&
+    paymentRoute.includes("origin !== request.nextUrl.origin") &&
+    paymentRoute.includes("fetchSite === 'cross-site'") &&
     paymentRoute.includes("scope: 'public-payment-token'") &&
     paymentRoute.includes("scope: 'public-payment-ip'") &&
     paymentRoute.includes('checkRateLimit'),
+);
+
+check(
+  'Public token pages are noindex and suppress referrer leakage',
+  publicAppointmentPage.includes("index: false") &&
+    publicAppointmentPage.includes("follow: false") &&
+    publicAppointmentPage.includes("referrer: 'no-referrer'") &&
+    publicPaymentPage.includes("index: false") &&
+    publicPaymentPage.includes("follow: false") &&
+    publicPaymentPage.includes("referrer: 'no-referrer'"),
 );
 
 check(
