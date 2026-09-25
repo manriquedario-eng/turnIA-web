@@ -103,7 +103,6 @@ function buildAppointmentConfirmationEmail(input: {
   const subject = `Turno con ${input.professionalName} — ${input.dateLabel}`;
   const modalityText = modalityLabel(input.modality);
   const isOnline = input.modality === 'online' && Boolean(input.meetingUrl);
-  const publicUrl = input.publicToken ? `${publicAppUrl()}/t/${input.publicToken}` : null;
 
   const lines = [
     `Hola ${input.patientName},`,
@@ -117,52 +116,11 @@ function buildAppointmentConfirmationEmail(input: {
   if (isOnline && input.meetingUrl) {
     lines.push('', `Ingresá a la videollamada: ${input.meetingUrl}`);
   }
-  if (publicUrl) {
-    lines.push('', `Confirmar, cancelar o solicitar otro horario: ${publicUrl}`);
-  }
-  // Pago opcional (nunca obligatorio en el tono): sólo si vino un
-  // checkout_url ya validado por lib/mercadopago/orders.ts.
-  if (input.paymentUrl) {
-    lines.push('', 'Si querés, podés pagar tu turno ahora.', input.paymentUrl);
-  }
   lines.push('', 'Este es un mensaje automático de TurnIA.');
   const text = lines.join('\n');
 
   const meetingBlock = isOnline && input.meetingUrl
     ? `<p style="margin:24px 0;"><a href="${escapeHtml(input.meetingUrl)}" style="background:#111827;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;display:inline-block;">Unirse a Google Meet</a></p>`
-    : '';
-
-  // Confirmar / Reprogramar / Cancelar (PARTE 15/18-20 del pedido) — sólo
-  // se incluyen si tenemos un `public_token` (la migración que lo agrega
-  // podría no estar aplicada todavía). Cancelar apunta a la página pública
-  // con confirmación previa, nunca cancela directo por abrir el link.
-  const actionsBlock = publicUrl
-    ? `
-      <table style="width:100%;border-collapse:collapse;margin:24px 0;">
-        <tr>
-          <td style="padding:4px;">
-            <a href="${escapeHtml(publicUrl)}" style="display:block;text-align:center;background:#111827;color:#ffffff;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Confirmar turno</a>
-          </td>
-          <td style="padding:4px;">
-            <a href="${escapeHtml(publicUrl)}?action=reschedule" style="display:block;text-align:center;background:#f3f4f6;color:#111827;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Reprogramar</a>
-          </td>
-          <td style="padding:4px;">
-            <a href="${escapeHtml(publicUrl)}?action=cancel" style="display:block;text-align:center;background:#f3f4f6;color:#b91c1c;padding:12px 8px;border-radius:8px;text-decoration:none;font-weight:600;">Cancelar</a>
-          </td>
-        </tr>
-      </table>
-    `
-    : '';
-
-  // Bloque de pago — tono opcional ("si querés"), nunca presentado como
-  // obligatorio. No se muestra nada de pago si `paymentUrl` es null (MP no
-  // conectado, turno sin monto, email de paciente inválido, o no se pudo
-  // generar el checkout — ver createAppointment en agenda/actions.ts).
-  const paymentBlock = input.paymentUrl
-    ? `
-      <p style="margin:24px 0 8px;color:#374151;">Si querés, podés pagar tu turno ahora.</p>
-      <p style="margin:0 0 24px;"><a href="${escapeHtml(input.paymentUrl)}" style="background:#009ee3;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;">Pagar con Mercado Pago</a></p>
-    `
     : '';
 
   const html = `
@@ -177,8 +135,6 @@ function buildAppointmentConfirmationEmail(input: {
         <tr><td style="padding:6px 0;color:#6b7280;">Modalidad</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(modalityText)}</td></tr>
       </table>
       ${meetingBlock}
-      ${actionsBlock}
-      ${paymentBlock}
       <p style="font-size:12px;color:#9ca3af;margin-top:32px;">Este es un mensaje automático de TurnIA.</p>
     </div>
   `.trim();

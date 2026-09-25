@@ -1,7 +1,7 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
-import { IconMenu } from '@/components/ui/icons';
+import { usePathname, useRouter } from 'next/navigation';
+import { IconChevronLeft, IconMenu } from '@/components/ui/icons';
 import { NAV_SECTIONS } from './nav-items';
 import { GlobalSearch } from './GlobalSearch';
 import { roleLabel } from '@/lib/identity';
@@ -24,6 +24,7 @@ export function Topbar({
   onMenuClick: () => void;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const initials = name.trim().slice(0, 2).toUpperCase();
   const today = new Intl.DateTimeFormat('es-AR', {
     timeZone: 'America/Argentina/Buenos_Aires',
@@ -38,6 +39,20 @@ export function Topbar({
         <button type="button" className="menu-toggle" onClick={onMenuClick} aria-label="Abrir menú">
           <IconMenu />
         </button>
+        {pathname !== '/dashboard' ? (
+          <button
+            type="button"
+            className="topbar-back"
+            onClick={() => {
+              if (window.history.length > 1) router.back();
+              else router.push('/dashboard');
+            }}
+            aria-label="Volver"
+            title="Volver"
+          >
+            <IconChevronLeft />
+          </button>
+        ) : null}
         <div>
           <div className="topbar-title">{titleFor(pathname)}</div>
           <div className="topbar-date">{today}</div>

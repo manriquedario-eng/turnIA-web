@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { statusLabel, modalityLabel } from '@/lib/labels';
 import { resolveDisplayName } from '@/lib/identity';
 import { setReminderStatus } from '@/app/(protected)/reminders/actions';
-import { IconCheck, IconPlus, IconLeaf, IconSun, IconChevronRight } from '@/components/ui/icons';
+import { IconCheck, IconPlus, IconLeaf, IconChevronRight } from '@/components/ui/icons';
 
 // PARTE 5 del pedido: todo bloque del Dashboard que representa un recurso
 // existente (turno, paciente, pago pendiente, lista de espera, aviso) debe
@@ -495,23 +495,6 @@ export default async function DashboardPage() {
           ) : null}
         </div>
 
-        {/* Panel editorial/motivacional — dos superficies tintadas (salvia
-            y arena) con frase corta, tal como en la referencia. Texto
-            decorativo, no agrega ninguna información nueva. */}
-        <div className="dashboard-col">
-          <div className="dashboard-panel-tinted is-sage">
-            <span className="icon-circle is-sm">
-              <IconLeaf size={14} />
-            </span>
-            Personas ordenadas, vidas más tranquilas.
-          </div>
-          <div className="dashboard-panel-tinted is-sand">
-            <span className="icon-circle is-sm is-sand">
-              <IconSun size={14} />
-            </span>
-            Hoy también hacés la diferencia.
-          </div>
-        </div>
       </div>
     </section>
   );

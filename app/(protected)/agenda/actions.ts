@@ -248,33 +248,12 @@ export async function createAppointment(formData: FormData) {
       }
     }
 
-    // 5) Mercado Pago — checkout opcional para incluir en el email de
-    // confirmación. Se genera (o reutiliza, vía la misma función que usa el
-    // botón manual de Agenda) ANTES de armar el email, para poder pasarle un
-    // checkout_url real. Aislado en su propio try/catch, igual que Google
-    // Meet: un fallo acá (no conectado, sin monto, email de paciente
-    // inválido, error del proveedor, etc.) NUNCA debe impedir crear el turno
-    // (ya creado más arriba) ni enviar el resto del email — sólo deja
-    // paymentUrl en null, y el email sale igual pero sin el bloque de pago.
-    // createMercadoPagoCheckoutForAppointment ya hace todas las
-    // validaciones (conexión vigente, amount server-side, email del
-    // paciente, reutilización de una orden existente) — no se duplica nada
-    // de esa lógica acá.
-    let paymentUrl: string | null = null;
-    if (patient) {
-      try {
-        const checkoutResult = await createMercadoPagoCheckoutForAppointment({
-          tenantId,
-          userId: user.id,
-          appointmentId: created.id,
-        });
-        if (checkoutResult.ok) {
-          paymentUrl = checkoutResult.checkoutUrl;
-        }
-      } catch (err) {
-        console.error('Error inesperado generando el checkout de Mercado Pago para el email', created.id, err instanceof Error ? err.message : 'error desconocido');
-      }
-    }
+    // 5) Mercado Pago NO se genera al crear el turno.
+    // Política actual: el paciente recibe la opción de pagar recién después
+    // de confirmar el turno. Esto evita crear órdenes innecesarias para
+    // turnos todavía no confirmados. El botón manual de Agenda sigue
+    // disponible para el profesional cuando necesite generar un cobro.
+    const paymentUrl: string | null = null;
 
     // 6) Email de confirmación — aislado, nunca afecta al turno ya creado.
     if (patient) {
@@ -368,7 +347,7 @@ export async function updateAppointment(formData: FormData) {
 
   const { data: existing, error: existingError } = await supabase
     .from('appointments')
-    .select('id,status,professional_id,patient_id,starts_at,ends_at,modality,meeting_url,external_calendar_event_id,public_token,updated_at')
+    .select('id,status,professional_id,patient_id,starts_at,ends_at,modality,meeting_url,external_calendar_event_id,public_token,reschedule_requested_at,updated_at')
     .eq('id', parsed.data.id)
     .eq('tenant_id', tenantId)
     .maybeSingle();
@@ -380,6 +359,10 @@ export async function updateAppointment(formData: FormData) {
   if (existing.status === 'cancelled' || existing.status === 'cancelado') {
     redirect(`${returnTo}&error=No%20se%20puede%20editar%20un%20turno%20cancelado`);
   }
+
+  const schedulingChanged =
+    existing.starts_at !== startsAt ||
+    existing.ends_at !== endsAt;
 
   try {
     await assertNoOverlap(supabase, {
@@ -403,6 +386,13 @@ export async function updateAppointment(formData: FormData) {
       ends_at: endsAt,
       modality: parsed.data.modality,
       quoted_amount: parsed.data.quoted_amount ?? null,
+      ...(schedulingChanged
+        ? {
+            reschedule_requested_at: null,
+            reschedule_note: null,
+            ...(existing.reschedule_requested_at ? { status: 'confirmed' } : {}),
+          }
+        : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', parsed.data.id)

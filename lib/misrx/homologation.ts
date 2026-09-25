@@ -41,5 +41,10 @@ export function isMisRxProductionIssuingEnabled(): boolean {
 }
 
 export function isMisRxUiEnabled(): boolean {
+  // Preview is our integrated validation environment: completed modules must
+  // remain visible there even when production feature flags are still closed.
+  // Production stays explicitly gated by MISRX_FEATURE_VISIBLE.
+  if (process.env.VERCEL_ENV === 'preview') return true;
+
   return process.env.MISRX_FEATURE_VISIBLE?.trim().toLowerCase() === 'true';
 }

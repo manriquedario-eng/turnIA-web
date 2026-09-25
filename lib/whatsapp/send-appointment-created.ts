@@ -8,9 +8,11 @@
 // `appointment_messages`, nunca en un throw que pudiera hacer fallar la
 // creación del turno que ya se guardó.
 //
-// Alcance de 5E.2: sólo el mensaje inicial `appointment_created`. NO incluye
-// recordatorio de 24h, botones interactivos, recepción de respuestas,
-// webhooks ni cambios de estado del turno — eso queda para fases futuras.
+// Este módulo envía sólo el mensaje inicial `appointment_created`.
+// El alta del turno es informativa y NO incluye acciones. Los botones
+// Confirmar / Cancelar / Reprogramar se reservan exclusivamente para el
+// recordatorio 24h. El recordatorio y los avisos al profesional viven en
+// módulos separados para mantener responsabilidades aisladas.
 
 import { requireTenant } from '@/lib/auth/require-user';
 import { sendWhatsAppTemplate } from './provider';
@@ -39,7 +41,10 @@ export type SendAppointmentCreatedResult =
 /**
  * Intenta enviar "Hola {{nombre}}, tenés un turno el {{fecha}} a las {{hora}}
  * con {{profesional}}." por WhatsApp, sólo si se cumplen TODAS las
- * condiciones de consentimiento. Si no se cumplen, no llama a Meta, no
+ * condiciones del mensaje inicial: teléfono válido + consentimiento de
+ * WhatsApp. La preferencia de recordatorios de 24h se evalúa únicamente en
+ * el flujo de recordatorios; no bloquea la confirmación inicial. Si no se
+ * cumplen estas condiciones, no llama a Meta, no
  * inventa consentimiento y no deja registro (no hay nada que registrar: no
  * se intentó ningún envío).
  */
@@ -62,7 +67,9 @@ export async function sendAppointmentCreatedMessage(
 
   if (!phoneE164) return { attempted: false, reason: 'no_phone' };
   if (!whatsappConsent) return { attempted: false, reason: 'no_consent' };
-  if (!appointmentRemindersOptIn) return { attempted: false, reason: 'no_reminders_opt_in' };
+  // appointmentRemindersOptIn se conserva en el contrato por compatibilidad
+  // con agenda/actions.ts, pero NO condiciona el mensaje inicial.
+  void appointmentRemindersOptIn;
 
   try {
     // 1) Registrar el intento ANTES de llamar a Meta, para que quede
@@ -76,7 +83,7 @@ export async function sendAppointmentCreatedMessage(
         message_type: 'appointment_created',
         channel: 'whatsapp',
         status: 'pending',
-        payload: { patientName, professionalName, dateLabel, timeLabel },
+        payload: { patientName, professionalName, dateLabel, timeLabel, recipientE164: phoneE164 },
       })
       .select('id')
       .maybeSingle();
@@ -87,7 +94,9 @@ export async function sendAppointmentCreatedMessage(
       return { attempted: true, ok: false, reason: 'No se pudo registrar el mensaje saliente.' };
     }
 
-    // 2) Intentar el envío real (o modo seguro si faltan credenciales).
+    // 2) Enviar la plantilla informativa aprobada por Meta. El mensaje inicial
+    // no tiene acciones: Confirmar / Cancelar / Reprogramar aparecen recién
+    // en el recordatorio de 24 horas.
     const result = await sendWhatsAppTemplate({
       toE164: phoneE164,
       bodyParams: [patientName, dateLabel, timeLabel, professionalName],
@@ -100,7 +109,11 @@ export async function sendAppointmentCreatedMessage(
         .update({
           status: 'sent',
           sent_at: new Date().toISOString(),
+          delivered_at: null,
+          read_at: null,
+          failed_at: null,
           provider_message_id: result.providerMessageId,
+          error_message: null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', messageRow.id)
@@ -113,6 +126,7 @@ export async function sendAppointmentCreatedMessage(
       .from('appointment_messages')
       .update({
         status: 'failed',
+        failed_at: new Date().toISOString(),
         error_message: result.errorMessage,
         updated_at: new Date().toISOString(),
       })

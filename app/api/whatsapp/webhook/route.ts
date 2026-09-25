@@ -1,18 +1,18 @@
 // Webhook oficial de Meta WhatsApp Cloud API.
 //
 // URL pública que debe configurarse en Meta (App > WhatsApp > Configuration):
-//   https://turn-ia-web.vercel.app/api/whatsapp/webhook
+//   https://www.turniahealth.com.ar/api/whatsapp/webhook
 //
 // GET  -> Verificación del webhook (Meta la llama una vez al guardar la
 //         configuración, y cada vez que se re-verifica).
 // POST -> Recepción de eventos (mensajes entrantes y actualizaciones de
 //         estado de mensajes salientes).
 //
-// Alcance de esta implementación (ver tarea original): sólo dejar el
-// webhook operativo y seguro. NO incluye chatbot, respuestas automáticas,
-// IA, almacenamiento de conversaciones, ni ninguna lógica de negocio sobre
-// pacientes/turnos. Eso queda para fases futuras — ver comentarios "TODO"
-// en el handler de POST.
+// Alcance actual: webhook operativo y seguro para eventos de estado y
+// acciones de turnos generadas por botones de TurnIA (Confirmar / Cancelar /
+// Reprogramar). No implementa chatbot, IA ni interpretación de texto libre.
+// Los mensajes entrantes que no tengan un payload de acción generado por
+// TurnIA se ignoran deliberadamente.
 //
 // Variables de entorno (server-side únicamente, nunca NEXT_PUBLIC_):
 //   WHATSAPP_VERIFY_TOKEN   token arbitrario que vos elegís y configurás
@@ -34,12 +34,23 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import {
+  processWhatsAppAppointmentAction,
+  type AppointmentWhatsAppAction,
+} from '@/lib/whatsapp/appointment-actions';
+import { sendWhatsAppTextMessage } from '@/lib/whatsapp/provider';
+import {
+  createSupabaseServiceClient,
+  isServiceRoleConfigured,
+} from '@/lib/supabase/service';
 
 // Ruta 100% dinámica: no debe cachearse ni pre-renderizarse, y no depende
 // de filesystem local ni de procesos en segundo plano (compatible con el
 // runtime serverless de Vercel).
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+const MAX_WEBHOOK_BODY_BYTES = 1024 * 1024; // 1 MiB
 
 // ---------------------------------------------------------------------------
 // Tipos mínimos de los eventos de WhatsApp Cloud API (sólo lo que este
@@ -52,6 +63,21 @@ type WhatsAppInboundMessage = {
   from: string;
   timestamp: string;
   type: string;
+  button?: {
+    payload?: string;
+    text?: string;
+  };
+  interactive?: {
+    type?: string;
+    button_reply?: {
+      id?: string;
+      title?: string;
+    };
+  };
+  context?: {
+    id?: string;
+    from?: string;
+  };
 };
 
 type WhatsAppMessageStatus = {
@@ -59,6 +85,12 @@ type WhatsAppMessageStatus = {
   status: 'sent' | 'delivered' | 'read' | 'failed' | (string & {});
   timestamp: string;
   recipient_id: string;
+  errors?: Array<{
+    code?: number;
+    title?: string;
+    message?: string;
+    error_data?: { details?: string };
+  }>;
 };
 
 type WhatsAppChangeValue = {
@@ -82,6 +114,137 @@ type WhatsAppWebhookPayload = {
   object?: string;
   entry?: WhatsAppEntry[];
 };
+
+type AppointmentActionPayload = {
+  token: string;
+  action: AppointmentWhatsAppAction;
+};
+
+const APPOINTMENT_ACTION_PAYLOAD =
+  /^turnia:appointment:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):(confirm|cancel|reschedule)$/i;
+
+function parseAppointmentAction(message: WhatsAppInboundMessage): AppointmentActionPayload | null {
+  const payload = message.button?.payload ?? message.interactive?.button_reply?.id ?? null;
+  if (!payload) return null;
+
+  const match = APPOINTMENT_ACTION_PAYLOAD.exec(payload);
+  if (!match) return null;
+
+  return {
+    token: match[1],
+    action: match[2].toLowerCase() as AppointmentWhatsAppAction,
+  };
+}
+
+async function processAppointmentAction(message: WhatsAppInboundMessage): Promise<void> {
+  const parsed = parseAppointmentAction(message);
+  if (!parsed) return;
+
+  const result = await processWhatsAppAppointmentAction({
+    providerMessageId: message.id,
+    fromWaId: message.from,
+    contextMessageId: message.context?.id ?? null,
+    token: parsed.token,
+    action: parsed.action,
+  });
+
+  if (!result.shouldReply || !result.replyText) {
+    console.log('WhatsApp appointment action processed without reply', {
+      messageId: message.id,
+      action: parsed.action,
+      ok: result.ok,
+      duplicate: Boolean(result.duplicate),
+    });
+    return;
+  }
+
+  const reply = await sendWhatsAppTextMessage({
+    toWaId: message.from,
+    text: result.replyText,
+  });
+
+  console.log('WhatsApp appointment action processed', {
+    messageId: message.id,
+    action: parsed.action,
+    ok: result.ok,
+    replySent: reply.ok,
+  });
+}
+
+async function updateDeliveryStatus(status: WhatsAppMessageStatus): Promise<void> {
+  if (!isServiceRoleConfigured()) return;
+
+  const allowed = new Set(['sent', 'delivered', 'read', 'failed']);
+  if (!allowed.has(status.status)) return;
+
+  const supabase = createSupabaseServiceClient();
+  const eventAt = new Date(Number(status.timestamp) * 1000);
+  const eventIso = Number.isNaN(eventAt.getTime()) ? new Date().toISOString() : eventAt.toISOString();
+
+  const { data: current, error: currentError } = await supabase
+    .from('appointment_messages')
+    .select('id,status,sent_at,delivered_at,read_at,failed_at')
+    .eq('provider_message_id', status.id)
+    .eq('channel', 'whatsapp')
+    .maybeSingle();
+
+  if (currentError) throw currentError;
+  if (!current) return;
+
+  const rank: Record<string, number> = {
+    pending: 0,
+    scheduled: 0,
+    sent: 1,
+    delivered: 2,
+    read: 3,
+  };
+
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+  if (status.status === 'failed') {
+    // Un fallo tardío nunca debe degradar un mensaje ya entregado/leído.
+    const currentRank = rank[current.status] ?? -1;
+    if (currentRank >= rank.delivered) return;
+
+    const providerError = status.errors?.[0];
+    const errorParts = [
+      providerError?.code ? `Meta #${providerError.code}` : null,
+      providerError?.title ?? providerError?.message ?? null,
+      providerError?.error_data?.details ?? null,
+    ].filter((part): part is string => Boolean(part));
+
+    patch.status = 'failed';
+    patch.failed_at = current.failed_at ?? eventIso;
+    patch.error_message = errorParts.length
+      ? errorParts.join(' — ').slice(0, 500)
+      : 'Meta informó que el mensaje no pudo entregarse.';
+  } else {
+    const incomingRank = rank[status.status] ?? -1;
+    const currentRank = rank[current.status] ?? -1;
+
+    // Nunca degradar read -> delivered -> sent si Meta entrega eventos fuera de orden.
+    if (incomingRank < currentRank) return;
+
+    patch.status = status.status;
+    if (status.status === 'sent') patch.sent_at = current.sent_at ?? eventIso;
+    if (status.status === 'delivered') {
+      patch.sent_at = current.sent_at ?? eventIso;
+      patch.delivered_at = current.delivered_at ?? eventIso;
+    }
+    if (status.status === 'read') {
+      patch.sent_at = current.sent_at ?? eventIso;
+      patch.delivered_at = current.delivered_at ?? eventIso;
+      patch.read_at = current.read_at ?? eventIso;
+    }
+  }
+
+  const { error } = await supabase
+    .from('appointment_messages')
+    .update(patch)
+    .eq('id', current.id);
+
+  if (error) throw error;
+}
 
 // ---------------------------------------------------------------------------
 // GET — verificación del webhook (Meta Cloud API "hub challenge").
@@ -178,6 +341,12 @@ function isValidMetaSignature(rawBody: string, signatureHeader: string | null, a
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {
+  const declaredLength = Number(request.headers.get('content-length') ?? '0');
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_WEBHOOK_BODY_BYTES) {
+    console.warn('WhatsApp webhook: payload demasiado grande, evento rechazado');
+    return NextResponse.json({ error: 'payload_too_large' }, { status: 413 });
+  }
+
   // Se lee el body como texto primero (no con request.json()) porque la
   // validación de firma necesita el string crudo exacto que Meta firmó.
   let rawBody: string;
@@ -189,6 +358,11 @@ export async function POST(request: NextRequest) {
     // Meta ante un problema que no se va a resolver reintentando.
     console.error('WhatsApp webhook: no se pudo leer el body del request');
     return NextResponse.json({ received: true }, { status: 200 });
+  }
+
+  if (Buffer.byteLength(rawBody, 'utf8') > MAX_WEBHOOK_BODY_BYTES) {
+    console.warn('WhatsApp webhook: payload demasiado grande, evento rechazado');
+    return NextResponse.json({ error: 'payload_too_large' }, { status: 413 });
   }
 
   // WHATSAPP_APP_SECRET es obligatorio para aceptar cualquier POST — ver
@@ -235,21 +409,29 @@ export async function POST(request: NextRequest) {
       for (const change of entry.changes ?? []) {
         const value = change.value;
 
+        const expectedPhoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+        if (
+          !expectedPhoneNumberId ||
+          value.metadata?.phone_number_id !== expectedPhoneNumberId
+        ) {
+          console.warn('WhatsApp webhook: Phone Number ID ausente o no coincidente, evento ignorado');
+          continue;
+        }
+
         for (const message of value.messages ?? []) {
-          // TODO (fase futura, fuera de este alcance): procesar el mensaje
-          // entrante (guardarlo, interpretarlo, responder). Por ahora sólo
-          // se deja registrada la recepción con IDs técnicos, sin contenido.
           console.log('Incoming WhatsApp message event', {
             messageId: message.id,
             type: message.type,
           });
+
+          // Sólo interpretamos payloads generados por TurnIA. Cualquier otro
+          // mensaje entrante sigue siendo ignorado: no hay chatbot ni texto
+          // libre que pueda modificar un turno.
+          await processAppointmentAction(message);
         }
 
         for (const status of value.statuses ?? []) {
-          // TODO (fase futura, fuera de este alcance): reflejar este estado
-          // en `appointment_messages.status` (sent/delivered/read/failed),
-          // matcheando por provider_message_id. Por ahora sólo se deja
-          // registrado el evento.
+          await updateDeliveryStatus(status);
           console.log(`WhatsApp status event: ${status.status}`, {
             messageId: status.id,
           });
@@ -257,14 +439,13 @@ export async function POST(request: NextRequest) {
       }
     }
   } catch (err) {
-    // Red de seguridad: un payload con forma inesperada nunca debe tirar
-    // abajo el endpoint. Se registra sólo el mensaje de error, nunca el
-    // payload completo.
+    // Un evento firmado y válido que falla por infraestructura/DB debe poder
+    // reintentarse. Las acciones son idempotentes y whatsapp_inbound_events
+    // evita efectos duplicados cuando Meta reenvía el mismo webhook.
     const message = err instanceof Error ? err.message : 'Error desconocido';
-    console.error('WhatsApp webhook: error procesando el payload', message);
+    console.error('WhatsApp webhook: error transitorio procesando evento', message);
+    return NextResponse.json({ received: false }, { status: 500 });
   }
 
-  // Responder 200 rápido y siempre que el payload haya sido reconocido,
-  // para evitar reintentos innecesarios de Meta.
   return NextResponse.json({ received: true }, { status: 200 });
 }

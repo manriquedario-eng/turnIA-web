@@ -8,6 +8,7 @@ import {
 } from '@/lib/appointments/public-token';
 import { checkRateLimit, type RateLimitResult } from '@/lib/rate-limit';
 import { getClientIp } from '@/lib/request-ip';
+import { notifyProfessionalAboutRescheduleByToken } from '@/lib/appointments/reschedule-notifications';
 
 // Rate limiting Fase 2 — acciones públicas mutantes de /t/[token]
 // (confirmar/cancelar/solicitar reprogramación). Mismo patrón que
@@ -112,5 +113,15 @@ export async function requestReschedulePublic(formData: FormData) {
 
   const result = await requestRescheduleByToken(token, note);
   if (!result.ok) redirect(`/t/${token}?error=${encodeURIComponent(result.error)}`);
+
+  // El mismo aviso al profesional se dispara venga la solicitud desde email
+  // o desde WhatsApp. Nunca mueve ni cancela el turno: sólo notifica.
+  try {
+    await notifyProfessionalAboutRescheduleByToken(token);
+  } catch {
+    // La solicitud ya quedó registrada. Un fallo de notificación no debe
+    // revertir ni ocultar esa acción del paciente.
+  }
+
   redirect(`/t/${token}?done=reschedule_requested`);
 }

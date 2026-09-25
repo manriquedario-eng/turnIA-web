@@ -1805,6 +1805,21 @@ table tbody tr:hover {
   background: var(--color-surface-sunken);
 }
 
+
+.topbar-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--color-text);
+  padding: 8px;
+  border-radius: var(--radius-sm);
+}
+
+.topbar-back:hover {
+  background: var(--color-surface-sunken);
+}
+
 .app-main {
   flex: 1;
   min-width: 0;
@@ -1986,7 +2001,15 @@ table tbody tr:hover {
    aplica si is-cancelled/is-next ya están dando su propia señal. */
 .appointment-card.status-accent-confirmado:not(.is-cancelled):not(.is-next),
 .appointment-card.status-accent-confirmed:not(.is-cancelled):not(.is-next) {
+  background: var(--color-success-bg);
+  border-color: rgba(74, 107, 88, 0.22);
   box-shadow: inset 3px 0 0 var(--color-success);
+}
+
+.appointment-card.status-accent-reschedule-requested:not(.is-cancelled) {
+  background: var(--color-warning-bg);
+  border-color: rgba(169, 124, 52, 0.24);
+  box-shadow: inset 3px 0 0 var(--color-warning);
 }
 
 .appointment-card.status-accent-pendiente:not(.is-cancelled):not(.is-next),
@@ -3077,6 +3100,16 @@ table tbody tr:hover {
    "no depender solamente de text-decoration"). Ahora usa el mismo rosa/rojo
    suave que .badge-cancelado, consistente entre Mes y Semana (ambas vistas
    comparten .month-chip). */
+.month-chip.is-confirmed {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.month-chip.is-reschedule-requested {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
 .month-chip.is-cancelled {
   background: var(--color-danger-bg);
   color: var(--color-danger);

@@ -1,6 +1,16 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getAppointmentByPublicToken } from '@/lib/appointments/public-token';
 import { confirmAppointmentPublic, cancelAppointmentPublic, requestReschedulePublic } from './actions';
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+  },
+  referrer: 'no-referrer',
+};
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -115,8 +125,8 @@ export default async function PublicAppointmentPage({
               <input type="hidden" name="token" value={token} />
               <button className="btn" type="submit">Confirmar turno</button>
             </form>
-            <Link className="btn secondary" href={`/t/${token}?action=reschedule`}>Solicitar reprogramación</Link>
             <Link className="btn-ghost danger" href={`/t/${token}?action=cancel`}>Cancelar turno</Link>
+            <Link className="btn secondary" href={`/t/${token}?action=reschedule`}>Solicitar reprogramación</Link>
           </div>
         )}
 

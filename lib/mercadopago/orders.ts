@@ -156,6 +156,7 @@ type ExistingOrderRow = {
   id: string;
   checkout_url: string | null;
   status: string | null;
+  amount: number | string | null;
 };
 
 type MercadoPagoOrderResponse = {
@@ -480,10 +481,35 @@ export async function createMercadoPagoCheckoutForAppointment(params: {
 
   const quotedAmount = appointment.quoted_amount != null ? Number(appointment.quoted_amount) : 0;
   const servicePrice = serviceRow?.price != null ? Number(serviceRow.price) : 0;
-  const amount = quotedAmount > 0 ? quotedAmount : servicePrice;
+  const totalAmount = quotedAmount > 0 ? quotedAmount : servicePrice;
 
-  if (!Number.isFinite(amount) || amount <= 0) {
+  if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
     return fail('no_amount', 'Este turno no tiene un monto configurado. Asigná un precio antes de generar el cobro.');
+  }
+
+  // Cobrar sólo el saldo pendiente. Esto evita que un turno con un pago
+  // parcial registrado genere un nuevo checkout por el total original.
+  let paidAmount = 0;
+  try {
+    const { data: paidRows, error: paidError } = await serviceClient
+      .from('payments')
+      .select('amount')
+      .eq('tenant_id', tenantId)
+      .eq('appointment_id', appointmentId);
+    if (paidError) throw paidError;
+
+    paidAmount = (paidRows ?? []).reduce((sum, row) => {
+      const value = Number(row.amount ?? 0);
+      return Number.isFinite(value) ? sum + value : sum;
+    }, 0);
+  } catch (err) {
+    console.error('Mercado Pago orders: fallo calculando saldo pendiente', err instanceof Error ? err.message : 'error desconocido');
+    return fail('internal_error', 'No pudimos calcular el saldo pendiente del turno. Probá de nuevo en unos minutos.');
+  }
+
+  const amount = Math.round((totalAmount - paidAmount) * 100) / 100;
+  if (amount <= 0) {
+    return fail('already_paid', 'Este turno no tiene saldo pendiente.');
   }
 
   // Moneda ARS por ahora (ver pedido original) — no se toma de
@@ -530,7 +556,7 @@ export async function createMercadoPagoCheckoutForAppointment(params: {
   try {
     const { data: existing, error: existingError } = await serviceClient
       .from('mercadopago_orders')
-      .select('id, checkout_url, status')
+      .select('id, checkout_url, status, amount')
       .eq('tenant_id', tenantId)
       .eq('appointment_id', appointmentId)
       .not('checkout_url', 'is', null)
@@ -539,9 +565,16 @@ export async function createMercadoPagoCheckoutForAppointment(params: {
 
     if (existingError) throw existingError;
 
-    const reusable = (existing as ExistingOrderRow[] | null)?.find(
-      (row) => row.status && REUSABLE_ORDER_STATUSES.includes(row.status) && isTrustedMercadoPagoCheckoutUrl(row.checkout_url)
-    );
+    const reusable = (existing as ExistingOrderRow[] | null)?.find((row) => {
+      const orderAmount = Number(row.amount ?? 0);
+      return (
+        row.status &&
+        REUSABLE_ORDER_STATUSES.includes(row.status) &&
+        isTrustedMercadoPagoCheckoutUrl(row.checkout_url) &&
+        Number.isFinite(orderAmount) &&
+        Math.abs(orderAmount - amount) < 0.005
+      );
+    });
     if (reusable && reusable.checkout_url) {
       return { ok: true, orderId: reusable.id, checkoutUrl: reusable.checkout_url };
     }

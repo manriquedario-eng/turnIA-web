@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireTenant } from '@/lib/auth/require-user';
+import { normalizePhone } from '@/lib/phone';
 import { getWsfeActivities } from '@/lib/arca/wsfe';
 import { disconnectGoogleOAuthConnection } from '@/lib/google/oauth';
 import { disconnectMercadoPagoOAuthConnection } from '@/lib/mercadopago/oauth';
@@ -78,6 +79,17 @@ export async function updateSettings(formData: FormData) {
   if (!parsed.success) redirect('/settings?error=Configuración%20inválida');
   if (parsed.data.workday_end <= parsed.data.workday_start) {
     redirect('/settings?error=El%20fin%20de%20jornada%20debe%20ser%20posterior%20al%20inicio');
+  }
+
+  let professionalPhoneE164: string | null = null;
+  if (parsed.data.professional_phone) {
+    const normalizedProfessionalPhone = normalizePhone(parsed.data.professional_phone);
+    if (!normalizedProfessionalPhone.isValid || !normalizedProfessionalPhone.e164) {
+      redirect('/settings?error=' + encodeURIComponent(
+        'El teléfono profesional debe tener un formato internacional válido, por ejemplo +54 9 261 1234567.'
+      ));
+    }
+    professionalPhoneE164 = normalizedProfessionalPhone.e164;
   }
 
   const { error: profileError } = await supabase
@@ -155,7 +167,7 @@ export async function updateSettings(formData: FormData) {
       tax_condition: taxCondition,
       activity_code: activityCode,
       activity_description: activityDescription,
-      professional_phone: parsed.data.professional_phone ?? null,
+      professional_phone: professionalPhoneE164,
       professional_email: parsed.data.professional_email ?? null,
       office_address: parsed.data.office_address ?? null,
       locality: parsed.data.locality ?? null,
@@ -170,6 +182,26 @@ export async function updateSettings(formData: FormData) {
   }, { onConflict: 'tenant_id' });
 
   if (settingsError) redirect(`/settings?error=${encodeURIComponent(settingsError.message)}`);
+
+  const { error: professionalContactError } = await supabase
+    .from('professional_contacts')
+    .upsert({
+      tenant_id: tenantId,
+      user_id: user.id,
+      phone_e164: professionalPhoneE164,
+      email: parsed.data.professional_email ?? null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'tenant_id,user_id' });
+
+  if (
+    professionalContactError &&
+    professionalContactError.code !== '42P01' &&
+    professionalContactError.code !== 'PGRST205'
+  ) {
+    redirect('/settings?error=' + encodeURIComponent(
+      'No se pudo guardar el contacto profesional para notificaciones.'
+    ));
+  }
 
   revalidatePath('/settings');
   revalidatePath('/agenda');

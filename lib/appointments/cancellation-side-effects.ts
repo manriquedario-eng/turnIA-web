@@ -40,6 +40,9 @@ export async function runAppointmentCancellationSideEffects(
 ): Promise<void> {
   // El turno ya debe estar cancelado cuando esta función se invoca.
   // Cada integración se aísla: ninguna puede revertir ni bloquear la cancelación.
+  // Política de negocio: una cancelación posterior NO devuelve ni revierte pagos.
+  // Esta función no debe tocar payments, mercadopago_orders ni cash_movements,
+  // ni iniciar refunds/créditos automáticos.
   if (input.externalCalendarEventId) {
     try {
       const googleResult = await cancelGoogleMeetForAppointment({

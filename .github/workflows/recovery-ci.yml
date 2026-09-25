@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - feat/turnia-visual-refresh
+      - feat/whatsapp-interactions
+      - feat/whatsapp-interactions-main-sync
   pull_request:
     branches:
       - main
@@ -25,4 +27,5 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run security:regression
+      - run: npm run whatsapp:regression
       - run: npm run build
