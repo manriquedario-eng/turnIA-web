@@ -132,11 +132,15 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const whatsappConfigured = whatsappStatus.readyForInitialMessages;
   const emailConfigured = isEmailConfigured();
   const declaredProfessionAllowsMisRx = shouldShowMisRxForDeclaredProfession(professionalProfile.profession);
-  const showMisRxIntegration = isMisRxUiEnabled() && Boolean(
-    misRxConnection ||
-    misRxConnected ||
-    misRxError ||
-    declaredProfessionAllowsMisRx
+  const misRxUiEnabled = isMisRxUiEnabled();
+  const showMisRxIntegration = misRxUiEnabled && (
+    process.env.VERCEL_ENV === 'preview' ||
+    Boolean(
+      misRxConnection ||
+      misRxConnected ||
+      misRxError ||
+      declaredProfessionAllowsMisRx
+    )
   );
 
   // ARCA: lectura server-only; nunca expone certificado, clave, token ni sign.
