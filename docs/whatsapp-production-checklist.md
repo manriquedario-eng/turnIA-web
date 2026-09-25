@@ -95,6 +95,7 @@ Antes de activar el webhook interactivo en producción, aplicar y revisar EN EST
 6. `supabase/migrations/20260924122000_whatsapp_permissions_and_indexes.sql`
 7. `supabase/migrations/20260924204500_whatsapp_appointment_messages_service_role_grants.sql`
 8. `supabase/migrations/20260924212000_public_appointment_actions_expire_at_start.sql`
+9. `supabase/migrations/20260924214500_mercadopago_reconciliation_balance_guard.sql`
 
 Después confirmar:
 
@@ -171,6 +172,7 @@ Las acciones Confirmar / Cancelar / Reprogramar se prueban únicamente desde el 
 - si el turno tiene saldo pendiente, email válido y Mercado Pago del profesional disponible, la respuesta ofrece el link `/pagar/[token]`
 - abrir `/pagar/[token]` NO crea una orden: el paciente debe tocar “Pagar con Mercado Pago”
 - el checkout usa el saldo pendiente server-side, nunca un importe recibido del navegador
+- al conciliar un pago, TurnIA vuelve a verificar el saldo pendiente; si otro pago posterior haría exceder el total, no registra automáticamente y marca revisión
 - un turno sin saldo pendiente no ofrece pago
 - si el paciente ya pagó y luego cancela/no se presenta, el pago permanece registrado: no hay refund ni crédito automático
 - el POST de inicio de pago tiene rate-limit y bloqueo cross-site
