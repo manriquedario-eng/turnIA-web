@@ -172,6 +172,7 @@ Las acciones Confirmar / Cancelar / Reprogramar se prueban únicamente desde el 
 - abrir `/pagar/[token]` NO crea una orden: el paciente debe tocar “Pagar con Mercado Pago”
 - el checkout usa el saldo pendiente server-side, nunca un importe recibido del navegador
 - un turno sin saldo pendiente no ofrece pago
+- si el paciente ya pagó y luego cancela/no se presenta, el pago permanece registrado: no hay refund ni crédito automático
 - el POST de inicio de pago tiene rate-limit y bloqueo cross-site
 - la redirección externa usa `Referrer-Policy: no-referrer`
 - no se duplica al reenviar webhook
