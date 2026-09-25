@@ -47,6 +47,7 @@ const paymentRoute = read('app/api/payments/appointment/[token]/route.ts');
 const mercadoPagoOrders = read('lib/mercadopago/orders.ts');
 const actionExpiryMigration = read('supabase/migrations/20260924212000_public_appointment_actions_expire_at_start.sql');
 const cancellationSideEffects = read('lib/appointments/cancellation-side-effects.ts');
+const agendaActions = read('app/(protected)/agenda/actions.ts');
 
 check(
   'WhatsApp secrets are never NEXT_PUBLIC',
@@ -179,6 +180,13 @@ check(
   actions.includes('getMercadoPagoPaymentOfferByToken') &&
     actions.includes('if (offer.available)') &&
     actions.includes('https://www.turniahealth.com.ar/pagar/'),
+);
+
+check(
+  'Appointment creation does not pre-create Mercado Pago checkout',
+  agendaActions.includes('Mercado Pago NO se genera al crear el turno') &&
+    agendaActions.includes('const paymentUrl: string | null = null') &&
+    !agendaActions.includes('Error inesperado generando el checkout de Mercado Pago para el email'),
 );
 
 check(
