@@ -36,6 +36,7 @@ type AppointmentMessageSummary = {
   appointment_id: string | null;
   channel: string;
   status: string;
+  message_type: 'appointment_created' | 'appointment_reminder_24h';
   created_at: string;
 };
 
@@ -309,7 +310,7 @@ export default async function AgendaPage({
   if (appointmentIds.length > 0) {
     const { data: messageData, error: messageError } = await supabase
       .from('appointment_messages')
-      .select('appointment_id,channel,status,created_at')
+      .select('appointment_id,channel,status,message_type,created_at')
       .eq('tenant_id', tenantId)
       .in('appointment_id', appointmentIds)
       .in('channel', ['whatsapp', 'email'])
@@ -320,12 +321,23 @@ export default async function AgendaPage({
     communicationRows = (messageData ?? []) as AppointmentMessageSummary[];
   }
 
-  const latestCommunicationByAppointment = new Map<string, { whatsapp?: string; email?: string }>();
+  const latestCommunicationByAppointment = new Map<string, {
+    createdWhatsapp?: string;
+    createdEmail?: string;
+    reminderWhatsapp?: string;
+    reminderEmail?: string;
+  }>();
   for (const row of communicationRows) {
     if (!row.appointment_id) continue;
     const current = latestCommunicationByAppointment.get(row.appointment_id) ?? {};
-    if (row.channel === 'whatsapp' && !current.whatsapp) current.whatsapp = row.status;
-    if (row.channel === 'email' && !current.email) current.email = row.status;
+    if (row.message_type === 'appointment_created') {
+      if (row.channel === 'whatsapp' && !current.createdWhatsapp) current.createdWhatsapp = row.status;
+      if (row.channel === 'email' && !current.createdEmail) current.createdEmail = row.status;
+    }
+    if (row.message_type === 'appointment_reminder_24h') {
+      if (row.channel === 'whatsapp' && !current.reminderWhatsapp) current.reminderWhatsapp = row.status;
+      if (row.channel === 'email' && !current.reminderEmail) current.reminderEmail = row.status;
+    }
     latestCommunicationByAppointment.set(row.appointment_id, current);
   }
 
@@ -708,14 +720,22 @@ export default async function AgendaPage({
                           if (!communication) return null;
                           return (
                             <div className="nav" style={{ gap: 4, flexWrap: 'wrap' }}>
-                              {communication.whatsapp ? (
-                                <span className={`badge ${communication.whatsapp === 'failed' ? 'badge-pendiente' : 'badge-neutral'}`}>
-                                  WhatsApp: {communicationStatusLabel(communication.whatsapp)}
+                              {communication.reminderWhatsapp ? (
+                                <span className={`badge ${communication.reminderWhatsapp === 'failed' ? 'badge-pendiente' : 'badge-confirmado'}`}>
+                                  Recordatorio WhatsApp: {communicationStatusLabel(communication.reminderWhatsapp)}
+                                </span>
+                              ) : communication.createdWhatsapp ? (
+                                <span className={`badge ${communication.createdWhatsapp === 'failed' ? 'badge-pendiente' : 'badge-neutral'}`}>
+                                  Turno WhatsApp: {communicationStatusLabel(communication.createdWhatsapp)}
                                 </span>
                               ) : null}
-                              {communication.email ? (
-                                <span className={`badge ${communication.email === 'failed' ? 'badge-pendiente' : 'badge-neutral'}`}>
-                                  Email: {communicationStatusLabel(communication.email)}
+                              {communication.reminderEmail ? (
+                                <span className={`badge ${communication.reminderEmail === 'failed' ? 'badge-pendiente' : 'badge-confirmado'}`}>
+                                  Recordatorio Email: {communicationStatusLabel(communication.reminderEmail)}
+                                </span>
+                              ) : communication.createdEmail ? (
+                                <span className={`badge ${communication.createdEmail === 'failed' ? 'badge-pendiente' : 'badge-neutral'}`}>
+                                  Turno Email: {communicationStatusLabel(communication.createdEmail)}
                                 </span>
                               ) : null}
                             </div>
