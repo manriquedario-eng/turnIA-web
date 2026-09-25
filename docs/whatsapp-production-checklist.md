@@ -60,7 +60,7 @@ Parámetros BODY, en este orden:
 3. Fecha actual del turno
 4. Hora actual del turno
 
-Debe ser Utility. Puede incluir un botón/URL estático hacia TurnIA si Meta lo aprueba.
+Debe ser Utility e informativa. No lleva botones ni acciones. Se envía únicamente después de que el paciente toca Reprogramar en el recordatorio de 24 h y TurnIA registra correctamente la solicitud de reprogramación.
 
 ## 3. Variables de entorno
 
