@@ -136,6 +136,14 @@ check(
     reminder.includes('turnia:appointment:${params.publicToken}:reschedule'),
 );
 
+
+check(
+  'Professional reschedule WhatsApp is informational and has no action buttons',
+  notification.includes('WHATSAPP_PROFESSIONAL_RESCHEDULE_TEMPLATE_NAME') &&
+    notification.includes('bodyParams: [professionalName, patientName, dateLabel, timeLabel]') &&
+    !notification.includes('quickReplyPayloads'),
+);
+
 check(
   'WhatsApp actions require sender to match patient phone',
   actions.includes('senderDigits !== patientDigits') &&
