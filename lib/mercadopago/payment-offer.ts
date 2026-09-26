@@ -6,6 +6,7 @@ import {
   isServiceRoleConfigured,
 } from '@/lib/supabase/service';
 import { isMercadoPagoTokenEncryptionConfigured } from './token-crypto';
+import { paymentNetAmount } from '@/lib/payments/net';
 
 const CONFIRMED_STATUSES = new Set(['confirmed', 'confirmado']);
 
@@ -110,7 +111,7 @@ export async function getMercadoPagoPaymentOfferByToken(
         : Promise.resolve({ data: null, error: null }),
       supabase
         .from('payments')
-        .select('amount')
+        .select('amount,payment_reversals(amount)')
         .eq('tenant_id', appointment.tenant_id)
         .eq('appointment_id', appointment.id),
       supabase
@@ -165,10 +166,10 @@ export async function getMercadoPagoPaymentOfferByToken(
     return { available: false, reason: 'no_amount' };
   }
 
-  const paidAmount = (paymentsResult.data ?? []).reduce((sum, row) => {
-    const value = Number(row.amount ?? 0);
-    return Number.isFinite(value) ? sum + value : sum;
-  }, 0);
+  const paidAmount = (paymentsResult.data ?? []).reduce(
+    (sum, row) => sum + paymentNetAmount(row),
+    0,
+  );
 
   const remainingAmount = Math.round((totalAmount - paidAmount) * 100) / 100;
   if (remainingAmount <= 0) {
