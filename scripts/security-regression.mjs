@@ -51,16 +51,19 @@ check(
 );
 
 const agendaActionsSafety = read('app/(protected)/agenda/actions.ts');
+const returnUrlSafety = read('lib/navigation/return-url.ts');
 check(
   'Agenda return redirects use the safe query helper',
-  agendaActionsSafety.includes('function appendQueryParam') &&
+  agendaActionsSafety.includes('appendQueryParam(') &&
+    agendaActionsSafety.includes('appendQueryParams(') &&
     !/redirect\(\x60\$\{returnTo\}&/.test(agendaActionsSafety),
 );
 check(
   'Agenda return_to validation does not accept arbitrary /agenda prefixes',
-  agendaActionsSafety.includes("returnTo === '/agenda'") &&
-    agendaActionsSafety.includes("returnTo.startsWith('/agenda?')") &&
-    agendaActionsSafety.includes("returnTo.startsWith('/agenda#')"),
+  agendaActionsSafety.includes('safeAgendaReturnPath') &&
+    returnUrlSafety.includes("returnTo === '/agenda'") &&
+    returnUrlSafety.includes("returnTo.startsWith('/agenda?')") &&
+    returnUrlSafety.includes("returnTo.startsWith('/agenda#')"),
 );
 
 const transcriptionRoute = read('app/api/transcription/route.ts');
