@@ -57,6 +57,9 @@ export async function quickCreatePatient(input: {
   const name = input.name.trim();
   if (name.length < 2) return { ok: false, error: 'El nombre es obligatorio.' };
 
+  if (!input.phone?.trim()) return { ok: false, error: 'El teléfono es obligatorio.' };
+  if (!input.email?.trim()) return { ok: false, error: 'El email es obligatorio.' };
+
   const { supabase, tenantId } = await requireTenant();
   const phoneNormalization = normalizePhone(input.phone || null, {
     selectedPrefix: input.phone ? (input.phonePrefix ?? '+54 9') : undefined,
