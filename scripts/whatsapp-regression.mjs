@@ -215,15 +215,16 @@ check(
   'Confirmed WhatsApp reply offers payment only when server-side eligibility passes',
   actions.includes('getMercadoPagoPaymentOfferByToken') &&
     actions.includes('if (offer.available)') &&
-    actions.includes('buildPublicPaymentUrl(input.token)'),
+    actions.includes('createMercadoPagoCheckoutForAppointment') &&
+    actions.includes('if (checkout.ok)') &&
+    actions.includes('paymentUrl = checkout.checkoutUrl'),
 );
 
 check(
-  'WhatsApp payment links stay scoped to preview or production environment',
-  actions.includes("process.env.VERCEL_ENV === 'preview'") &&
-    actions.includes('process.env.VERCEL_URL') &&
-    actions.includes('process.env.APP_URL') &&
-    actions.includes("url.protocol !== 'https:'"),
+  'WhatsApp payment links are trusted Mercado Pago checkout URLs',
+  actions.includes('paymentUrl = checkout.checkoutUrl') &&
+    mercadoPagoOrders.includes('isTrustedMercadoPagoCheckoutUrl') &&
+    mercadoPagoOrders.includes('mercadopago.com.ar'),
 );
 
 
