@@ -107,20 +107,45 @@ function mapRemoteStatusForLocalStorage(remoteStatus: string | null): MercadoPag
 // campo ausente o del tipo equivocado se trata como `null`/0, nunca lanza.
 // ---------------------------------------------------------------------------
 
+type ParsedProviderReversal = {
+  id: string;
+  amount: number;
+  status: string | null;
+};
+
 type ParsedMercadoPagoOrder = {
   id: string;
   status: string | null;
   statusDetail: string | null;
   totalAmount: number | null;
   externalReference: string | null;
-  // Sólo cantidades — nunca contenido de estos arrays (ids/montos de pagos
-  // individuales no hacen falta para la decisión; status/status_detail a
-  // nivel orden ya es la fuente autoritativa, ver comentario de cabecera).
-  // Se guardan sólo para poder loguear "vino 1 refund" sin exponer nada.
   paymentsCount: number;
-  refundsCount: number;
-  chargebacksCount: number;
+  refunds: ParsedProviderReversal[];
+  chargebacks: ParsedProviderReversal[];
 };
+
+function parseProviderReversals(value: unknown): ParsedProviderReversal[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((entry) => {
+    if (typeof entry !== 'object' || entry === null) return [];
+    const row = entry as Record<string, unknown>;
+    const id = sanitizeScalarField(row.id, 120);
+    const rawAmount = row.amount;
+    const amount =
+      typeof rawAmount === 'string' || typeof rawAmount === 'number'
+        ? Number(rawAmount)
+        : NaN;
+
+    if (!id || !Number.isFinite(amount) || amount <= 0) return [];
+
+    return [{
+      id,
+      amount,
+      status: sanitizeScalarField(row.status, 80),
+    }];
+  });
+}
 
 function parseMercadoPagoOrderResponse(json: unknown): ParsedMercadoPagoOrder | null {
   if (typeof json !== 'object' || json === null) return null;
@@ -134,14 +159,14 @@ function parseMercadoPagoOrderResponse(json: unknown): ParsedMercadoPagoOrder | 
     typeof totalAmountRaw === 'string' || typeof totalAmountRaw === 'number' ? Number(totalAmountRaw) : NaN;
 
   let paymentsCount = 0;
-  let refundsCount = 0;
-  let chargebacksCount = 0;
+  let refunds: ParsedProviderReversal[] = [];
+  let chargebacks: ParsedProviderReversal[] = [];
   const transactionsRaw = root.transactions;
   if (typeof transactionsRaw === 'object' && transactionsRaw !== null) {
     const transactions = transactionsRaw as Record<string, unknown>;
     if (Array.isArray(transactions.payments)) paymentsCount = transactions.payments.length;
-    if (Array.isArray(transactions.refunds)) refundsCount = transactions.refunds.length;
-    if (Array.isArray(transactions.chargebacks)) chargebacksCount = transactions.chargebacks.length;
+    refunds = parseProviderReversals(transactions.refunds);
+    chargebacks = parseProviderReversals(transactions.chargebacks);
   }
 
   return {
@@ -151,8 +176,8 @@ function parseMercadoPagoOrderResponse(json: unknown): ParsedMercadoPagoOrder | 
     totalAmount: Number.isFinite(totalAmountNumber) ? totalAmountNumber : null,
     externalReference: sanitizeScalarField(root.external_reference, 100),
     paymentsCount,
-    refundsCount,
-    chargebacksCount,
+    refunds,
+    chargebacks,
   };
 }
 
@@ -186,13 +211,9 @@ export type ReconcileMercadoPagoOrderResult =
       outcome: 'status_updated';
       localOrderId: string;
       status: MercadoPagoOrderStatus;
-      // true cuando la orden YA tenía un pago registrado y ahora Mercado
-      // Pago informa refunded/charged_back/partially_refunded (PARTE 4 del
-      // pedido) — se deja trazabilidad en mercadopago_orders.status_detail,
-      // pero NO se genera ningún movimiento de caja inverso ni se toca el
-      // payment/cash_movement ya existentes. Queda pendiente para una fase
-      // futura de refunds con un modelo explícito.
-      refundOrChargebackAfterPayment?: boolean;
+      // Cantidad de reversos nuevos (refund/chargeback) registrados en esta
+      // conciliación. Reintentos del mismo webhook no incrementan este valor.
+      reversalsRecorded?: number;
     }
   | { ok: false; reason: ReconcileFailureReason; transient: boolean; localOrderId?: string };
 
@@ -423,13 +444,9 @@ export async function reconcileMercadoPagoOrder(mpOrderId: string): Promise<Reco
     }
   }
 
-  // F. No representa (todavía, o nunca) un pago acreditado — nunca se
-  // registra payment/cash_movement acá, sólo se sincroniza el status local
-  // (PARTE 4). Esto incluye el caso de refunded/charged_back DESPUÉS de un
-  // pago ya registrado: como el pago ya existe, localOrder.payment_id no es
-  // null acá — se deja constancia en status/status_detail, pero el
-  // payment/cash_movement históricos NUNCA se tocan ni se genera un
-  // movimiento inverso (fuera de alcance, ver comentario de tipo arriba).
+  // F. Para estados no acreditados, sincronizar el status y, si Mercado Pago
+  // confirma un refund o chargeback ya liquidado sobre un pago existente,
+  // registrar el reverso contable de forma atómica e idempotente.
   const mappedStatus = mapRemoteStatusForLocalStorage(parsed.status);
   if (!mappedStatus) {
     console.error('Mercado Pago reconcile: status remoto no reconocido, no se actualiza nada', {
@@ -439,14 +456,58 @@ export async function reconcileMercadoPagoOrder(mpOrderId: string): Promise<Reco
     return { ok: false, reason: 'unexpected_remote_status', transient: false, localOrderId: localOrder.id };
   }
 
-  const refundOrChargebackAfterPayment =
-    Boolean(localOrder.payment_id) && (parsed.status === 'refunded' || parsed.status === 'charged_back' || parsed.statusDetail === 'partially_refunded');
+  let reversalsRecorded = 0;
 
-  if (refundOrChargebackAfterPayment) {
-    console.error('Mercado Pago reconcile: refund/chargeback detectado sobre una orden que YA tenía un pago registrado — requiere revisión manual (fase de refunds pendiente)', {
-      localOrderId: localOrder.id,
-      remoteStatus: parsed.status,
-    });
+  if (localOrder.payment_id) {
+    const reversalCandidates = [
+      ...parsed.refunds
+        .filter((item) => item.status === 'processed')
+        .map((item) => ({ ...item, kind: 'refund' as const })),
+      ...(parsed.status === 'charged_back' && parsed.statusDetail === 'settled'
+        ? parsed.chargebacks
+            .filter((item) => item.status === 'settled')
+            .map((item) => ({ ...item, kind: 'chargeback' as const }))
+        : []),
+    ];
+
+    for (const reversal of reversalCandidates) {
+      try {
+        const { data, error } = await serviceClient.rpc('record_mercadopago_reversal', {
+          p_mp_order_id: localOrder.mp_order_id,
+          p_provider_reversal_id: reversal.id,
+          p_kind: reversal.kind,
+          p_amount: reversal.amount,
+          p_provider_status: reversal.status,
+        });
+        if (error) throw error;
+
+        const row = (Array.isArray(data) ? data[0] : data) as
+          | { ok: boolean; reversal_id: string | null; already_recorded: boolean; reason: string | null }
+          | undefined;
+
+        if (!row?.ok || !row.reversal_id) {
+          console.error('Mercado Pago reconcile: record_mercadopago_reversal devolvió ok=false', {
+            localOrderId: localOrder.id,
+            reason: row?.reason ?? 'unknown',
+          });
+          return {
+            ok: false,
+            reason: 'payment_review_required',
+            transient: false,
+            localOrderId: localOrder.id,
+          };
+        }
+
+        if (!row.already_recorded) reversalsRecorded += 1;
+      } catch (err) {
+        console.error(
+          'Mercado Pago reconcile: fallo registrando reverso',
+          { localOrderId: localOrder.id, reversalKind: reversal.kind },
+          err instanceof Error ? err.message : 'error desconocido',
+        );
+        return { ok: false, reason: 'rpc_error', transient: true, localOrderId: localOrder.id };
+      }
+    }
   }
 
   try {
@@ -469,6 +530,6 @@ export async function reconcileMercadoPagoOrder(mpOrderId: string): Promise<Reco
     outcome: 'status_updated',
     localOrderId: localOrder.id,
     status: mappedStatus,
-    refundOrChargebackAfterPayment: refundOrChargebackAfterPayment || undefined,
+    reversalsRecorded: reversalsRecorded || undefined,
   };
 }
