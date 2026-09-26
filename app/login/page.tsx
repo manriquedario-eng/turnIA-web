@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { login } from './actions';
 import { IconMail, IconLock } from '@/components/ui/icons';
 
@@ -77,7 +78,11 @@ export default async function LoginPage({ searchParams }: Props) {
             <div className="error" style={{ marginTop: 14 }}>
               {error === 'too_many_attempts'
                 ? 'Demasiados intentos. Esperá unos minutos y volvé a intentar.'
-                : 'No pudimos iniciar sesión. Revisá tus datos.'}
+                : error === 'confirmation_failed'
+                  ? 'No pudimos confirmar tu correo. Pedí un nuevo enlace o intentá registrarte nuevamente.'
+                  : error === 'no_tenant'
+                    ? 'Tu cuenta todavía no terminó de configurarse. Confirmá tu correo o contactá a soporte.'
+                    : 'No pudimos iniciar sesión. Revisá tus datos.'}
             </div>
           ) : null}
           <form action={login} style={{ marginTop: 18 }}>
@@ -96,6 +101,9 @@ export default async function LoginPage({ searchParams }: Props) {
               Ingresar →
             </button>
           </form>
+          <p className="muted" style={{ marginTop: 16, textAlign: 'center' }}>
+            ¿Todavía no tenés cuenta? <Link href="/signup">Crear cuenta</Link>
+          </p>
         </section>
       </div>
     </main>
