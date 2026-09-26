@@ -543,7 +543,7 @@ export default async function AgendaPage({
                         return (
                           <div key={a.id} className="month-chip-row">
                             <Link
-                              href={`${returnTo}&edit=${a.id}#turno-drawer`}
+                              href={`/agenda?view=day&date=${cellDate}#turno-${a.id}`}
                               className={`month-chip ${monthChipStateClass(a.status, a.reschedule_requested_at)}`}
                               title={`${formatTime(a.starts_at)} · ${patientNameOf(a)}${a.reschedule_requested_at && !isCancelled(a.status) ? ' · Pidió reprogramar' : ''}${isOnline ? ' · Online' : ''}`}
                             >
@@ -615,7 +615,7 @@ export default async function AgendaPage({
                           return (
                             <div key={a.id} className="month-chip-row">
                               <Link
-                                href={`${returnTo}&edit=${a.id}#turno-drawer`}
+                                href={`/agenda?view=day&date=${cellDate}#turno-${a.id}`}
                                 className={`month-chip ${monthChipStateClass(a.status, a.reschedule_requested_at)}`}
                                 title={`${formatTime(a.starts_at)} · ${patientNameOf(a)}${isOnline ? ' · Online' : ''}`}
                               >
@@ -761,7 +761,7 @@ export default async function AgendaPage({
                                 Ver paciente
                               </Link>
                             ) : null}
-                            <Link href={`${returnTo}&edit=${a.id}#turno-drawer`} className="btn-ghost">
+                            <Link href={`/agenda?view=day&date=${cellDate}#turno-${a.id}`} className="btn-ghost">
                               Editar turno
                             </Link>
                             <form action={cancelAppointment}>
