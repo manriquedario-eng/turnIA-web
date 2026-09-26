@@ -14,6 +14,10 @@ function errorMessage(error?: string): string | null {
       return 'La contraseña debe tener al menos 10 caracteres.';
     case 'invalid_name':
       return 'Ingresá tu nombre profesional.';
+    case 'registration_closed':
+      return 'El registro de nuevas cuentas todavía no está abierto.';
+    case 'not_invited':
+      return 'Este correo no está habilitado para participar de esta etapa de TurnIA.';
     case 'server_configuration':
       return 'El registro todavía no está habilitado en este entorno.';
     case 'signup_failed':
