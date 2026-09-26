@@ -373,19 +373,15 @@ export default async function DashboardPage() {
           referencia aprobada. */}
       <div className="dashboard-columns">
         <div className="dashboard-col">
+          {dashboardTodayAppointments.length > 0 ? (
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', padding: '18px 20px 0' }}>
               <h2>Agenda de hoy</h2>
               <Link className="text-helper" href={`/agenda?view=day&date=${today}`}>Ver agenda completa →</Link>
             </div>
 
-            {appointments.length === 0 ? (
-              <div style={{ padding: '0 20px 20px' }}>
-                <EmptyState title="No hay turnos registrados para hoy" description="Cuando crees un turno para hoy, va a aparecer acá." />
-              </div>
-            ) : (
               <div className="stack" style={{ gap: 8, padding: '14px 20px 20px' }}>
-                {appointments.map((appointment: any) => {
+                {dashboardTodayAppointments.map((appointment: any) => {
                   const cancelled = isCancelled(appointment.status);
                   const isNext = nextAppointment?.id === appointment.id;
                   const confirmed = isConfirmedLike(appointment.status);
@@ -424,8 +420,8 @@ export default async function DashboardPage() {
                   );
                 })}
               </div>
-            )}
           </div>
+          ) : null}
 
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', padding: '18px 20px 0' }}>
