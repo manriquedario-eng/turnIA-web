@@ -44,6 +44,25 @@ check(
   !/SUPABASE_SERVICE_ROLE|service_role/i.test(clientRuntimeText) &&
     !/NEXT_PUBLIC_SUPABASE_SERVICE_ROLE/i.test(runtimeText),
 );
+const serviceRoleClient = read('lib/supabase/service.ts');
+check(
+  'Supabase service-role client is server-only',
+  /^import ['"]server-only['"];?/m.test(serviceRoleClient),
+);
+
+const agendaActionsSafety = read('app/(protected)/agenda/actions.ts');
+check(
+  'Agenda return redirects use the safe query helper',
+  agendaActionsSafety.includes('function appendQueryParam') &&
+    !/redirect\(\x60\$\{returnTo\}&/.test(agendaActionsSafety),
+);
+check(
+  'Agenda return_to validation does not accept arbitrary /agenda prefixes',
+  agendaActionsSafety.includes("returnTo === '/agenda'") &&
+    agendaActionsSafety.includes("returnTo.startsWith('/agenda?')") &&
+    agendaActionsSafety.includes("returnTo.startsWith('/agenda#')"),
+);
+
 const transcriptionRoute = read('app/api/transcription/route.ts');
 check('Transcription endpoint requires tenant auth', transcriptionRoute.includes('requireTenant'));
 check('Transcription API key remains server-side', transcriptionRoute.includes('process.env.OPENAI_API_KEY') && !runtimeText.includes('NEXT_PUBLIC_OPENAI_API_KEY'));
