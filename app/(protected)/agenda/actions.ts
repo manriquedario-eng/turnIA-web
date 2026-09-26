@@ -61,12 +61,18 @@ async function validateRelations(tenantId: string, patientId: string, serviceId:
 function safeReturn(formData: FormData) {
   const returnTo = String(formData.get('return_to') || '/agenda');
 
-  if (returnTo.startsWith('/agenda')) return returnTo;
+  if (
+    returnTo === '/agenda' ||
+    returnTo.startsWith('/agenda?') ||
+    returnTo.startsWith('/agenda#')
+  ) {
+    return returnTo;
+  }
 
   // También permitimos volver a una ficha de paciente concreta cuando una
   // acción de turno se inició desde allí. Se valida la ruta completa para
   // no convertir return_to en un redirect abierto.
-  if (/^\/patients\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(returnTo)) {
+  if (/^\/patients\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:[?#].*)?$/i.test(returnTo)) {
     return returnTo;
   }
 
@@ -74,7 +80,12 @@ function safeReturn(formData: FormData) {
 }
 
 function appendQueryParam(path: string, key: string, value: string) {
-  return `${path}${path.includes('?') ? '&' : '?'}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+  const hashIndex = path.indexOf('#');
+  const base = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
+  const hash = hashIndex >= 0 ? path.slice(hashIndex) : '';
+  const separator = base.includes('?') ? '&' : '?';
+
+  return `${base}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}${hash}`;
 }
 
 function appointmentConflictReturn(returnTo: string, parsed: z.infer<typeof appointmentSchema>, message: string) {
