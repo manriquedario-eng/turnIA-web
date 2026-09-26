@@ -133,6 +133,18 @@ export function AppointmentActionAlerts() {
     const dismissed = readDismissed();
     dismissed.add(active.id);
     saveDismissed(dismissed);
+
+    void fetch('/api/notifications/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: active.id }),
+      keepalive: true,
+    }).then((response) => {
+      if (response.ok) {
+        window.dispatchEvent(new Event('turnia:notification-count-refresh'));
+      }
+    }).catch(() => undefined);
+
     setActive(null);
   }
 
