@@ -14,27 +14,25 @@ function backToPaymentPage(request: NextRequest, token: string) {
 function isTrustedSameSitePost(request: NextRequest): boolean {
   const fetchSite = request.headers.get('sec-fetch-site');
   if (fetchSite === 'cross-site') return false;
+  if (fetchSite === 'same-origin' || fetchSite === 'same-site') return true;
 
-  const forwardedHost = request.headers.get('x-forwarded-host')?.trim();
-  const host = forwardedHost || request.headers.get('host')?.trim();
-  const forwardedProto = request.headers.get('x-forwarded-proto')?.trim();
-  const protocol = forwardedProto || request.nextUrl.protocol.replace(':', '');
+  const allowedOrigins = new Set([
+    request.nextUrl.origin,
+    'https://www.turniahealth.com.ar',
+    'https://turniahealth.com.ar',
+  ]);
 
-  const expectedOrigin = host ? `${protocol}://${host}` : request.nextUrl.origin;
-  const origin = request.headers.get('origin');
-
-  if (origin) {
-    return origin === expectedOrigin;
+  if (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL) {
+    allowedOrigins.add(`https://${process.env.VERCEL_URL}`);
   }
 
-  // Algunos navegadores embebidos/webviews omiten Origin en un POST de
-  // formulario HTML legítimo. Si hay Referer, exigimos que siga siendo de
-  // TurnIA. Si tampoco viene, Sec-Fetch-Site ya bloquea navegadores modernos
-  // cross-site y el endpoint conserva token público impredecible + rate limit.
+  const origin = request.headers.get('origin');
+  if (origin) return allowedOrigins.has(origin);
+
   const referer = request.headers.get('referer');
   if (referer) {
     try {
-      return new URL(referer).origin === expectedOrigin;
+      return allowedOrigins.has(new URL(referer).origin);
     } catch {
       return false;
     }
