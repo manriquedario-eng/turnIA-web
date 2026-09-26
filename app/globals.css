@@ -4790,3 +4790,108 @@ table tbody tr:hover {
     bottom: auto;
   }
 }
+
+
+/* Centro de notificaciones persistente */
+.sidebar-link-label {
+  min-width: 0;
+}
+
+.notification-unread-badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.notification-history-row,
+.dashboard-notification-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.notification-history-row {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--color-border);
+  transition: background 140ms ease;
+}
+
+.notification-history-row:last-child {
+  border-bottom: 0;
+}
+
+.notification-history-row:hover,
+.dashboard-notification-row:hover {
+  background: var(--color-surface-subtle);
+}
+
+.notification-history-row.is-unread {
+  background: rgba(59, 130, 246, 0.045);
+}
+
+.notification-history-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  background: var(--color-secondary);
+}
+
+.notification-history-row.is-confirm .notification-history-dot {
+  background: var(--color-success);
+}
+
+.notification-history-row.is-reschedule .notification-history-dot {
+  background: var(--color-warning);
+}
+
+.notification-history-row.is-cancel .notification-history-dot {
+  background: var(--color-danger);
+}
+
+.notification-history-copy {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.notification-history-title {
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.notification-history-text {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.notification-history-time {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.dashboard-notification-row {
+  padding: 8px 6px;
+  border-radius: 8px;
+}
+
+.dashboard-notification-row.is-unread {
+  background: rgba(59, 130, 246, 0.045);
+}
+
+.dashboard-dot.is-reschedule {
+  background: var(--color-warning);
+}
