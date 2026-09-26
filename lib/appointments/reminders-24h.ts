@@ -5,9 +5,9 @@ import {
   isServiceRoleConfigured,
 } from '@/lib/supabase/service';
 import { sendWhatsAppTemplate } from '@/lib/whatsapp/provider';
+import { getPublicAppUrl } from '@/lib/app-url';
 
 const TZ = 'America/Argentina/Buenos_Aires';
-const TURNIA_URL = 'https://www.turniahealth.com.ar';
 const REMINDER_PAGE_SIZE = 200;
 
 function formatDate(iso: string): string {
@@ -33,11 +33,7 @@ function isCancelled(status: string | null): boolean {
 }
 
 function buildPublicPaymentUrl(token: string): string | null {
-  const previewHost =
-    process.env.VERCEL_ENV === 'preview' ? process.env.VERCEL_URL?.trim() : null;
-  const baseUrl = previewHost
-    ? `https://${previewHost}`
-    : process.env.APP_URL?.trim() || TURNIA_URL;
+  const baseUrl = getPublicAppUrl();
 
   try {
     const url = new URL(`/pagar/${token}`, baseUrl);
@@ -165,7 +161,7 @@ async function sendReminderEmail(params: {
   });
   if (!row.id) return row.duplicate;
 
-  const base = `${TURNIA_URL}/t/${params.publicToken}`;
+  const base = `${getPublicAppUrl()}/t/${params.publicToken}`;
   const paymentUrl = buildPublicPaymentUrl(params.publicToken);
   const subject = `Recordatorio de turno — ${params.dateLabel} ${params.timeLabel}`;
   const text = [
