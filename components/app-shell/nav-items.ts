@@ -4,6 +4,7 @@ import {
   IconCalendar,
   IconClock,
   IconHome,
+  IconMail,
   IconSearch,
   IconReceipt,
   IconSettings,
