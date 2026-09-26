@@ -2687,8 +2687,8 @@ table tbody tr:hover {
    turno + Recordatorios / panel editorial), tal como en la referencia. */
 .dashboard-columns {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.15fr) minmax(0, 0.9fr);
-  gap: 16px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 20px;
   align-items: start;
 }
 
@@ -4894,4 +4894,27 @@ table tbody tr:hover {
 
 .dashboard-dot.is-reschedule {
   background: var(--color-warning);
+}
+
+.notification-unread-text {
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.notification-delete-btn {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.notification-delete-btn:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
 }
