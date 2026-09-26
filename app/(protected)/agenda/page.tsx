@@ -541,9 +541,9 @@ export default async function AgendaPage({
                             <Link
                               href={`${returnTo}&edit=${a.id}#turno-drawer`}
                               className={`month-chip ${monthChipStateClass(a.status, a.reschedule_requested_at)}`}
-                              title={`${formatTime(a.starts_at)} · ${patientNameOf(a)}${isOnline ? ' · Online' : ''}`}
+                              title={`${formatTime(a.starts_at)} · ${patientNameOf(a)}${a.reschedule_requested_at && !isCancelled(a.status) ? ' · Pidió reprogramar' : ''}${isOnline ? ' · Online' : ''}`}
                             >
-                              {formatTime(a.starts_at)} {patientNameOf(a)}{isOnline ? ' · Online' : ''}
+                              {formatTime(a.starts_at)} {patientNameOf(a)}{a.reschedule_requested_at && !isCancelled(a.status) ? ' · Reprogramar' : ''}{isOnline ? ' · Online' : ''}
                             </Link>
                             {hasMeet ? (
                               <a
