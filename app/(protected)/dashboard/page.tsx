@@ -425,6 +425,59 @@ export default async function DashboardPage() {
               </div>
             )}
           </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', padding: '18px 20px 0' }}>
+              <h2>Agenda de mañana</h2>
+              <Link className="text-helper" href={`/agenda?view=day&date=${tomorrow}`}>Ver agenda completa →</Link>
+            </div>
+
+            {tomorrowAppointments.length === 0 ? (
+              <div style={{ padding: '0 20px 20px' }}>
+                <EmptyState title="No hay turnos registrados para mañana" description="Cuando haya turnos para mañana, van a aparecer acá." />
+              </div>
+            ) : (
+              <div className="stack" style={{ gap: 8, padding: '14px 20px 20px' }}>
+                {tomorrowAppointments.map((appointment: any) => {
+                  const cancelled = isCancelled(appointment.status);
+                  const isNext = nextAppointment?.id === appointment.id;
+                  const confirmed = isConfirmedLike(appointment.status);
+                  const dotClass = cancelled ? 'is-cancelled' : confirmed ? 'is-confirmed' : '';
+                  const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : '', !cancelled ? 'appointment-card-link' : ''].filter(Boolean).join(' ');
+                  const inner = (
+                    <>
+                      <div className="appointment-main">
+                        <span className={`dashboard-dot ${dotClass}`} aria-hidden="true" />
+                        <div className="appointment-time">{formatTime(appointment.starts_at)}</div>
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{appointment.patients?.name ?? 'Sin paciente'}</div>
+                          <div className="text-helper">
+                            {appointment.services?.name ?? 'Sin servicio'} · {modalityLabel(appointment.modality)}
+                          </div>
+                        </div>
+                        {isNext ? <span className="badge badge-confirmado">Próximo</span> : null}
+                      </div>
+                      <div className="appointment-meta">
+                        <span className="muted" style={{ fontSize: 13 }}>
+                          {appointment.quoted_amount != null ? `${appointment.currency ?? 'ARS'} ${Number(appointment.quoted_amount).toLocaleString('es-AR')}` : '—'}
+                        </span>
+                        <StatusBadge status={appointment.status} label={statusLabel(appointment.status)} />
+                        {!cancelled ? <span className="timeline-item-chevron" aria-hidden="true">›</span> : null}
+                      </div>
+                    </>
+                  );
+
+                  return cancelled ? (
+                    <div key={appointment.id} className={cardClass}>{inner}</div>
+                  ) : (
+                    <Link key={appointment.id} href={appointmentHref(tomorrow, appointment.id)} className={cardClass}>
+                      {inner}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="dashboard-col">
@@ -489,6 +542,51 @@ export default async function DashboardPage() {
                   );
                 })}
               </ul>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="nav" style={{ justifyContent: 'space-between' }}>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                Notificaciones
+                {unreadNotifications > 0 ? <span className="dashboard-pill">{unreadNotifications}</span> : null}
+              </h2>
+              <Link className="text-helper" href="/notifications">Ver todas →</Link>
+            </div>
+
+            {notifications.length === 0 ? (
+              <p className="text-helper" style={{ margin: '8px 0 0' }}>Sin notificaciones todavía.</p>
+            ) : (
+              <div className="stack" style={{ gap: 8, marginTop: 8 }}>
+                {notifications.map((notification) => {
+                  const title =
+                    notification.action === 'confirm'
+                      ? 'Turno confirmado'
+                      : notification.action === 'cancel'
+                        ? 'Turno cancelado'
+                        : 'Solicitud de reprogramación';
+                  const patientName = notification.patients?.name ?? 'Paciente';
+                  const appointmentStartsAt = notification.appointments?.starts_at as string | undefined;
+                  const href = appointmentStartsAt
+                    ? appointmentHref(dateKeyInTz(appointmentStartsAt), notification.appointment_id)
+                    : '/notifications';
+
+                  return (
+                    <Link
+                      key={notification.id}
+                      href={href}
+                      className={`dashboard-notification-row ${notification.read_at ? '' : 'is-unread'}`}
+                    >
+                      <span className={`dashboard-dot ${notification.action === 'confirm' ? 'is-confirmed' : notification.action === 'cancel' ? 'is-cancelled' : 'is-reschedule'}`} aria-hidden="true" />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontWeight: 600, fontSize: 13 }}>{title}</span>
+                        <span className="text-helper">{patientName} · {formatReminderDateTime(notification.created_at)}</span>
+                      </span>
+                      <span className="timeline-item-chevron" aria-hidden="true">›</span>
+                    </Link>
+                  );
+                })}
+              </div>
             )}
           </div>
 
