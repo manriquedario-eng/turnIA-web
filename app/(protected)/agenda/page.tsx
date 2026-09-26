@@ -414,7 +414,15 @@ export default async function AgendaPage({
       <div className="page-header">
         <div>
           <h1>Agenda</h1>
-          <p className="muted" style={{ textTransform: 'capitalize' }}>{periodLabel(view, date)}</p>
+          <div className="nav" style={{ gap: 8, justifyContent: 'flex-start' }}>
+            <Link className="date-nav-btn" href={`/agenda?view=${view}&date=${prevDate}`} aria-label="Período anterior">
+              <IconChevronLeft />
+            </Link>
+            <p className="muted" style={{ textTransform: 'capitalize', margin: 0 }}>{periodLabel(view, date)}</p>
+            <Link className="date-nav-btn" href={`/agenda?view=${view}&date=${nextDate}`} aria-label="Período siguiente">
+              <IconChevronRight />
+            </Link>
+          </div>
         </div>
         <div className="nav" style={{ flexWrap: 'wrap' }}>
           <SimpleExportMenu
@@ -486,13 +494,7 @@ export default async function AgendaPage({
           </div>
 
           <div className="date-nav">
-            <Link className="date-nav-btn" href={`/agenda?view=${view}&date=${prevDate}`} aria-label="Período anterior">
-              <IconChevronLeft />
-            </Link>
             <Link className="btn secondary" href={`/agenda?view=${view}&date=${todayDate}`}>Hoy</Link>
-            <Link className="date-nav-btn" href={`/agenda?view=${view}&date=${nextDate}`} aria-label="Período siguiente">
-              <IconChevronRight />
-            </Link>
             <form method="get" className="nav" style={{ marginLeft: 8 }}>
               <input type="hidden" name="view" value={view} />
               <input type="date" name="date" defaultValue={date} />
