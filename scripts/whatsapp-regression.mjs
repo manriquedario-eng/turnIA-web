@@ -269,9 +269,9 @@ check(
 
 check(
   'Public payment initiation has cross-site and persistent rate-limit guards',
-  paymentRoute.includes("!origin") &&
-    paymentRoute.includes("origin !== request.nextUrl.origin") &&
-    paymentRoute.includes("fetchSite === 'cross-site'") &&
+  paymentRoute.includes("fetchSite === 'cross-site'") &&
+    paymentRoute.includes("if (origin)") &&
+    paymentRoute.includes("new URL(referer).origin === expectedOrigin") &&
     paymentRoute.includes("scope: 'public-payment-token'") &&
     paymentRoute.includes("scope: 'public-payment-ip'") &&
     paymentRoute.includes('checkRateLimit'),
