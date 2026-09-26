@@ -4931,3 +4931,43 @@ table tbody tr:hover {
 .week-col-head-link:focus-visible {
   text-decoration: underline;
 }
+
+
+.month-cell-daylink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  min-height: 30px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.week-col-head-link {
+  display: flex;
+  flex: 1;
+  min-height: 44px;
+  align-items: center;
+}
+
+.week-col-empty-link {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: var(--color-text-muted);
+  border-radius: 10px;
+}
+
+.week-col-empty-link:active,
+.week-col-empty-link:hover {
+  background: var(--color-surface-subtle);
+  color: var(--color-primary);
+}
+
+.appointment-card:target {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
