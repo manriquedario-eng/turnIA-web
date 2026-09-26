@@ -4,6 +4,7 @@ import { registerCashMovement, registerPayment } from './actions';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { paymentMethodLabel } from '@/lib/labels';
 import { SimpleExportMenu } from '@/components/export/ExportMenu';
+import { paymentNetAmount } from '@/lib/payments/net';
 
 export default async function PaymentsPage({
   searchParams,
@@ -30,7 +31,7 @@ export default async function PaymentsPage({
       .limit(50),
     supabase
       .from('payments')
-      .select('id, amount, currency, method, created_at, patient_id, appointment_id, patients(name)')
+      .select('id, amount, currency, method, created_at, patient_id, appointment_id, patients(name), payment_reversals(amount)')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(50),
@@ -47,7 +48,7 @@ export default async function PaymentsPage({
     return sum + (item.kind === 'in' ? amount : -amount);
   }, 0);
 
-  const collected = (payments || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const collected = (payments || []).reduce((sum, item) => sum + paymentNetAmount(item), 0);
 
   return (
     <section className="stack">
