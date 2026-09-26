@@ -57,6 +57,7 @@
 
 import { createSupabaseServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { runAppointmentCancellationSideEffects } from '@/lib/appointments/cancellation-side-effects';
+import { notifyProfessionalAboutCancellationByToken } from '@/lib/appointments/cancellation-notifications';
 
 export type PublicAppointment = {
   id: string;
@@ -285,6 +286,15 @@ export async function cancelAppointmentByToken(token: string): Promise<PublicAct
         });
       }
     }
+
+    try {
+      await notifyProfessionalAboutCancellationByToken(token);
+    } catch {
+      console.error('public-token: professional cancellation notification failed', {
+        appointmentId: context?.id ?? null,
+      });
+    }
+
     return { ok: true };
   }
 
