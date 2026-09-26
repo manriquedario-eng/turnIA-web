@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { paymentNetAmount } from '@/lib/payments/net';
 import { requireTenant } from '@/lib/auth/require-user';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -124,7 +125,7 @@ export default async function DashboardPage() {
       .order('starts_at', { ascending: true }),
     supabase
       .from('payments')
-      .select('amount')
+      .select('amount,payment_reversals(amount)')
       .eq('tenant_id', tenantId)
       .gte('created_at', start)
       .lte('created_at', end),
@@ -170,7 +171,10 @@ export default async function DashboardPage() {
   const activeTomorrowAppointments = tomorrowAppointments.filter((item) => !isCancelled(item.status));
   const cancelledAppointments = appointments.filter((item) => isCancelled(item.status));
   const confirmedAppointments = activeAppointments.filter((item) => isConfirmedLike(item.status));
-  const collectedToday = (paymentsResult.data ?? []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
+  const collectedToday = (paymentsResult.data ?? []).reduce(
+    (sum, row) => sum + paymentNetAmount(row),
+    0,
+  );
   const cashToday = (cashResult.data ?? []).reduce((sum, row) => {
     const amount = Number(row.amount ?? 0);
     return sum + (row.kind === 'in' ? amount : -amount);
@@ -180,14 +184,17 @@ export default async function DashboardPage() {
   const paymentsByAppointmentResult = todayApptIds.length
     ? await supabase
         .from('payments')
-        .select('appointment_id, amount')
+        .select('appointment_id, amount, payment_reversals(amount)')
         .eq('tenant_id', tenantId)
         .in('appointment_id', todayApptIds)
     : { data: [] as { appointment_id: string; amount: number }[] };
 
   const paidByAppointment = new Map<string, number>();
   for (const row of paymentsByAppointmentResult.data ?? []) {
-    paidByAppointment.set(row.appointment_id, (paidByAppointment.get(row.appointment_id) ?? 0) + Number(row.amount ?? 0));
+    paidByAppointment.set(
+      row.appointment_id,
+      (paidByAppointment.get(row.appointment_id) ?? 0) + paymentNetAmount(row),
+    );
   }
   const pendingToday = activeAppointments.reduce((sum, item) => {
     const quoted = Number(item.quoted_amount ?? 0);
