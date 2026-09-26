@@ -37,6 +37,11 @@ function isCancelled(status: string | null) {
   return status === 'cancelled' || status === 'cancelado';
 }
 
+function appointmentStatusLabel(status: string | null, rescheduleRequestedAt?: string | null) {
+  if (rescheduleRequestedAt && !isCancelled(status)) return 'Pidió reprogramar';
+  return statusLabel(status);
+}
+
 function formatDateTime(iso: string) {
   return new Intl.DateTimeFormat('es-AR', { timeZone: TZ, dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso));
 }
@@ -90,7 +95,7 @@ export default async function PatientDetailPage({
       .order('created_at', { ascending: false }),
     supabase
       .from('appointments')
-      .select('id,starts_at,status,modality,quoted_amount,currency,professional_id,services(name,price)')
+      .select('id,starts_at,status,reschedule_requested_at,modality,quoted_amount,currency,professional_id,services(name,price)')
       .eq('patient_id', id)
       .eq('tenant_id', tenantId)
       .order('starts_at', { ascending: false }),
@@ -184,7 +189,7 @@ export default async function PatientDetailPage({
       id: `appointment-${item.id}`,
       at: item.starts_at,
       type: 'Turno' as const,
-      title: `${item.services?.name ?? 'Servicio'} · ${statusLabel(item.status)}`,
+      title: `${item.services?.name ?? 'Servicio'} · ${appointmentStatusLabel(item.status, item.reschedule_requested_at)}`,
       detail: `${modalityLabel(item.modality)}${item.quoted_amount != null ? ` · ${item.currency} ${item.quoted_amount}` : ''}`,
       // Turno concreto en Agenda — nunca la agenda general.
       href: `/agenda?view=day&date=${dateKeyInTz(item.starts_at)}&edit=${item.id}#turno-drawer`,
@@ -361,7 +366,7 @@ export default async function PatientDetailPage({
               <>
                 <span className="patient-meta-value-row">
                   <span className="patient-meta-value">{formatDateTime(nextAppointment.starts_at)}</span>
-                  <StatusBadge status={nextAppointment.status} label={statusLabel(nextAppointment.status)} />
+                  <StatusBadge status={nextAppointment.status} label={appointmentStatusLabel(nextAppointment.status, nextAppointment.reschedule_requested_at)} />
                 </span>
                 <span className="nav" style={{ marginTop: 8, flexWrap: 'wrap', gap: 8 }}>
                   <Link
@@ -397,7 +402,7 @@ export default async function PatientDetailPage({
             {lastAppointment ? (
               <span className="patient-meta-value-row">
                 <span className="patient-meta-value">{formatDateTime(lastAppointment.starts_at)}</span>
-                <StatusBadge status={lastAppointment.status} label={statusLabel(lastAppointment.status)} />
+                <StatusBadge status={lastAppointment.status} label={appointmentStatusLabel(lastAppointment.status, lastAppointment.reschedule_requested_at)} />
               </span>
             ) : (
               <span className="patient-meta-hint">Sin turnos anteriores</span>
@@ -451,7 +456,7 @@ export default async function PatientDetailPage({
                     <option value="" disabled>Seleccionar turno</option>
                     {appointments.map((a: any) => (
                       <option key={a.id} value={a.id}>
-                        {formatDateTime(a.starts_at)} · {a.services?.name ?? 'Servicio'} · {statusLabel(a.status)}
+                        {formatDateTime(a.starts_at)} · {a.services?.name ?? 'Servicio'} · {appointmentStatusLabel(a.status, a.reschedule_requested_at)}
                       </option>
                     ))}
                   </select>
