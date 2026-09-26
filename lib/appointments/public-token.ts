@@ -59,6 +59,7 @@ import { createSupabaseServiceClient, isServiceRoleConfigured } from '@/lib/supa
 import { runAppointmentCancellationSideEffects } from '@/lib/appointments/cancellation-side-effects';
 import { notifyProfessionalAboutCancellationByToken } from '@/lib/appointments/cancellation-notifications';
 import { notifyProfessionalAboutConfirmationByToken } from '@/lib/appointments/confirmation-notifications';
+import { createAppointmentActionAlertByToken } from '@/lib/appointments/action-alerts';
 
 export type PublicAppointment = {
   id: string;
@@ -227,6 +228,11 @@ export async function confirmAppointmentByToken(token: string): Promise<PublicAc
   const result = (data as unknown as PublicMutationRpcRow).result;
   if (result === 'ok') {
     try {
+      await createAppointmentActionAlertByToken(token, 'confirm');
+    } catch {
+      console.error('public-token: confirmation in-app alert failed');
+    }
+    try {
       await notifyProfessionalAboutConfirmationByToken(token);
     } catch {
       console.error('public-token: professional confirmation notification failed');
@@ -296,6 +302,14 @@ export async function cancelAppointmentByToken(token: string): Promise<PublicAct
     }
 
     try {
+      await createAppointmentActionAlertByToken(token, 'cancel');
+    } catch {
+      console.error('public-token: cancellation in-app alert failed', {
+        appointmentId: context?.id ?? null,
+      });
+    }
+
+    try {
       await notifyProfessionalAboutCancellationByToken(token);
     } catch {
       console.error('public-token: professional cancellation notification failed', {
@@ -333,7 +347,14 @@ export async function requestRescheduleByToken(token: string, note: string): Pro
   }
 
   const result = (data as unknown as PublicMutationRpcRow).result;
-  if (result === 'ok' || result === 'already_requested') return { ok: true };
+  if (result === 'ok' || result === 'already_requested') {
+    try {
+      await createAppointmentActionAlertByToken(token, 'reschedule');
+    } catch {
+      console.error('public-token: reschedule in-app alert failed');
+    }
+    return { ok: true };
+  }
   if (result === 'already_cancelled') {
     return { ok: false, error: 'Este turno ya está cancelado.' };
   }
