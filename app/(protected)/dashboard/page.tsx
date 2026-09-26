@@ -563,15 +563,10 @@ export default async function DashboardPage() {
                         ? 'Turno cancelado'
                         : 'Solicitud de reprogramación';
                   const patientName = notification.patients?.name ?? 'Paciente';
-                  const appointmentStartsAt = notification.appointments?.starts_at as string | undefined;
-                  const href = appointmentStartsAt
-                    ? appointmentHref(dateKeyInTz(appointmentStartsAt), notification.appointment_id)
-                    : '/notifications';
-
                   return (
                     <Link
                       key={notification.id}
-                      href={href}
+                      href="/notifications"
                       className={`dashboard-notification-row ${notification.read_at ? '' : 'is-unread'}`}
                     >
                       <span className={`dashboard-dot ${notification.action === 'confirm' ? 'is-confirmed' : notification.action === 'cancel' ? 'is-cancelled' : 'is-reschedule'}`} aria-hidden="true" />
