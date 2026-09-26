@@ -532,7 +532,7 @@ export default async function AgendaPage({
                           ya no un link). Abre "Nuevo turno" con la fecha de la celda
                           precargada vía ?slot=, mismo mecanismo que ya usa Semana. */}
                       <Link
-                        href={`/agenda?view=week&date=${cellDate}&new=1&slot=${cellDate}#turno-drawer`}
+                        href={`${returnTo}&new=1&slot=${cellDate}#turno-drawer`}
                         className="month-cell-add"
                         aria-label={`Crear turno el ${cellDate}`}
                       >
@@ -607,7 +607,7 @@ export default async function AgendaPage({
                       {formatShortDay(`${cellDate}T12:00:00-03:00`)}
                     </Link>
                     <Link
-                      href={`${returnTo}&new=1&slot=${cellDate}#turno-drawer`}
+                      href={`/agenda?view=week&date=${cellDate}&new=1&slot=${cellDate}#turno-drawer`}
                       className="week-col-add"
                       aria-label={`Crear turno el ${cellDate}`}
                     >
