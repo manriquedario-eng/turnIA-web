@@ -4918,3 +4918,16 @@ table tbody tr:hover {
   background: var(--color-danger-bg);
   color: var(--color-danger);
 }
+
+
+.week-col-head-link {
+  flex: 1;
+  color: inherit;
+  text-decoration: none;
+  padding: 2px 0;
+}
+
+.week-col-head-link:hover,
+.week-col-head-link:focus-visible {
+  text-decoration: underline;
+}
