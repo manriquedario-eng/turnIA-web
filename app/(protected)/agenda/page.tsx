@@ -515,6 +515,7 @@ export default async function AgendaPage({
                 const dayAppts = appointmentsByDate.get(cellDate) ?? [];
                 const isOtherMonth = !cellDate.startsWith(monthGrid!.monthPrefix);
                 const isToday = cellDate === todayDate;
+              const isSelected = cellDate === date;
                 const visible = dayAppts.slice(0, 3);
                 const overflowCount = dayAppts.length - visible.length;
                 const dayNumber = Number(cellDate.slice(8, 10));
@@ -580,7 +581,7 @@ export default async function AgendaPage({
 
         {view === 'week' ? (
           <div className="week-grid" style={{ borderTop: '1px solid var(--color-border-soft)', padding: '16px 20px 20px' }}>
-            {Array.from({ length: 7 }, (_, i) => addDays(date, i)).map((cellDate) => {
+            {Array.from({ length: 7 }, (_, i) => addDays(rangeStart, i)).map((cellDate) => {
               const dayAppts = appointmentsByDate.get(cellDate) ?? [];
               const isToday = cellDate === todayDate;
               // Mismo tope y mismo patrón "+N más" que la vista Mes — una
@@ -589,7 +590,7 @@ export default async function AgendaPage({
               const visible = dayAppts.slice(0, 4);
               const overflowCount = dayAppts.length - visible.length;
               return (
-                <div key={cellDate} className={`week-col ${isToday ? 'is-today' : ''}`}>
+                <div key={cellDate} className={`week-col ${isToday ? 'is-today' : ''} ${isSelected ? 'is-selected' : ''}`}>
                   <div className="week-col-head">
                     <Link
                       href={`/agenda?view=day&date=${cellDate}`}
