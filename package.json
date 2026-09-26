@@ -9,7 +9,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "security:regression": "node scripts/security-regression.mjs",
-    "whatsapp:regression": "node scripts/whatsapp-regression.mjs"
+    "whatsapp:regression": "node scripts/whatsapp-regression.mjs",
+    "test": "node --experimental-strip-types --test tests/**/*.test.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.1.6",
