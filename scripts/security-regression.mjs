@@ -228,6 +228,29 @@ check(
     emailProvider.includes('AbortSignal.timeout(EMAIL_REQUEST_TIMEOUT_MS)'),
 );
 
+const paymentReversalMigration = read('supabase/migrations/20260926123000_mercadopago_payment_reversals.sql');
+check(
+  'Mercado Pago reversals are service-role writes with tenant-scoped reads',
+  /alter\s+table\s+public\.payment_reversals\s+enable\s+row\s+level\s+security/i.test(paymentReversalMigration) &&
+    /revoke\s+insert,\s*update,\s*delete\s+on\s+table\s+public\.payment_reversals\s+from\s+authenticated/i.test(paymentReversalMigration) &&
+    /grant\s+execute\s+on\s+function\s+public\.record_mercadopago_reversal[\s\S]*to\s+service_role/i.test(paymentReversalMigration) &&
+    /revoke\s+all\s+on\s+function\s+public\.record_mercadopago_reversal[\s\S]*from\s+public,\s*anon,\s*authenticated/i.test(paymentReversalMigration),
+);
+check(
+  'Mercado Pago reversal ledger creates matching cash out movements',
+  /insert\s+into\s+public\.cash_movements/i.test(paymentReversalMigration) &&
+    /'mercadopago'[\s\S]*'out'/i.test(paymentReversalMigration) &&
+    /unique\s*\(\s*tenant_id\s*,\s*provider_reversal_id\s*\)/i.test(paymentReversalMigration),
+);
+
+const mercadoPagoReconcile = read('lib/mercadopago/reconcile.ts');
+check(
+  'Mercado Pago reconciliation records processed refunds and settled chargebacks',
+  mercadoPagoReconcile.includes("item.status === 'processed'") &&
+    mercadoPagoReconcile.includes("parsed.statusDetail === 'settled'") &&
+    mercadoPagoReconcile.includes("rpc('record_mercadopago_reversal'"),
+);
+
 const exportAuthorize = read('lib/export/authorize.ts');
 check(
   'Patient and payments exports paginate instead of silently truncating',
