@@ -4,6 +4,7 @@ import {
   IconCalendar,
   IconClock,
   IconHome,
+  IconMail,
   IconSearch,
   IconReceipt,
   IconSettings,
@@ -41,6 +42,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/dashboard', label: 'Inicio', icon: IconHome, mobile: true },
       { href: '/search', label: 'Buscar', icon: IconSearch, mobile: true, hideOnDesktopSidebar: true },
       { href: '/reminders', label: 'Recordatorios', icon: IconBell },
+      { href: '/notifications', label: 'Notificaciones', icon: IconMail },
     ],
   },
   {

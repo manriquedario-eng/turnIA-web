@@ -23,6 +23,24 @@ function todayLocal() {
   }).format(new Date());
 }
 
+function nextLocalDay(date: string) {
+  const anchor = new Date(`${date}T12:00:00-03:00`);
+  anchor.setUTCDate(anchor.getUTCDate() + 1);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(anchor);
+}
+
+function dashboardGreetingName(displayName: string) {
+  const parts = displayName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return displayName;
+  if (parts.length >= 2 && /^(lic\.?|dr\.?|dra\.?|prof\.?)$/i.test(parts[0])) {
+    return `${parts[0]} ${parts[1]}`;
+  }
+  return parts[0];
+}
+
 function dayRange(date: string) {
   return {
     start: new Date(`${date}T00:00:00-03:00`).toISOString(),
@@ -82,7 +100,9 @@ function formatRelativeStart(iso: string, now: Date) {
 export default async function DashboardPage() {
   const { supabase, tenantId, user } = await requireTenant();
   const today = todayLocal();
+  const tomorrow = nextLocalDay(today);
   const { start, end } = dayRange(today);
+  const { end: tomorrowEnd } = dayRange(tomorrow);
   const now = new Date();
 
   const [
@@ -92,6 +112,7 @@ export default async function DashboardPage() {
     cashResult,
     waitlistResult,
     remindersResult,
+    notificationsResult,
   ] = await Promise.all([
     supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
     supabase
@@ -99,7 +120,7 @@ export default async function DashboardPage() {
       .select('id, patient_id, service_id, starts_at, ends_at, status, modality, quoted_amount, currency, patients(name), services(name)')
       .eq('tenant_id', tenantId)
       .gte('starts_at', start)
-      .lte('starts_at', end)
+      .lte('starts_at', tomorrowEnd)
       .order('starts_at', { ascending: true }),
     supabase
       .from('payments')
@@ -132,10 +153,20 @@ export default async function DashboardPage() {
       .eq('status', 'pending')
       .order('remind_at', { ascending: true })
       .limit(20),
+    supabase
+      .from('appointment_action_alerts')
+      .select('id,action,created_at,read_at,appointment_id,patient_id,patients(name),appointments(starts_at)')
+      .eq('tenant_id', tenantId)
+      .eq('professional_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(5),
   ]);
 
-  const appointments = appointmentsResult.data ?? [];
+  const allAppointments = appointmentsResult.data ?? [];
+  const appointments = allAppointments.filter((item) => dateKeyInTz(item.starts_at) === today);
+  const tomorrowAppointments = allAppointments.filter((item) => dateKeyInTz(item.starts_at) === tomorrow);
   const activeAppointments = appointments.filter((item) => !isCancelled(item.status));
+  const activeTomorrowAppointments = tomorrowAppointments.filter((item) => !isCancelled(item.status));
   const cancelledAppointments = appointments.filter((item) => isCancelled(item.status));
   const confirmedAppointments = activeAppointments.filter((item) => isConfirmedLike(item.status));
   const collectedToday = (paymentsResult.data ?? []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
@@ -163,7 +194,8 @@ export default async function DashboardPage() {
     return sum + Math.max(quoted - paid, 0);
   }, 0);
 
-  const nextAppointment = activeAppointments.find((item) => new Date(item.starts_at).getTime() >= now.getTime());
+  const nextAppointment = [...activeAppointments, ...activeTomorrowAppointments]
+    .find((item) => new Date(item.starts_at).getTime() >= now.getTime());
   const waitlist = waitlistResult.data ?? [];
 
   const waitlistPatientIds = [...new Set(waitlist.map((entry) => entry.patient_id).filter(Boolean))];
@@ -180,7 +212,7 @@ export default async function DashboardPage() {
   const waitlistServiceMap = new Map((waitlistServicesResult.data ?? []).map((s) => [s.id, s.name]));
 
   const displayName = resolveDisplayName(profileResult.data?.display_name, user.email);
-  const firstName = displayName.split(' ')[0];
+  const firstName = dashboardGreetingName(displayName);
 
   // Si la migración de professional_reminders todavía no se aplicó en esta
   // base, remindersResult.error viene seteado (tabla inexistente) — se trata
@@ -196,6 +228,8 @@ export default async function DashboardPage() {
   const reminderToday = reminders.filter((r) => new Date(r.remind_at).getTime() >= now.getTime() && dateKeyInTz(r.remind_at) === today);
   const reminderUpcoming = reminders.filter((r) => new Date(r.remind_at).getTime() >= now.getTime() && dateKeyInTz(r.remind_at) !== today);
   const remindersToShow = [...reminderOverdue, ...reminderToday, ...reminderUpcoming].slice(0, 5);
+  const notifications = (notificationsResult.error ? [] : notificationsResult.data ?? []) as any[];
+  const unreadNotifications = notifications.filter((item) => !item.read_at).length;
 
   // PARTE 5: cada aviso de "Pendientes y oportunidades" referencia un
   // recurso real (turnos cancelados de hoy, cobros pendientes, lista de
@@ -391,6 +425,59 @@ export default async function DashboardPage() {
               </div>
             )}
           </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', padding: '18px 20px 0' }}>
+              <h2>Agenda de mañana</h2>
+              <Link className="text-helper" href={`/agenda?view=day&date=${tomorrow}`}>Ver agenda completa →</Link>
+            </div>
+
+            {tomorrowAppointments.length === 0 ? (
+              <div style={{ padding: '0 20px 20px' }}>
+                <EmptyState title="No hay turnos registrados para mañana" description="Cuando haya turnos para mañana, van a aparecer acá." />
+              </div>
+            ) : (
+              <div className="stack" style={{ gap: 8, padding: '14px 20px 20px' }}>
+                {tomorrowAppointments.map((appointment: any) => {
+                  const cancelled = isCancelled(appointment.status);
+                  const isNext = nextAppointment?.id === appointment.id;
+                  const confirmed = isConfirmedLike(appointment.status);
+                  const dotClass = cancelled ? 'is-cancelled' : confirmed ? 'is-confirmed' : '';
+                  const cardClass = ['appointment-card', isNext ? 'is-next' : '', cancelled ? 'is-cancelled' : '', !cancelled ? 'appointment-card-link' : ''].filter(Boolean).join(' ');
+                  const inner = (
+                    <>
+                      <div className="appointment-main">
+                        <span className={`dashboard-dot ${dotClass}`} aria-hidden="true" />
+                        <div className="appointment-time">{formatTime(appointment.starts_at)}</div>
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{appointment.patients?.name ?? 'Sin paciente'}</div>
+                          <div className="text-helper">
+                            {appointment.services?.name ?? 'Sin servicio'} · {modalityLabel(appointment.modality)}
+                          </div>
+                        </div>
+                        {isNext ? <span className="badge badge-confirmado">Próximo</span> : null}
+                      </div>
+                      <div className="appointment-meta">
+                        <span className="muted" style={{ fontSize: 13 }}>
+                          {appointment.quoted_amount != null ? `${appointment.currency ?? 'ARS'} ${Number(appointment.quoted_amount).toLocaleString('es-AR')}` : '—'}
+                        </span>
+                        <StatusBadge status={appointment.status} label={statusLabel(appointment.status)} />
+                        {!cancelled ? <span className="timeline-item-chevron" aria-hidden="true">›</span> : null}
+                      </div>
+                    </>
+                  );
+
+                  return cancelled ? (
+                    <div key={appointment.id} className={cardClass}>{inner}</div>
+                  ) : (
+                    <Link key={appointment.id} href={appointmentHref(tomorrow, appointment.id)} className={cardClass}>
+                      {inner}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="dashboard-col">
@@ -399,7 +486,7 @@ export default async function DashboardPage() {
               que en la referencia. Mismos datos ya calculados
               (nextAppointment), sin ninguna consulta ni lógica nueva. */}
           {nextAppointment ? (
-            <Link href={appointmentHref(today, nextAppointment.id)} className="dashboard-next-panel">
+            <Link href={appointmentHref(dateKeyInTz(nextAppointment.starts_at), nextAppointment.id)} className="dashboard-next-panel">
               <span className="dashboard-next-panel-avatar">
                 {((nextAppointment as any).patients?.name ?? '—').trim().slice(0, 2).toUpperCase()}
               </span>
@@ -455,6 +542,51 @@ export default async function DashboardPage() {
                   );
                 })}
               </ul>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="nav" style={{ justifyContent: 'space-between' }}>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                Notificaciones
+                {unreadNotifications > 0 ? <span className="dashboard-pill">{unreadNotifications}</span> : null}
+              </h2>
+              <Link className="text-helper" href="/notifications">Ver todas →</Link>
+            </div>
+
+            {notifications.length === 0 ? (
+              <p className="text-helper" style={{ margin: '8px 0 0' }}>Sin notificaciones todavía.</p>
+            ) : (
+              <div className="stack" style={{ gap: 8, marginTop: 8 }}>
+                {notifications.map((notification) => {
+                  const title =
+                    notification.action === 'confirm'
+                      ? 'Turno confirmado'
+                      : notification.action === 'cancel'
+                        ? 'Turno cancelado'
+                        : 'Solicitud de reprogramación';
+                  const patientName = notification.patients?.name ?? 'Paciente';
+                  const appointmentStartsAt = notification.appointments?.starts_at as string | undefined;
+                  const href = appointmentStartsAt
+                    ? appointmentHref(dateKeyInTz(appointmentStartsAt), notification.appointment_id)
+                    : '/notifications';
+
+                  return (
+                    <Link
+                      key={notification.id}
+                      href={href}
+                      className={`dashboard-notification-row ${notification.read_at ? '' : 'is-unread'}`}
+                    >
+                      <span className={`dashboard-dot ${notification.action === 'confirm' ? 'is-confirmed' : notification.action === 'cancel' ? 'is-cancelled' : 'is-reschedule'}`} aria-hidden="true" />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontWeight: 600, fontSize: 13 }}>{title}</span>
+                        <span className="text-helper">{patientName} · {formatReminderDateTime(notification.created_at)}</span>
+                      </span>
+                      <span className="timeline-item-chevron" aria-hidden="true">›</span>
+                    </Link>
+                  );
+                })}
+              </div>
             )}
           </div>
 

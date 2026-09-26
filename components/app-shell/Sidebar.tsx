@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { NAV_SECTIONS } from './nav-items';
 import { IconLogout } from '@/components/ui/icons';
 import { roleLabel } from '@/lib/identity';
+import { NotificationUnreadBadge } from '@/components/notifications/NotificationUnreadBadge';
 
 export function Sidebar({
   open,
@@ -56,7 +57,8 @@ export function Sidebar({
                     onClick={onClose}
                   >
                     <Icon />
-                    {item.label}
+                    <span className="sidebar-link-label">{item.label}</span>
+                    {item.href === '/notifications' ? <NotificationUnreadBadge /> : null}
                   </Link>
                 );
               })}
