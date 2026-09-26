@@ -21,6 +21,7 @@
 
 import { requireTenant } from '@/lib/auth/require-user';
 import { isPlausibleEmail, sendTransactionalEmail } from './provider';
+import { getPublicAppUrl } from '@/lib/app-url';
 
 type SupabaseClient = Awaited<ReturnType<typeof requireTenant>>['supabase'];
 
@@ -76,12 +77,8 @@ function modalityLabel(modality: SendAppointmentConfirmationEmailInput['modality
 // En producción usamos SIEMPRE el dominio canónico propio de TurnIA para
 // evitar que emails o callbacks expongan URLs técnicas de vercel.app.
 // APP_URL queda disponible para desarrollo/staging explícito.
-const TURNIA_CANONICAL_URL = 'https://www.turniahealth.com.ar';
-
 function publicAppUrl(): string {
-  if (process.env.VERCEL_ENV === 'production') return TURNIA_CANONICAL_URL;
-  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
-  return 'http://localhost:3000';
+  return getPublicAppUrl();
 }
 
 /**
