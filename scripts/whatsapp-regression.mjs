@@ -233,9 +233,7 @@ check(
   reminder.includes('buildPublicPaymentUrl(params.publicToken)') &&
     reminder.includes('Pagar con Mercado Pago') &&
     reminder.includes('/pagar/${token}') &&
-    reminder.includes("process.env.VERCEL_ENV === 'preview'") &&
-    reminder.includes('process.env.VERCEL_URL') &&
-    reminder.includes('process.env.APP_URL'),
+    reminder.includes('getPublicAppUrl()'),
 );
 
 check(
