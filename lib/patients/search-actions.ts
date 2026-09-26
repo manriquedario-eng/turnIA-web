@@ -6,7 +6,7 @@
 // sin recargar la página.
 
 import { requireTenant } from '@/lib/auth/require-user';
-import { normalizePhone } from '@/lib/phone';
+import { normalizePhone, type KnownCountryPrefix } from '@/lib/phone';
 import { findDuplicatePatient } from '@/lib/patients/duplicate-check';
 
 export type PatientSearchResult = {
@@ -50,14 +50,26 @@ export type QuickCreatePatientResult =
 export async function quickCreatePatient(input: {
   name: string;
   phone?: string;
+  phonePrefix?: KnownCountryPrefix;
   email?: string;
+  whatsappOptIn?: boolean;
 }): Promise<QuickCreatePatientResult> {
   const name = input.name.trim();
   if (name.length < 2) return { ok: false, error: 'El nombre es obligatorio.' };
 
   const { supabase, tenantId } = await requireTenant();
-  const phoneNormalization = normalizePhone(input.phone || null);
+  const phoneNormalization = normalizePhone(input.phone || null, {
+    selectedPrefix: input.phone ? (input.phonePrefix ?? '+54 9') : undefined,
+  });
   const email = input.email?.trim() || null;
+  const whatsappOptIn = Boolean(input.whatsappOptIn);
+
+  if (input.phone?.trim() && !phoneNormalization.isValid) {
+    return {
+      ok: false,
+      error: phoneNormalization.note || 'El teléfono no es válido.',
+    };
+  }
 
   if (email && !/^\S+@\S+\.\S+$/.test(email)) {
     return { ok: false, error: 'El email no es válido.' };
@@ -85,12 +97,11 @@ export async function quickCreatePatient(input: {
       phone: input.phone?.trim() || null,
       phone_e164: phoneNormalization.e164,
       email,
-      // Mismo criterio que el alta completa en patients/actions.ts: el
-      // consentimiento de WhatsApp nunca se asume, ni siquiera en el alta
-      // rápida desde Agenda.
-      whatsapp_consent: false,
-      whatsapp_consent_at: null,
-      appointment_reminders_opt_in: false,
+      // El alta rápida sólo activa WhatsApp cuando el profesional marca
+      // explícitamente la autorización informada en el mini formulario.
+      whatsapp_consent: whatsappOptIn,
+      whatsapp_consent_at: whatsappOptIn ? new Date().toISOString() : null,
+      appointment_reminders_opt_in: whatsappOptIn,
     })
     .select('id, name')
     .maybeSingle();
