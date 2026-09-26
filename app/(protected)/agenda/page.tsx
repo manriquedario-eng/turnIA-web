@@ -133,8 +133,9 @@ function periodLabel(view: string, date: string) {
     return capitalize(new Intl.DateTimeFormat('es-AR', { timeZone: TZ, dateStyle: 'full' }).format(anchor));
   }
   if (view === 'week') {
-    const end = addDays(date, 6);
-    const startAnchor = new Date(`${date}T12:00:00-03:00`);
+    const weekStart = addDays(date, -mondayIndex(date));
+    const end = addDays(weekStart, 6);
+    const startAnchor = new Date(`${weekStart}T12:00:00-03:00`);
     const endAnchor = new Date(`${end}T12:00:00-03:00`);
     const fmt = (d: Date) => new Intl.DateTimeFormat('es-AR', { timeZone: TZ, day: 'numeric', month: 'short' }).format(d);
     return `${fmt(startAnchor)} – ${fmt(endAnchor)}`;
@@ -236,8 +237,8 @@ export default async function AgendaPage({
   if (view === 'week') {
     // La vista Semana es operativa: arranca en la fecha seleccionada y
     // muestra los 6 días siguientes, sin obligar a retroceder al lunes.
-    rangeStart = date;
-    rangeEnd = addDays(date, 6);
+    rangeStart = addDays(date, -mondayIndex(date));
+    rangeEnd = addDays(rangeStart, 6);
   }
   if (view === 'month') {
     monthGrid = buildMonthGrid(date);
@@ -435,7 +436,7 @@ export default async function AgendaPage({
           />
           <Link className="btn-ghost" href="/planning">Recurrentes</Link>
           <Link className="btn-ghost" href="/waitlist">Lista de espera</Link>
-          <Link className="btn" href={`${returnTo}&new=1#turno-drawer`}>
+          <Link className="btn" href={`${returnTo}&new=1&slot=${date}#turno-drawer`}>
             <IconPlus /> Nuevo turno
           </Link>
         </div>
@@ -514,6 +515,7 @@ export default async function AgendaPage({
                 const dayAppts = appointmentsByDate.get(cellDate) ?? [];
                 const isOtherMonth = !cellDate.startsWith(monthGrid!.monthPrefix);
                 const isToday = cellDate === todayDate;
+              const isSelected = cellDate === date;
                 const visible = dayAppts.slice(0, 3);
                 const overflowCount = dayAppts.length - visible.length;
                 const dayNumber = Number(cellDate.slice(8, 10));
@@ -578,17 +580,24 @@ export default async function AgendaPage({
         ) : null}
 
         {view === 'week' ? (
-          <div className="week-grid" style={{ borderTop: '1px solid var(--color-border-soft)', padding: '16px 20px 20px' }}>
-            {Array.from({ length: 7 }, (_, i) => addDays(date, i)).map((cellDate) => {
+          <>
+            <div className="week-selected-day-bar">
+              <span className="text-helper">Día seleccionado</span>
+              <strong>{formatShortDay(`${date}T12:00:00-03:00`)}</strong>
+              <Link className="btn-ghost" href={`/agenda?view=day&date=${date}`}>Abrir día</Link>
+            </div>
+            <div className="week-grid" style={{ borderTop: '1px solid var(--color-border-soft)', padding: '16px 20px 20px' }}>
+            {Array.from({ length: 7 }, (_, i) => addDays(rangeStart, i)).map((cellDate) => {
               const dayAppts = appointmentsByDate.get(cellDate) ?? [];
               const isToday = cellDate === todayDate;
+              const isSelected = cellDate === date;
               // Mismo tope y mismo patrón "+N más" que la vista Mes — una
               // columna con muchos turnos ya no crece indefinidamente ni
               // rompe el layout de la semana.
               const visible = dayAppts.slice(0, 4);
               const overflowCount = dayAppts.length - visible.length;
               return (
-                <div key={cellDate} className={`week-col ${isToday ? 'is-today' : ''}`}>
+                <div key={cellDate} className={`week-col ${isToday ? 'is-today' : ''} ${isSelected ? 'is-selected' : ''}`}>
                   <div className="week-col-head">
                     <Link
                       href={`/agenda?view=day&date=${cellDate}`}
@@ -598,7 +607,7 @@ export default async function AgendaPage({
                       {formatShortDay(`${cellDate}T12:00:00-03:00`)}
                     </Link>
                     <Link
-                      href={`${returnTo}&new=1&slot=${cellDate}#turno-drawer`}
+                      href={`/agenda?view=week&date=${cellDate}&new=1&slot=${cellDate}#turno-drawer`}
                       className="week-col-add"
                       aria-label={`Crear turno el ${cellDate}`}
                     >
@@ -647,7 +656,8 @@ export default async function AgendaPage({
                 </div>
               );
             })}
-          </div>
+            </div>
+          </>
         ) : null}
 
         {view === 'day' ? (
@@ -762,7 +772,7 @@ export default async function AgendaPage({
                                 Ver paciente
                               </Link>
                             ) : null}
-                            <Link href={`${returnTo}&edit=${a.id}#turno-drawer`} className="btn-ghost">\n                               Editar turno\n                             </Link>
+                            <Link href={`${returnTo}&edit=${a.id}#turno-drawer`} className="btn-ghost">Editar turno</Link>
                             <form action={cancelAppointment}>
                               <input type="hidden" name="id" value={a.id} />
                               <input type="hidden" name="return_to" value={returnTo} />

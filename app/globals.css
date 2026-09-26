@@ -5038,3 +5038,32 @@ table tbody tr:hover {
     padding: 12px;
   }
 }
+
+
+.week-selected-day-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--color-border-soft);
+  background: var(--color-surface-subtle);
+  flex-wrap: wrap;
+}
+
+.week-selected-day-bar strong {
+  text-transform: capitalize;
+}
+
+.week-col.is-selected {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-soft);
+}
+
+.week-col.is-selected .week-col-head {
+  background: var(--color-primary-soft);
+}
+
+.week-col.is-selected .week-col-head-label,
+.week-col.is-selected .week-col-add {
+  color: var(--color-primary);
+}
