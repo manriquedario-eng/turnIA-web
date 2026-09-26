@@ -589,7 +589,13 @@ export default async function AgendaPage({
               return (
                 <div key={cellDate} className={`week-col ${isToday ? 'is-today' : ''}`}>
                   <div className="week-col-head">
-                    <span className="week-col-head-label">{formatShortDay(`${cellDate}T12:00:00-03:00`)}</span>
+                    <Link
+                      href={`/agenda?view=day&date=${cellDate}`}
+                      className="week-col-head-label week-col-head-link"
+                      aria-label={`Ver agenda del ${cellDate}`}
+                    >
+                      {formatShortDay(`${cellDate}T12:00:00-03:00`)}
+                    </Link>
                     <Link
                       href={`${returnTo}&new=1&slot=${cellDate}#turno-drawer`}
                       className="week-col-add"
