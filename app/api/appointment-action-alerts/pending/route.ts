@@ -21,9 +21,10 @@ export async function GET() {
 
   const { data: alerts, error } = await supabase
     .from('appointment_action_alerts')
-    .select('id,action,created_at,appointment_id,patient_id')
+    .select('id,action,created_at,appointment_id,patient_id,read_at')
     .eq('tenant_id', tenantId)
     .eq('professional_id', user.id)
+    .is('read_at', null)
     .gte('created_at', since)
     .order('created_at', { ascending: false })
     .limit(50);
@@ -103,7 +104,7 @@ export async function GET() {
   });
 
   return NextResponse.json(
-    { alerts: response },
+    { alerts: response, unreadCount: response.length },
     { headers: { 'Cache-Control': 'no-store, max-age=0' } },
   );
 }
