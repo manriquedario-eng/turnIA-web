@@ -22,20 +22,20 @@ begin
     pg_catalog.hashtextextended(new.id::text, 0)
   );
 
-  v_display_name := pg_catalog.nullif(
-    pg_catalog.btrim(pg_catalog.coalesce(new.raw_user_meta_data ->> 'display_name', '')),
+  v_display_name := nullif(
+    pg_catalog.btrim(coalesce(new.raw_user_meta_data ->> 'display_name', '')),
     ''
   );
 
   if v_display_name is null then
-    v_display_name := pg_catalog.nullif(
-      pg_catalog.split_part(pg_catalog.coalesce(new.email, ''), '@', 1),
+    v_display_name := nullif(
+      pg_catalog.split_part(coalesce(new.email, ''), '@', 1),
       ''
     );
   end if;
 
   v_display_name := pg_catalog.left(
-    pg_catalog.coalesce(v_display_name, 'Profesional'),
+    coalesce(v_display_name, 'Profesional'),
     120
   );
 
