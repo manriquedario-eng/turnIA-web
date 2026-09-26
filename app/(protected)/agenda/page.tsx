@@ -761,9 +761,7 @@ export default async function AgendaPage({
                                 Ver paciente
                               </Link>
                             ) : null}
-                            <Link href={`/agenda?view=day&date=${cellDate}#turno-${a.id}`} className="btn-ghost">
-                              Editar turno
-                            </Link>
+                            <Link href={`${returnTo}&edit=${a.id}#turno-drawer`} className="btn-ghost">\n                               Editar turno\n                             </Link>
                             <form action={cancelAppointment}>
                               <input type="hidden" name="id" value={a.id} />
                               <input type="hidden" name="return_to" value={returnTo} />
