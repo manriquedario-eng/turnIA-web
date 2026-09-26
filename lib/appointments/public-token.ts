@@ -58,6 +58,7 @@
 import { createSupabaseServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { runAppointmentCancellationSideEffects } from '@/lib/appointments/cancellation-side-effects';
 import { notifyProfessionalAboutCancellationByToken } from '@/lib/appointments/cancellation-notifications';
+import { notifyProfessionalAboutConfirmationByToken } from '@/lib/appointments/confirmation-notifications';
 
 export type PublicAppointment = {
   id: string;
@@ -224,7 +225,14 @@ export async function confirmAppointmentByToken(token: string): Promise<PublicAc
   }
 
   const result = (data as unknown as PublicMutationRpcRow).result;
-  if (result === 'ok') return { ok: true };
+  if (result === 'ok') {
+    try {
+      await notifyProfessionalAboutConfirmationByToken(token);
+    } catch {
+      console.error('public-token: professional confirmation notification failed');
+    }
+    return { ok: true };
+  }
   if (result === 'already_cancelled') {
     return { ok: false, error: 'Este turno ya está cancelado y no se puede confirmar.' };
   }
