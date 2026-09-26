@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { validateRegistrationInput } from '@/lib/auth/registration';
+import { isEmailAllowedForSignup, validateRegistrationInput } from '@/lib/auth/registration';
 
 function getAppUrl(): string {
   const raw = process.env.APP_URL?.trim();
@@ -19,6 +19,10 @@ function getAppUrl(): string {
 }
 
 export async function signup(formData: FormData) {
+  if (process.env.SIGNUP_ENABLED !== 'true') {
+    redirect('/signup?error=registration_closed');
+  }
+
   const validated = validateRegistrationInput({
     displayName: String(formData.get('display_name') ?? ''),
     email: String(formData.get('email') ?? ''),
@@ -29,6 +33,10 @@ export async function signup(formData: FormData) {
     redirect(`/signup?error=${validated.error}`);
   }
 
+  if (!isEmailAllowedForSignup(validated.email, process.env.SIGNUP_ALLOWED_EMAILS)) {
+    redirect('/signup?error=not_invited');
+  }
+
   let emailRedirectTo: string;
   try {
     emailRedirectTo = new URL('/auth/confirm', getAppUrl()).toString();
@@ -37,7 +45,7 @@ export async function signup(formData: FormData) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: validated.email,
     password: validated.password,
     options: {
@@ -54,6 +62,15 @@ export async function signup(formData: FormData) {
       status: error.status,
     });
     redirect('/signup?error=signup_failed');
+  }
+
+  // Fail closed: con Confirm Email correctamente habilitado, Supabase NO
+  // devuelve una sesión en el alta. Si aparece una sesión, el entorno está
+  // auto-confirmando emails y no cumple la política de TurnIA.
+  if (data.session) {
+    await supabase.auth.signOut();
+    console.error('Signup blocked because email confirmation is disabled in Supabase Auth');
+    redirect('/signup?error=server_configuration');
   }
 
   redirect(`/signup/check-email?email=${encodeURIComponent(validated.email)}`);
