@@ -1,3 +1,5 @@
+import 'server-only';
+
 // Cliente de Supabase con SERVICE ROLE — bypassea RLS por completo.
 //
 // USO EXCLUSIVO server-side (Server Actions, Route Handlers). NUNCA importar

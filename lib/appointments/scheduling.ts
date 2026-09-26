@@ -68,7 +68,7 @@ export async function assertNoOverlap(
   const { data, error } = await (excludeAppointmentId ? base.neq('id', excludeAppointmentId) : base);
   if (error) throw new Error('No pudimos validar la disponibilidad del horario. Probá de nuevo.');
   if (data && data.length > 0) {
-    const conflict: any = data[0];
+    const conflict = data[0] as { starts_at: string; ends_at: string; patient_id: string | null };
     const requestedStart = new Date(startsAtIso);
     const conflictStart = new Date(conflict.starts_at);
     const conflictEnd = new Date(conflict.ends_at);
