@@ -6,13 +6,23 @@ export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code');
-
-  if (!code) {
-    return NextResponse.redirect(new URL('/login?error=confirmation_failed', request.url));
-  }
+  const tokenHash = request.nextUrl.searchParams.get('token_hash');
+  const type = request.nextUrl.searchParams.get('type');
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  let error = null;
+
+  if (tokenHash && type === 'email') {
+    ({ error } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: 'email',
+    }));
+  } else if (code) {
+    ({ error } = await supabase.auth.exchangeCodeForSession(code));
+  } else {
+    return NextResponse.redirect(new URL('/login?error=confirmation_failed', request.url));
+  }
 
   if (error) {
     console.warn('Email confirmation callback failed', {
