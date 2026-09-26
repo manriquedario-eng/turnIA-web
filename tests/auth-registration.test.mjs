@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateRegistrationInput } from '../lib/auth/registration.ts';
+import { isEmailAllowedForSignup, validateRegistrationInput } from '../lib/auth/registration.ts';
 
 test('normalizes valid registration input', () => {
   assert.deepEqual(
@@ -38,4 +38,10 @@ test('rejects malformed emails and names', () => {
     }).ok,
     false,
   );
+});
+
+test('signup allowlist is optional and case-insensitive', () => {
+  assert.equal(isEmailAllowedForSignup('ANA@example.com', undefined), true);
+  assert.equal(isEmailAllowedForSignup('ana@example.com', ' ana@example.com, bob@example.com '), true);
+  assert.equal(isEmailAllowedForSignup('otro@example.com', 'ana@example.com,bob@example.com'), false);
 });
