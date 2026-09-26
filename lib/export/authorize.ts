@@ -19,6 +19,7 @@
 //     que lo exportado sea consistente con lo que la persona ve en pantalla.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { paymentNetAmount } from '@/lib/payments/net';
 import type {
   ActivityRow,
   AgendaExportData,
@@ -111,7 +112,7 @@ export async function fetchPatientExportData(
       .order('starts_at', { ascending: false }),
     supabase
       .from('payments')
-      .select('id,appointment_id,amount,currency,method,created_at')
+      .select('id,appointment_id,amount,currency,method,created_at,payment_reversals(amount)')
       .eq('patient_id', patientId)
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false }),
@@ -153,7 +154,10 @@ export async function fetchPatientExportData(
   const paidByAppointment = new Map<string, number>();
   for (const payment of payments) {
     if (!payment.appointment_id) continue;
-    paidByAppointment.set(payment.appointment_id, (paidByAppointment.get(payment.appointment_id) ?? 0) + Number(payment.amount ?? 0));
+    paidByAppointment.set(
+      payment.appointment_id,
+      (paidByAppointment.get(payment.appointment_id) ?? 0) + paymentNetAmount(payment),
+    );
   }
   const pendingBalance = activeAppointments.reduce((sum, a) => {
     const quoted = Number(a.quoted_amount ?? 0);
@@ -330,7 +334,7 @@ async function fetchPatientRelationsForExport(
       } else {
         query = supabase
           .from('payments')
-          .select('patient_id, appointment_id, amount')
+          .select('patient_id, appointment_id, amount, payment_reversals(amount)')
           .eq('tenant_id', tenantId)
           .in('patient_id', ids)
           .order('created_at', { ascending: true });
@@ -381,7 +385,7 @@ export async function fetchPatientsListExportData(
     if (!payment.appointment_id) continue;
     balanceByAppointment.set(
       payment.appointment_id,
-      (balanceByAppointment.get(payment.appointment_id) ?? 0) + Number(payment.amount ?? 0),
+      (balanceByAppointment.get(payment.appointment_id) ?? 0) + paymentNetAmount(payment),
     );
   }
 
