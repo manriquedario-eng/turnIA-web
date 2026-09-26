@@ -180,16 +180,14 @@ export async function createGoogleMeetForAppointment(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Preparado para fases futuras (PARTE 4 del pedido: no implementar todavía,
-// pero no diseñar de forma que lo impida). No están conectadas a
-// updateAppointment/cancelAppointment en esta tarea.
+// Sincronización de eventos existentes. Estas funciones son usadas por
+// Agenda al editar o cancelar turnos online.
 // ---------------------------------------------------------------------------
 
 export type UpdateGoogleMeetResult =
   | { ok: true }
   | { ok: false; reason: 'not_configured' | 'not_connected' | 'provider_error' | 'network_error'; errorMessage: string };
 
-/** TODO (fase futura): llamar desde updateAppointment cuando cambie fecha/hora de un turno online. */
 export async function updateGoogleMeetForAppointment(params: {
   tenantId: string;
   professionalUserId: string;
@@ -236,7 +234,6 @@ export async function updateGoogleMeetForAppointment(params: {
   }
 }
 
-/** TODO (fase futura): llamar desde cancelAppointment cuando se cancele un turno online. */
 export async function cancelGoogleMeetForAppointment(params: {
   tenantId: string;
   professionalUserId: string;
