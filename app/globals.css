@@ -4971,3 +4971,70 @@ table tbody tr:hover {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
+
+
+.quick-patient-create {
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-subtle);
+  display: grid;
+  gap: 12px;
+}
+
+.quick-patient-create-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quick-patient-create-close {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.quick-patient-create-close:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.quick-patient-phone-row {
+  display: grid;
+  grid-template-columns: minmax(145px, 0.8fr) minmax(0, 1.7fr);
+  gap: 10px;
+}
+
+.quick-patient-phone {
+  min-width: 0;
+}
+
+.quick-patient-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.quick-patient-consent input {
+  width: auto;
+  margin-top: 2px;
+}
+
+@media (max-width: 640px) {
+  .quick-patient-phone-row {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-patient-create {
+    padding: 12px;
+  }
+}
