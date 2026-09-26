@@ -8,6 +8,7 @@ import {
   isServiceRoleConfigured,
 } from '@/lib/supabase/service';
 import { notifyProfessionalAboutRescheduleByToken } from '@/lib/appointments/reschedule-notifications';
+import { notifyProfessionalAboutConfirmationByToken } from '@/lib/appointments/confirmation-notifications';
 import { getMercadoPagoPaymentOfferByToken } from '@/lib/mercadopago/payment-offer';
 
 export type AppointmentWhatsAppAction = 'confirm' | 'cancel' | 'reschedule';
@@ -239,6 +240,16 @@ export async function processWhatsAppAppointmentAction(
 
   if (input.action === 'reschedule') {
     await notifyProfessionalAboutRescheduleByToken(input.token);
+  }
+
+  if (input.action === 'confirm') {
+    try {
+      await notifyProfessionalAboutConfirmationByToken(input.token);
+    } catch {
+      console.error('Professional confirmation notification failed', {
+        appointmentId: appointment.id,
+      });
+    }
   }
 
   let paymentUrl: string | null = null;
