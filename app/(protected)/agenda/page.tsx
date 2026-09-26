@@ -522,7 +522,7 @@ export default async function AgendaPage({
                     className={['month-cell', isOtherMonth ? 'is-other-month' : '', isToday ? 'is-today' : ''].filter(Boolean).join(' ')}
                   >
                     <div className="month-cell-head">
-                      <span className="month-cell-daynum">{dayNumber}</span>
+                      <Link href={`/agenda?view=day&date=${cellDate}`} className="month-cell-daynum month-cell-daylink" aria-label={`Ver agenda del ${cellDate}`}>{dayNumber}</Link>
                       {/* PARTE 1: acción + discreta en CADA celda del mes, igual que en
                           Semana (.week-col-add) — funciona haya o no turnos ese día, y
                           no se confunde con el número del día (que ahora es texto plano,
@@ -606,7 +606,7 @@ export default async function AgendaPage({
                   </div>
                   <div className="week-col-appts">
                     {dayAppts.length === 0 ? (
-                      <span className="week-col-empty">Sin turnos</span>
+                      <Link href={`/agenda?view=day&date=${cellDate}`} className="week-col-empty week-col-empty-link">Sin turnos · abrir día</Link>
                     ) : (
                       <>
                         {visible.map((a) => {
@@ -652,7 +652,10 @@ export default async function AgendaPage({
         {view === 'day' ? (
           <div style={{ padding: '18px 20px 20px', borderTop: '1px solid var(--color-border-soft)' }}>
             {appointments.length === 0 ? (
-              <EmptyState title="No hay turnos en este período" description="Cargá un turno nuevo o probá con otra fecha." />
+              <div className="stack" style={{ alignItems: 'flex-start' }}>
+                <EmptyState title="No hay turnos en este día" description="Podés agregar un turno para esta fecha." />
+                <Link className="btn" href={`/agenda?view=day&date=${date}&new=1&slot=${date}#turno-drawer`}>Agregar turno</Link>
+              </div>
             ) : (
               <div className="stack" style={{ gap: 10 }}>
                 {appointments.map((a) => {
@@ -677,7 +680,7 @@ export default async function AgendaPage({
                     !cancelled && mercadoPagoConnected && appointmentAmount > 0 && a.professional_id === user.id;
 
                   return (
-                    <div key={a.id} className={cardClass}>
+                    <div key={a.id} id={`turno-${a.id}`} className={cardClass}>
                       <div className="appointment-main">
                         <div className="appointment-time">
                           {formatTime(a.starts_at)}–{formatTime(a.ends_at)}
