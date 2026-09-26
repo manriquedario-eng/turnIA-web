@@ -133,8 +133,9 @@ function periodLabel(view: string, date: string) {
     return capitalize(new Intl.DateTimeFormat('es-AR', { timeZone: TZ, dateStyle: 'full' }).format(anchor));
   }
   if (view === 'week') {
-    const end = addDays(date, 6);
-    const startAnchor = new Date(`${date}T12:00:00-03:00`);
+    const weekStart = addDays(date, -mondayIndex(date));
+    const end = addDays(weekStart, 6);
+    const startAnchor = new Date(`${weekStart}T12:00:00-03:00`);
     const endAnchor = new Date(`${end}T12:00:00-03:00`);
     const fmt = (d: Date) => new Intl.DateTimeFormat('es-AR', { timeZone: TZ, day: 'numeric', month: 'short' }).format(d);
     return `${fmt(startAnchor)} – ${fmt(endAnchor)}`;
