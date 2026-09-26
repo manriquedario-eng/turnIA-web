@@ -165,6 +165,7 @@ export default async function DashboardPage() {
   const allAppointments = appointmentsResult.data ?? [];
   const appointments = allAppointments.filter((item) => dateKeyInTz(item.starts_at) === today);
   const tomorrowAppointments = allAppointments.filter((item) => dateKeyInTz(item.starts_at) === tomorrow);
+  const dashboardTodayAppointments = appointments.filter((item) => new Date(item.starts_at).getTime() >= now.getTime());
   const activeAppointments = appointments.filter((item) => !isCancelled(item.status));
   const activeTomorrowAppointments = tomorrowAppointments.filter((item) => !isCancelled(item.status));
   const cancelledAppointments = appointments.filter((item) => isCancelled(item.status));
