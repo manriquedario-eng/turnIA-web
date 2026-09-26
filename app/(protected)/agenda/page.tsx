@@ -716,7 +716,7 @@ export default async function AgendaPage({
                         <span className="appointment-amount">
                           {a.quoted_amount != null ? `${a.currency ?? 'ARS'} ${Number(a.quoted_amount).toLocaleString('es-AR')}` : '—'}
                         </span>
-                        <StatusBadge status={a.status} label={appointmentStatusLabel(a.status, a.reschedule_requested_at)} />
+                        <StatusBadge status={a.reschedule_requested_at && !cancelled ? 'pending' : a.status} label={appointmentStatusLabel(a.status, a.reschedule_requested_at)} />
                         {(() => {
                           const communication = latestCommunicationByAppointment.get(a.id);
                           if (!communication) return null;

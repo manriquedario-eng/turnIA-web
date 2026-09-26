@@ -3,6 +3,7 @@ import { logout } from '@/app/login/actions';
 import { AppShell } from '@/components/app-shell/AppShell';
 import { resolveDisplayName } from '@/lib/identity';
 import { ReminderAlerts } from '@/components/reminders/ReminderAlerts';
+import { AppointmentActionAlerts } from '@/components/appointments/AppointmentActionAlerts';
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const { supabase, user, role } = await requireTenant();
@@ -12,6 +13,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   return (
     <AppShell name={name} role={role} logoutAction={logout}>
       <ReminderAlerts />
+      <AppointmentActionAlerts />
       {children}
     </AppShell>
   );

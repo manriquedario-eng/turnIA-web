@@ -1999,17 +1999,17 @@ table tbody tr:hover {
    truco que .sidebar-link.active (box-shadow inset, respeta el
    border-radius de la card en vez de un border-left que lo rompería). No
    aplica si is-cancelled/is-next ya están dando su propia señal. */
-.appointment-card.status-accent-confirmado:not(.is-cancelled):not(.is-next),
-.appointment-card.status-accent-confirmed:not(.is-cancelled):not(.is-next) {
+.appointment-card.status-accent-confirmado:not(.is-cancelled),
+.appointment-card.status-accent-confirmed:not(.is-cancelled) {
   background: var(--color-success-bg);
-  border-color: rgba(74, 107, 88, 0.22);
-  box-shadow: inset 3px 0 0 var(--color-success);
+  border-color: rgba(74, 107, 88, 0.34);
+  box-shadow: inset 5px 0 0 var(--color-success);
 }
 
 .appointment-card.status-accent-reschedule-requested:not(.is-cancelled) {
   background: var(--color-warning-bg);
-  border-color: rgba(169, 124, 52, 0.24);
-  box-shadow: inset 3px 0 0 var(--color-warning);
+  border-color: rgba(169, 124, 52, 0.34);
+  box-shadow: inset 5px 0 0 var(--color-warning);
 }
 
 .appointment-card.status-accent-pendiente:not(.is-cancelled):not(.is-next),
@@ -2029,7 +2029,8 @@ table tbody tr:hover {
    es la superficie de la card. */
 .appointment-card.is-cancelled {
   background: var(--color-danger-bg);
-  border-color: rgba(220, 38, 38, 0.18);
+  border-color: rgba(220, 38, 38, 0.32);
+  box-shadow: inset 5px 0 0 var(--color-danger);
 }
 
 .appointment-card.is-cancelled .appointment-time {
@@ -3103,18 +3104,24 @@ table tbody tr:hover {
 .month-chip.is-confirmed {
   background: var(--color-success-bg);
   color: var(--color-success);
+  border-color: rgba(74, 107, 88, 0.35);
+  font-weight: 700;
 }
 
 .month-chip.is-reschedule-requested {
   background: var(--color-warning-bg);
   color: var(--color-warning);
+  border-color: rgba(169, 124, 52, 0.38);
+  font-weight: 700;
 }
 
 .month-chip.is-cancelled {
   background: var(--color-danger-bg);
   color: var(--color-danger);
+  border-color: rgba(220, 38, 38, 0.35);
   text-decoration: line-through;
-  opacity: 0.85;
+  font-weight: 700;
+  opacity: 0.92;
 }
 
 /* Fila que agrupa el chip de turno (Link, abre el drawer) + el link "Meet"
@@ -4739,4 +4746,47 @@ table tbody tr:hover {
 
 .misrx-selected-product {
   scroll-margin-top: 96px;
+}
+
+
+/* Alertas globales por acciones del paciente. Reutilizan el patrón visual de
+   recordatorios, pero el color comunica el resultado del turno. */
+.appointment-action-alert {
+  top: 22px;
+  bottom: auto;
+}
+
+.appointment-action-alert.is-confirm {
+  border-color: var(--color-success);
+}
+.appointment-action-alert.is-confirm .reminder-alert-pulse {
+  background: var(--color-success);
+  box-shadow: 0 0 0 0 rgba(74, 107, 88, 0.3);
+}
+.appointment-action-alert.is-confirm .reminder-alert-eyebrow,
+.appointment-action-alert.is-confirm .reminder-alert-time {
+  color: var(--color-success);
+}
+
+.appointment-action-alert.is-reschedule {
+  border-color: var(--color-warning);
+}
+.appointment-action-alert.is-reschedule .reminder-alert-pulse {
+  background: var(--color-warning);
+  box-shadow: 0 0 0 0 rgba(169, 124, 52, 0.3);
+}
+.appointment-action-alert.is-reschedule .reminder-alert-eyebrow,
+.appointment-action-alert.is-reschedule .reminder-alert-time {
+  color: var(--color-warning);
+}
+
+.appointment-action-alert.is-cancel {
+  border-color: var(--color-danger);
+}
+
+@media (max-width: 640px) {
+  .appointment-action-alert {
+    top: 16px;
+    bottom: auto;
+  }
 }
