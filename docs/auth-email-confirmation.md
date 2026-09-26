@@ -41,18 +41,21 @@ En la plantilla Confirm signup usar un enlace basado en RedirectTo:
 
 No habilitar tracking de links en el proveedor SMTP.
 
-## Google Workspace SMTP
+## Resend SMTP
 
-La configuración se realiza en Supabase Auth, no se guardan credenciales SMTP en Git ni en Vercel.
+La configuración de SMTP de autenticación se realiza en Supabase Auth. No se guardan credenciales SMTP en Git ni en Vercel.
 
-Para Google Workspace:
-- host de relay: `smtp-relay.gmail.com`
-- TLS: requerido
-- puerto recomendado: `587`
-- remitente: una cuenta del dominio TurnIA
-- autenticación: cuenta Workspace + credencial de aplicación cuando corresponda
+Valores oficiales de Resend:
+- host: `smtp.resend.com`
+- puerto recomendado: `465`
+- usuario: `resend`
+- contraseña: una API key de Resend
+- remitente: una dirección perteneciente a un dominio verificado en Resend
+- nombre del remitente: `TurnIA`
 
-No usar la contraseña normal de una cuenta personal como secreto de aplicación.
+La API key usada como contraseña SMTP debe tratarse como secreto. No se documenta ni se commitea su valor real.
+
+Los emails transaccionales operativos de TurnIA pueden seguir usando la API HTTP de Resend mediante `RESEND_API_KEY`. Los emails de autenticación de Supabase usan Resend vía SMTP; son canales de integración distintos aunque compartan proveedor.
 
 ## Producción y beta
 
