@@ -145,6 +145,11 @@ function isCancelled(status: string | null) {
   return status === 'cancelled' || status === 'cancelado';
 }
 
+function appointmentStatusLabel(status: string | null, rescheduleRequestedAt?: string | null) {
+  if (rescheduleRequestedAt && !isCancelled(status)) return 'Pidió reprogramar';
+  return statusLabel(status);
+}
+
 // Acento visual por estado en .appointment-card (ver globals.css) — permite
 // escanear la agenda del día sin leer cada badge. Cualquier estado no
 // contemplado simplemente no agrega clase (la card queda neutra, como
@@ -601,10 +606,10 @@ export default async function AgendaPage({
                             <div key={a.id} className="month-chip-row">
                               <Link
                                 href={`${returnTo}&edit=${a.id}#turno-drawer`}
-                                className={`month-chip ${isCancelled(a.status) ? 'is-cancelled' : ''}`}
+                                className={`month-chip ${monthChipStateClass(a.status, a.reschedule_requested_at)}`}
                                 title={`${formatTime(a.starts_at)} · ${patientNameOf(a)}${isOnline ? ' · Online' : ''}`}
                               >
-                                {formatTime(a.starts_at)} {patientNameOf(a)}{isOnline ? ' · Online' : ''}
+                                {formatTime(a.starts_at)} {patientNameOf(a)}{a.reschedule_requested_at && !isCancelled(a.status) ? ' · Reprogramar' : ''}{isOnline ? ' · Online' : ''}
                               </Link>
                               {hasMeet ? (
                                 <a
@@ -709,12 +714,7 @@ export default async function AgendaPage({
                         <span className="appointment-amount">
                           {a.quoted_amount != null ? `${a.currency ?? 'ARS'} ${Number(a.quoted_amount).toLocaleString('es-AR')}` : '—'}
                         </span>
-                        <StatusBadge status={a.status} label={statusLabel(a.status)} />
-                        {a.reschedule_requested_at && !cancelled ? (
-                          <span className="badge" title="El paciente pidió reprogramar este turno">
-                            Pidió reprogramar
-                          </span>
-                        ) : null}
+                        <StatusBadge status={a.status} label={appointmentStatusLabel(a.status, a.reschedule_requested_at)} />
                         {(() => {
                           const communication = latestCommunicationByAppointment.get(a.id);
                           if (!communication) return null;
