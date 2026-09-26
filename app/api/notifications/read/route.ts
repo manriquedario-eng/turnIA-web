@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/auth/require-user';
+import { createSupabaseServiceClient } from '@/lib/supabase/service';
 
 export async function POST(request: NextRequest) {
-  const { supabase, user, tenantId } = await requireTenant();
+  const { user, tenantId } = await requireTenant();
+  const supabase = createSupabaseServiceClient();
 
   let body: { id?: string; all?: boolean } = {};
   try {
