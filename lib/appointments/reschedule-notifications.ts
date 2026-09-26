@@ -1,4 +1,5 @@
 import { isPlausibleEmail, sendTransactionalEmail } from '@/lib/email/provider';
+import { getPublicAppUrl } from '@/lib/app-url';
 import { normalizePhone } from '@/lib/phone';
 import {
   createSupabaseServiceClient,
@@ -203,7 +204,7 @@ export async function notifyProfessionalAboutRescheduleByToken(token: string): P
   const timeLabel = formatTime(appointment.starts_at);
   const rescheduleCycle = appointment.reschedule_requested_at ?? appointment.starts_at;
   const dedupeKey = `professional_reschedule_requested:${rescheduleCycle}`;
-  const agendaUrl = 'https://www.turniahealth.com.ar/agenda';
+  const agendaUrl = `${getPublicAppUrl()}/agenda`;
 
   if (professionalEmail && isPlausibleEmail(professionalEmail)) {
     const messageRowId = await createProfessionalAlertRow({
