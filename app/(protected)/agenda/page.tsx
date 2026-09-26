@@ -433,7 +433,8 @@ export default async function AgendaPage({
               { format: 'xlsx', href: `/api/export/agenda?view=${view}&date=${date}&format=xlsx` },
             ]}
           />
-          <Link className="btn-ghost" href="/planning">Recurrentes y lista de espera</Link>
+          <Link className="btn-ghost" href="/planning">Recurrentes</Link>
+          <Link className="btn-ghost" href="/waitlist">Lista de espera</Link>
           <Link className="btn" href={`${returnTo}&new=1#turno-drawer`}>
             <IconPlus /> Nuevo turno
           </Link>
