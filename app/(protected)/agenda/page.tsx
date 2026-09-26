@@ -584,6 +584,7 @@ export default async function AgendaPage({
             {Array.from({ length: 7 }, (_, i) => addDays(rangeStart, i)).map((cellDate) => {
               const dayAppts = appointmentsByDate.get(cellDate) ?? [];
               const isToday = cellDate === todayDate;
+              const isSelected = cellDate === date;
               // Mismo tope y mismo patrón "+N más" que la vista Mes — una
               // columna con muchos turnos ya no crece indefinidamente ni
               // rompe el layout de la semana.
