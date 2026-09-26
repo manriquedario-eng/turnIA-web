@@ -88,8 +88,17 @@ function appendQueryParam(path: string, key: string, value: string) {
   return `${base}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}${hash}`;
 }
 
+function appendQueryParams(path: string, params: URLSearchParams, hashOverride?: string) {
+  const hashIndex = path.indexOf('#');
+  const base = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
+  const existingHash = hashIndex >= 0 ? path.slice(hashIndex) : '';
+  const separator = base.includes('?') ? '&' : '?';
+  const hash = hashOverride ?? existingHash;
+
+  return `${base}${separator}${params.toString()}${hash}`;
+}
+
 function appointmentConflictReturn(returnTo: string, parsed: z.infer<typeof appointmentSchema>, message: string) {
-  const separator = returnTo.includes('?') ? '&' : '?';
   const [slot, time] = parsed.starts_at_local.split('T');
   const params = new URLSearchParams({
     error: message,
@@ -101,16 +110,15 @@ function appointmentConflictReturn(returnTo: string, parsed: z.infer<typeof appo
     amount: parsed.quoted_amount == null ? '' : String(parsed.quoted_amount),
     new: '1',
   });
-  return `${returnTo}${separator}${params.toString()}#turno-drawer`;
+  return appendQueryParams(returnTo, params, '#turno-drawer');
 }
 
 function editConflictReturn(returnTo: string, appointmentId: string, message: string) {
-  const separator = returnTo.includes('?') ? '&' : '?';
   const params = new URLSearchParams({
     error: message,
     edit: appointmentId,
   });
-  return `${returnTo}${separator}${params.toString()}#turno-drawer`;
+  return appendQueryParams(returnTo, params, '#turno-drawer');
 }
 
 function parseAppointment(formData: FormData) {
