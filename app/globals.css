@@ -3104,18 +3104,24 @@ table tbody tr:hover {
 .month-chip.is-confirmed {
   background: var(--color-success-bg);
   color: var(--color-success);
+  border-color: rgba(74, 107, 88, 0.35);
+  font-weight: 700;
 }
 
 .month-chip.is-reschedule-requested {
   background: var(--color-warning-bg);
   color: var(--color-warning);
+  border-color: rgba(169, 124, 52, 0.38);
+  font-weight: 700;
 }
 
 .month-chip.is-cancelled {
   background: var(--color-danger-bg);
   color: var(--color-danger);
+  border-color: rgba(220, 38, 38, 0.35);
   text-decoration: line-through;
-  opacity: 0.85;
+  font-weight: 700;
+  opacity: 0.92;
 }
 
 /* Fila que agrupa el chip de turno (Link, abre el drawer) + el link "Meet"
