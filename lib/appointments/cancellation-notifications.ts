@@ -1,4 +1,5 @@
 import { isPlausibleEmail, sendTransactionalEmail } from '@/lib/email/provider';
+import { getPublicAppUrl } from '@/lib/app-url';
 import { resolvePatientCommunicationName } from '@/lib/patients/communication-name';
 import {
   createSupabaseServiceClient,
@@ -162,7 +163,7 @@ export async function notifyProfessionalAboutCancellationByToken(token: string):
   const dateLabel = formatDate(appointment.starts_at);
   const timeLabel = formatTime(appointment.starts_at);
   const dedupeKey = `professional_appointment_cancelled:${appointment.starts_at}`;
-  const agendaUrl = 'https://www.turniahealth.com.ar/agenda';
+  const agendaUrl = `${getPublicAppUrl()}/agenda`;
 
   const messageRowId = await createProfessionalCancellationRow({
     appointmentId: appointment.id,
