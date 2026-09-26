@@ -236,8 +236,8 @@ export default async function AgendaPage({
   if (view === 'week') {
     // La vista Semana es operativa: arranca en la fecha seleccionada y
     // muestra los 6 días siguientes, sin obligar a retroceder al lunes.
-    rangeStart = date;
-    rangeEnd = addDays(date, 6);
+    rangeStart = addDays(date, -mondayIndex(date));
+    rangeEnd = addDays(rangeStart, 6);
   }
   if (view === 'month') {
     monthGrid = buildMonthGrid(date);
