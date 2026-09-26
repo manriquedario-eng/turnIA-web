@@ -16,6 +16,7 @@ import { cancelAppointment, generateMercadoPagoCheckout } from '@/app/(protected
 import { createBlankPrescriptionDraft } from '@/app/(protected)/patients/prescription-actions';
 import { isMisRxUiEnabled } from '@/lib/misrx/homologation';
 import { isDigilogixFeatureVisible } from '@/lib/digilogix/config';
+import { paymentNetAmount } from '@/lib/payments/net';
 import { DigilogixSignButton } from '@/components/digilogix/DigilogixSignButton';
 
 const TZ = 'America/Argentina/Buenos_Aires';
@@ -101,7 +102,7 @@ export default async function PatientDetailPage({
       .order('starts_at', { ascending: false }),
     supabase
       .from('payments')
-      .select('id,appointment_id,amount,currency,method,created_at')
+      .select('id,appointment_id,amount,currency,method,created_at,payment_reversals(amount)')
       .eq('patient_id', id)
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false }),
@@ -250,7 +251,10 @@ export default async function PatientDetailPage({
   const paidByAppointment = new Map<string, number>();
   for (const payment of payments as any[]) {
     if (!payment.appointment_id) continue;
-    paidByAppointment.set(payment.appointment_id, (paidByAppointment.get(payment.appointment_id) ?? 0) + Number(payment.amount ?? 0));
+    paidByAppointment.set(
+      payment.appointment_id,
+      (paidByAppointment.get(payment.appointment_id) ?? 0) + paymentNetAmount(payment),
+    );
   }
   const balance = activeAppointments.reduce((sum: number, a: any) => {
     const quoted = Number(a.quoted_amount ?? 0);
