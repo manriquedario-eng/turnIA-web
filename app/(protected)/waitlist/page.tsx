@@ -49,6 +49,7 @@ export default async function WaitlistPage({
       <div className="card">
         <h2>Agregar a lista de espera</h2>
         <form action={addWaitlistEntry} className="stack">
+          <input type="hidden" name="return_to" value="/waitlist" />
           <PatientCombobox />
           <label>
             Servicio preferido
@@ -85,6 +86,7 @@ export default async function WaitlistPage({
                     <td>
                       <form action={updateWaitlistStatus} className="nav">
                         <input type="hidden" name="id" value={entry.id} />
+                        <input type="hidden" name="return_to" value="/waitlist" />
                         <select name="status" defaultValue={entry.status}>
                           <option value="waiting">En espera</option>
                           <option value="contacted">Contactado</option>
