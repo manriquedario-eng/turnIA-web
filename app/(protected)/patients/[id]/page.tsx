@@ -366,7 +366,7 @@ export default async function PatientDetailPage({
               <>
                 <span className="patient-meta-value-row">
                   <span className="patient-meta-value">{formatDateTime(nextAppointment.starts_at)}</span>
-                  <StatusBadge status={nextAppointment.status} label={appointmentStatusLabel(nextAppointment.status, nextAppointment.reschedule_requested_at)} />
+                  <StatusBadge status={nextAppointment.reschedule_requested_at && !isCancelled(nextAppointment.status) ? 'pending' : nextAppointment.status} label={appointmentStatusLabel(nextAppointment.status, nextAppointment.reschedule_requested_at)} />
                 </span>
                 <span className="nav" style={{ marginTop: 8, flexWrap: 'wrap', gap: 8 }}>
                   <Link
@@ -402,7 +402,7 @@ export default async function PatientDetailPage({
             {lastAppointment ? (
               <span className="patient-meta-value-row">
                 <span className="patient-meta-value">{formatDateTime(lastAppointment.starts_at)}</span>
-                <StatusBadge status={lastAppointment.status} label={appointmentStatusLabel(lastAppointment.status, lastAppointment.reschedule_requested_at)} />
+                <StatusBadge status={lastAppointment.reschedule_requested_at && !isCancelled(lastAppointment.status) ? 'pending' : lastAppointment.status} label={appointmentStatusLabel(lastAppointment.status, lastAppointment.reschedule_requested_at)} />
               </span>
             ) : (
               <span className="patient-meta-hint">Sin turnos anteriores</span>
