@@ -51,7 +51,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/agenda', label: 'Agenda', icon: IconCalendar, mobile: true },
       { href: '/patients', label: 'Pacientes', icon: IconUsers, mobile: true },
       { href: '/prescriptions', label: 'Recetas', icon: IconReceipt },
-      { href: '/planning', label: 'Recurrentes y espera', icon: IconClock, hideOnDesktopSidebar: true },
+      { href: '/waitlist', label: 'Lista de espera', icon: IconClock },
     ],
   },
   {

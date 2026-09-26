@@ -414,7 +414,15 @@ export default async function AgendaPage({
       <div className="page-header">
         <div>
           <h1>Agenda</h1>
-          <p className="muted" style={{ textTransform: 'capitalize' }}>{periodLabel(view, date)}</p>
+          <div className="nav" style={{ gap: 8, justifyContent: 'flex-start' }}>
+            <Link className="date-nav-btn" href={`/agenda?view=${view}&date=${prevDate}`} aria-label="Período anterior">
+              <IconChevronLeft />
+            </Link>
+            <p className="muted" style={{ textTransform: 'capitalize', margin: 0 }}>{periodLabel(view, date)}</p>
+            <Link className="date-nav-btn" href={`/agenda?view=${view}&date=${nextDate}`} aria-label="Período siguiente">
+              <IconChevronRight />
+            </Link>
+          </div>
         </div>
         <div className="nav" style={{ flexWrap: 'wrap' }}>
           <SimpleExportMenu
@@ -425,7 +433,8 @@ export default async function AgendaPage({
               { format: 'xlsx', href: `/api/export/agenda?view=${view}&date=${date}&format=xlsx` },
             ]}
           />
-          <Link className="btn-ghost" href="/planning">Recurrentes y lista de espera</Link>
+          <Link className="btn-ghost" href="/planning">Recurrentes</Link>
+          <Link className="btn-ghost" href="/waitlist">Lista de espera</Link>
           <Link className="btn" href={`${returnTo}&new=1#turno-drawer`}>
             <IconPlus /> Nuevo turno
           </Link>
@@ -486,13 +495,7 @@ export default async function AgendaPage({
           </div>
 
           <div className="date-nav">
-            <Link className="date-nav-btn" href={`/agenda?view=${view}&date=${prevDate}`} aria-label="Período anterior">
-              <IconChevronLeft />
-            </Link>
             <Link className="btn secondary" href={`/agenda?view=${view}&date=${todayDate}`}>Hoy</Link>
-            <Link className="date-nav-btn" href={`/agenda?view=${view}&date=${nextDate}`} aria-label="Período siguiente">
-              <IconChevronRight />
-            </Link>
             <form method="get" className="nav" style={{ marginLeft: 8 }}>
               <input type="hidden" name="view" value={view} />
               <input type="date" name="date" defaultValue={date} />
@@ -520,7 +523,7 @@ export default async function AgendaPage({
                     className={['month-cell', isOtherMonth ? 'is-other-month' : '', isToday ? 'is-today' : ''].filter(Boolean).join(' ')}
                   >
                     <div className="month-cell-head">
-                      <span className="month-cell-daynum">{dayNumber}</span>
+                      <Link href={`/agenda?view=day&date=${cellDate}`} className="month-cell-daynum month-cell-daylink" aria-label={`Ver agenda del ${cellDate}`}>{dayNumber}</Link>
                       {/* PARTE 1: acción + discreta en CADA celda del mes, igual que en
                           Semana (.week-col-add) — funciona haya o no turnos ese día, y
                           no se confunde con el número del día (que ahora es texto plano,
@@ -541,7 +544,7 @@ export default async function AgendaPage({
                         return (
                           <div key={a.id} className="month-chip-row">
                             <Link
-                              href={`${returnTo}&edit=${a.id}#turno-drawer`}
+                              href={`/agenda?view=day&date=${cellDate}#turno-${a.id}`}
                               className={`month-chip ${monthChipStateClass(a.status, a.reschedule_requested_at)}`}
                               title={`${formatTime(a.starts_at)} · ${patientNameOf(a)}${a.reschedule_requested_at && !isCancelled(a.status) ? ' · Pidió reprogramar' : ''}${isOnline ? ' · Online' : ''}`}
                             >
@@ -587,7 +590,13 @@ export default async function AgendaPage({
               return (
                 <div key={cellDate} className={`week-col ${isToday ? 'is-today' : ''}`}>
                   <div className="week-col-head">
-                    <span className="week-col-head-label">{formatShortDay(`${cellDate}T12:00:00-03:00`)}</span>
+                    <Link
+                      href={`/agenda?view=day&date=${cellDate}`}
+                      className="week-col-head-label week-col-head-link"
+                      aria-label={`Ver agenda del ${cellDate}`}
+                    >
+                      {formatShortDay(`${cellDate}T12:00:00-03:00`)}
+                    </Link>
                     <Link
                       href={`${returnTo}&new=1&slot=${cellDate}#turno-drawer`}
                       className="week-col-add"
@@ -598,7 +607,7 @@ export default async function AgendaPage({
                   </div>
                   <div className="week-col-appts">
                     {dayAppts.length === 0 ? (
-                      <span className="week-col-empty">Sin turnos</span>
+                      <Link href={`/agenda?view=day&date=${cellDate}`} className="week-col-empty week-col-empty-link">Sin turnos · abrir día</Link>
                     ) : (
                       <>
                         {visible.map((a) => {
@@ -607,7 +616,7 @@ export default async function AgendaPage({
                           return (
                             <div key={a.id} className="month-chip-row">
                               <Link
-                                href={`${returnTo}&edit=${a.id}#turno-drawer`}
+                                href={`/agenda?view=day&date=${cellDate}#turno-${a.id}`}
                                 className={`month-chip ${monthChipStateClass(a.status, a.reschedule_requested_at)}`}
                                 title={`${formatTime(a.starts_at)} · ${patientNameOf(a)}${isOnline ? ' · Online' : ''}`}
                               >
@@ -644,7 +653,10 @@ export default async function AgendaPage({
         {view === 'day' ? (
           <div style={{ padding: '18px 20px 20px', borderTop: '1px solid var(--color-border-soft)' }}>
             {appointments.length === 0 ? (
-              <EmptyState title="No hay turnos en este período" description="Cargá un turno nuevo o probá con otra fecha." />
+              <div className="stack" style={{ alignItems: 'flex-start' }}>
+                <EmptyState title="No hay turnos en este día" description="Podés agregar un turno para esta fecha." />
+                <Link className="btn" href={`/agenda?view=day&date=${date}&new=1&slot=${date}#turno-drawer`}>Agregar turno</Link>
+              </div>
             ) : (
               <div className="stack" style={{ gap: 10 }}>
                 {appointments.map((a) => {
@@ -669,7 +681,7 @@ export default async function AgendaPage({
                     !cancelled && mercadoPagoConnected && appointmentAmount > 0 && a.professional_id === user.id;
 
                   return (
-                    <div key={a.id} className={cardClass}>
+                    <div key={a.id} id={`turno-${a.id}`} className={cardClass}>
                       <div className="appointment-main">
                         <div className="appointment-time">
                           {formatTime(a.starts_at)}–{formatTime(a.ends_at)}
@@ -750,9 +762,7 @@ export default async function AgendaPage({
                                 Ver paciente
                               </Link>
                             ) : null}
-                            <Link href={`${returnTo}&edit=${a.id}#turno-drawer`} className="btn-ghost">
-                              Editar turno
-                            </Link>
+                            <Link href={`${returnTo}&edit=${a.id}#turno-drawer`} className="btn-ghost">\n                               Editar turno\n                             </Link>
                             <form action={cancelAppointment}>
                               <input type="hidden" name="id" value={a.id} />
                               <input type="hidden" name="return_to" value={returnTo} />

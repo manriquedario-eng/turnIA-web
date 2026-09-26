@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { searchPatients, quickCreatePatient, type PatientSearchResult } from '@/lib/patients/search-actions';
+import type { KnownCountryPrefix } from '@/lib/phone';
 
 function partialPhone(phone: string | null) {
   if (!phone) return null;
@@ -29,6 +30,11 @@ export function PatientCombobox({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [showQuickCreate, setShowQuickCreate] = useState(false);
+  const [newPhone, setNewPhone] = useState('');
+  const [newPhonePrefix, setNewPhonePrefix] = useState<KnownCountryPrefix>('+54 9');
+  const [newEmail, setNewEmail] = useState('');
+  const [newWhatsappOptIn, setNewWhatsappOptIn] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [duplicateId, setDuplicateId] = useState<string | null>(null);
   const [highlighted, setHighlighted] = useState(0);
@@ -72,6 +78,15 @@ export function PatientCombobox({
     setOpen(false);
     setCreateError(null);
     setDuplicateId(null);
+    setShowQuickCreate(false);
+  }
+
+  function startQuickCreate() {
+    if (query.trim().length < 2) return;
+    setShowQuickCreate(true);
+    setOpen(false);
+    setCreateError(null);
+    setDuplicateId(null);
   }
 
   async function handleCreate() {
@@ -80,12 +95,22 @@ export function PatientCombobox({
     setCreating(true);
     setCreateError(null);
     setDuplicateId(null);
-    const result = await quickCreatePatient({ name });
+    const result = await quickCreatePatient({
+      name,
+      phone: newPhone.trim() || undefined,
+      phonePrefix: newPhone.trim() ? newPhonePrefix : undefined,
+      email: newEmail.trim() || undefined,
+      whatsappOptIn: newWhatsappOptIn,
+    });
     setCreating(false);
     if (result.ok) {
       setSelectedId(result.id);
       setQuery(result.name);
       setOpen(false);
+      setShowQuickCreate(false);
+      setNewPhone('');
+      setNewEmail('');
+      setNewWhatsappOptIn(false);
     } else {
       setCreateError(result.error);
       setDuplicateId(result.duplicatePatientId ?? null);
@@ -109,7 +134,7 @@ export function PatientCombobox({
       if (highlighted < results.length) {
         selectPatient(results[highlighted]);
       } else if (showCreateOption) {
-        handleCreate();
+        startQuickCreate();
       }
     } else if (e.key === 'Escape') {
       setOpen(false);
@@ -132,6 +157,7 @@ export function PatientCombobox({
           setQuery(e.target.value);
           setSelectedId('');
           setOpen(true);
+          setShowQuickCreate(false);
           setCreateError(null);
           setDuplicateId(null);
         }}
@@ -168,12 +194,113 @@ export function PatientCombobox({
               aria-selected={highlighted === results.length}
               className={`combobox-option combobox-option-create ${highlighted === results.length ? 'is-highlighted' : ''}`}
               onMouseEnter={() => setHighlighted(results.length)}
-              onClick={handleCreate}
-              disabled={creating}
+              onClick={startQuickCreate}
             >
-              {creating ? 'Creando…' : `Crear paciente "${query.trim()}"`}
+              + Nuevo paciente
             </button>
           ) : null}
+        </div>
+      ) : null}
+
+      {showQuickCreate ? (
+        <div
+          className="quick-patient-create"
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              if (!creating) void handleCreate();
+            }
+          }}
+        >
+          <div className="quick-patient-create-head">
+            <strong>Nuevo paciente</strong>
+            <button
+              type="button"
+              className="quick-patient-create-close"
+              aria-label="Cerrar alta rápida"
+              onClick={() => setShowQuickCreate(false)}
+            >
+              ×
+            </button>
+          </div>
+
+          <label>
+            Nombre
+            <input
+              type="text"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Nombre y apellido"
+              autoComplete="name"
+            />
+          </label>
+
+          <div className="quick-patient-phone-row">
+            <label>
+              Prefijo
+              <select
+                value={newPhonePrefix}
+                onChange={(event) => setNewPhonePrefix(event.target.value as KnownCountryPrefix)}
+              >
+                <option value="+54 9">+54 9 AR celular</option>
+                <option value="+54">+54 AR</option>
+                <option value="+598">+598 UY</option>
+                <option value="+595">+595 PY</option>
+                <option value="+56">+56 CL</option>
+                <option value="+34">+34 ES</option>
+                <option value="+1">+1 US/CA</option>
+              </select>
+            </label>
+            <label className="quick-patient-phone">
+              Teléfono
+              <input
+                type="tel"
+                value={newPhone}
+                onChange={(event) => setNewPhone(event.target.value)}
+                placeholder="261 555 1234"
+                autoComplete="tel"
+              />
+            </label>
+          </div>
+
+          <label>
+            Email
+            <input
+              type="email"
+              value={newEmail}
+              onChange={(event) => setNewEmail(event.target.value)}
+              placeholder="paciente@email.com"
+              autoComplete="email"
+            />
+          </label>
+
+          <label className="quick-patient-consent">
+            <input
+              type="checkbox"
+              checked={newWhatsappOptIn}
+              onChange={(event) => setNewWhatsappOptIn(event.target.checked)}
+            />
+            <span>Autoriza WhatsApp y recordatorio del turno</span>
+          </label>
+
+          <div className="nav" style={{ justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              className="btn secondary"
+              onClick={() => setShowQuickCreate(false)}
+              disabled={creating}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => void handleCreate()}
+              disabled={creating || query.trim().length < 2}
+            >
+              {creating ? 'Guardando…' : 'Guardar paciente'}
+            </button>
+          </div>
         </div>
       ) : null}
 

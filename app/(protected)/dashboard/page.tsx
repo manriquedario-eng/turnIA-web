@@ -165,6 +165,7 @@ export default async function DashboardPage() {
   const allAppointments = appointmentsResult.data ?? [];
   const appointments = allAppointments.filter((item) => dateKeyInTz(item.starts_at) === today);
   const tomorrowAppointments = allAppointments.filter((item) => dateKeyInTz(item.starts_at) === tomorrow);
+  const dashboardTodayAppointments = appointments.filter((item) => new Date(item.starts_at).getTime() >= now.getTime());
   const activeAppointments = appointments.filter((item) => !isCancelled(item.status));
   const activeTomorrowAppointments = tomorrowAppointments.filter((item) => !isCancelled(item.status));
   const cancelledAppointments = appointments.filter((item) => isCancelled(item.status));
@@ -372,19 +373,15 @@ export default async function DashboardPage() {
           referencia aprobada. */}
       <div className="dashboard-columns">
         <div className="dashboard-col">
+          {dashboardTodayAppointments.length > 0 ? (
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', padding: '18px 20px 0' }}>
               <h2>Agenda de hoy</h2>
               <Link className="text-helper" href={`/agenda?view=day&date=${today}`}>Ver agenda completa →</Link>
             </div>
 
-            {appointments.length === 0 ? (
-              <div style={{ padding: '0 20px 20px' }}>
-                <EmptyState title="No hay turnos registrados para hoy" description="Cuando crees un turno para hoy, va a aparecer acá." />
-              </div>
-            ) : (
               <div className="stack" style={{ gap: 8, padding: '14px 20px 20px' }}>
-                {appointments.map((appointment: any) => {
+                {dashboardTodayAppointments.map((appointment: any) => {
                   const cancelled = isCancelled(appointment.status);
                   const isNext = nextAppointment?.id === appointment.id;
                   const confirmed = isConfirmedLike(appointment.status);
@@ -423,8 +420,8 @@ export default async function DashboardPage() {
                   );
                 })}
               </div>
-            )}
           </div>
+          ) : null}
 
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div className="nav" style={{ justifyContent: 'space-between', flexWrap: 'wrap', padding: '18px 20px 0' }}>
@@ -566,15 +563,10 @@ export default async function DashboardPage() {
                         ? 'Turno cancelado'
                         : 'Solicitud de reprogramación';
                   const patientName = notification.patients?.name ?? 'Paciente';
-                  const appointmentStartsAt = notification.appointments?.starts_at as string | undefined;
-                  const href = appointmentStartsAt
-                    ? appointmentHref(dateKeyInTz(appointmentStartsAt), notification.appointment_id)
-                    : '/notifications';
-
                   return (
                     <Link
                       key={notification.id}
-                      href={href}
+                      href="/notifications"
                       className={`dashboard-notification-row ${notification.read_at ? '' : 'is-unread'}`}
                     >
                       <span className={`dashboard-dot ${notification.action === 'confirm' ? 'is-confirmed' : notification.action === 'cancel' ? 'is-cancelled' : 'is-reschedule'}`} aria-hidden="true" />

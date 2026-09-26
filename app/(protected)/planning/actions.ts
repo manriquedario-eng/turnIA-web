@@ -27,6 +27,10 @@ const waitlistSchema = z.object({
   notes: z.string().trim().max(500).optional(),
 });
 
+function waitlistReturnTo(formData: FormData) {
+  return formData.get('return_to') === '/waitlist' ? '/waitlist' : '/planning';
+}
+
 function toMendozaIso(local: string) {
   return new Date(`${local}:00-03:00`).toISOString();
 }
@@ -129,6 +133,7 @@ export async function createRecurringAppointments(formData: FormData) {
 
 export async function addWaitlistEntry(formData: FormData) {
   const { supabase, tenantId } = await requireTenant();
+  const returnTo = waitlistReturnTo(formData);
   const parsed = waitlistSchema.safeParse({
     patient_id: formData.get('patient_id'),
     service_id: formData.get('service_id') || undefined,
@@ -136,13 +141,13 @@ export async function addWaitlistEntry(formData: FormData) {
     preferred_time: formData.get('preferred_time') || undefined,
     notes: formData.get('notes') || undefined,
   });
-  if (!parsed.success) redirect('/planning?error=Datos%20de%20lista%20de%20espera%20inválidos');
+  if (!parsed.success) redirect(`${returnTo}?error=Datos%20de%20lista%20de%20espera%20inválidos`);
 
   const { data: patient } = await supabase.from('patients').select('id').eq('tenant_id', tenantId).eq('id', parsed.data.patient_id).is('deleted_at', null).maybeSingle();
-  if (!patient) redirect('/planning?error=Paciente%20inválido');
+  if (!patient) redirect(`${returnTo}?error=Paciente%20inválido`);
   if (parsed.data.service_id) {
     const { data: service } = await supabase.from('services').select('id').eq('tenant_id', tenantId).eq('id', parsed.data.service_id).maybeSingle();
-    if (!service) redirect('/planning?error=Servicio%20inválido');
+    if (!service) redirect(`${returnTo}?error=Servicio%20inválido`);
   }
 
   const { error } = await supabase.from('waitlist_entries').insert({
@@ -154,23 +159,26 @@ export async function addWaitlistEntry(formData: FormData) {
     notes: parsed.data.notes || null,
     status: 'waiting',
   });
-  if (error) redirect(`/planning?error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
   revalidatePath('/planning');
-  redirect('/planning?ok=Paciente%20agregado%20a%20la%20lista%20de%20espera');
+  revalidatePath('/waitlist');
+  redirect(`${returnTo}?ok=Paciente%20agregado%20a%20la%20lista%20de%20espera`);
 }
 
 export async function updateWaitlistStatus(formData: FormData) {
   const { supabase, tenantId } = await requireTenant();
+  const returnTo = waitlistReturnTo(formData);
   const id = z.string().uuid().safeParse(formData.get('id'));
   const status = z.enum(['waiting', 'contacted', 'booked', 'cancelled']).safeParse(formData.get('status'));
-  if (!id.success || !status.success) redirect('/planning?error=Entrada%20inválida');
+  if (!id.success || !status.success) redirect(`${returnTo}?error=Entrada%20inválida`);
 
   const { error } = await supabase
     .from('waitlist_entries')
     .update({ status: status.data, updated_at: new Date().toISOString() })
     .eq('id', id.data)
     .eq('tenant_id', tenantId);
-  if (error) redirect(`/planning?error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
   revalidatePath('/planning');
-  redirect('/planning?ok=Lista%20de%20espera%20actualizada');
+  revalidatePath('/waitlist');
+  redirect(`${returnTo}?ok=Lista%20de%20espera%20actualizada`);
 }

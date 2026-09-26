@@ -9,6 +9,7 @@ import {
 } from '@/lib/supabase/service';
 import { notifyProfessionalAboutRescheduleByToken } from '@/lib/appointments/reschedule-notifications';
 import { getMercadoPagoPaymentOfferByToken } from '@/lib/mercadopago/payment-offer';
+import { createMercadoPagoCheckoutForAppointment } from '@/lib/mercadopago/orders';
 
 export type AppointmentWhatsAppAction = 'confirm' | 'cancel' | 'reschedule';
 
@@ -51,22 +52,6 @@ function successText(
 
 function digits(value: string | null | undefined): string {
   return (value ?? '').replace(/\D/g, '');
-}
-
-function buildPublicPaymentUrl(token: string): string | null {
-  const previewHost =
-    process.env.VERCEL_ENV === 'preview' ? process.env.VERCEL_URL?.trim() : null;
-  const baseUrl = previewHost
-    ? `https://${previewHost}`
-    : process.env.APP_URL?.trim() || 'https://www.turniahealth.com.ar';
-
-  try {
-    const url = new URL(`/pagar/${token}`, baseUrl);
-    if (url.protocol !== 'https:') return null;
-    return url.toString();
-  } catch {
-    return null;
-  }
 }
 
 export async function processWhatsAppAppointmentAction(
@@ -246,7 +231,14 @@ export async function processWhatsAppAppointmentAction(
   if (input.action === 'confirm') {
     const offer = await getMercadoPagoPaymentOfferByToken(input.token);
     if (offer.available) {
-      paymentUrl = buildPublicPaymentUrl(input.token);
+      const checkout = await createMercadoPagoCheckoutForAppointment({
+        tenantId: offer.tenantId,
+        userId: offer.professionalId,
+        appointmentId: offer.appointmentId,
+      });
+      if (checkout.ok) {
+        paymentUrl = checkout.checkoutUrl;
+      }
     }
   }
 
