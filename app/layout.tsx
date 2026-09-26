@@ -1,9 +1,34 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+import { PwaRegister } from '@/components/pwa-register';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'TurnIA',
   description: 'Gestión profesional de agenda, pacientes y cobros',
+  applicationName: 'TurnIA',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: [
+      { url: '/icons/turnia-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/turnia-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [{ url: '/icons/turnia-192.png', sizes: '192x192', type: 'image/png' }],
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'TurnIA',
+    statusBarStyle: 'default',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#0f766e',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -17,7 +42,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <PwaRegister />
+        {children}
+      </body>
     </html>
   );
 }
