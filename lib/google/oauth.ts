@@ -22,12 +22,12 @@
 import { createSupabaseServiceClient, isServiceRoleConfigured } from '@/lib/supabase/service';
 import { encryptGoogleToken, isGoogleTokenEncryptionConfigured } from './token-crypto';
 import { getUsableGoogleConnection } from './connection';
+import { getGoogleRedirectUri } from '@/lib/app-url';
 
 const GOOGLE_AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_ENDPOINT = 'https://www.googleapis.com/oauth2/v3/userinfo';
 const GOOGLE_REVOKE_ENDPOINT = 'https://oauth2.googleapis.com/revoke';
-const TURNIA_GOOGLE_REDIRECT_URI = 'https://www.turniahealth.com.ar/api/google/oauth/callback';
 
 // Scope mínimo: sólo eventos de Calendar (crear/editar/borrar EL evento que
 // TurnIA crea) + identificar la cuenta conectada (email) para mostrarla en
@@ -48,7 +48,7 @@ function getOAuthConfig() {
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const redirectUri =
     process.env.VERCEL_ENV === 'production'
-      ? TURNIA_GOOGLE_REDIRECT_URI
+      ? getGoogleRedirectUri()
       : process.env.GOOGLE_REDIRECT_URI;
   if (!clientId || !clientSecret || !redirectUri) return null;
   return { clientId, clientSecret, redirectUri };
