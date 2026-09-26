@@ -31,3 +31,14 @@ export function validateRegistrationInput(params: {
 
   return { ok: true, email, password, displayName };
 }
+
+export function isEmailAllowedForSignup(email: string, rawAllowlist: string | undefined): boolean {
+  const normalized = email.trim().toLowerCase();
+  const configured = (rawAllowlist ?? '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (configured.length === 0) return true;
+  return configured.includes(normalized);
+}
