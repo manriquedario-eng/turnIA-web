@@ -241,6 +241,7 @@ export async function processWhatsAppAppointmentAction(
     await notifyProfessionalAboutRescheduleByToken(input.token);
   }
 
+
   let paymentUrl: string | null = null;
   if (input.action === 'confirm') {
     const offer = await getMercadoPagoPaymentOfferByToken(input.token);

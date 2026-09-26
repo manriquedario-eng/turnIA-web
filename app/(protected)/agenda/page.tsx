@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { IconChevronLeft, IconChevronRight, IconClose, IconPlus } from '@/components/ui/icons';
 import { AppointmentDateTimeFields } from '@/components/agenda/AppointmentDateTimeFields';
 import { AppointmentForm } from '@/components/agenda/AppointmentForm';
+import { AgendaLiveRefresh } from '@/components/agenda/AgendaLiveRefresh';
 import { PatientCombobox } from '@/components/agenda/PatientCombobox';
 import { ModalityField } from '@/components/agenda/ModalityField';
 import { SimpleExportMenu } from '@/components/export/ExportMenu';
@@ -409,6 +410,7 @@ export default async function AgendaPage({
 
   return (
     <section className="stack">
+      <AgendaLiveRefresh />
       <div className="page-header">
         <div>
           <h1>Agenda</h1>
