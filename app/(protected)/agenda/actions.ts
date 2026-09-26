@@ -118,20 +118,20 @@ export async function createAppointment(formData: FormData) {
   const { supabase, user, tenantId } = await requireTenant();
   const returnTo = safeReturn(formData);
   const parsed = parseAppointment(formData);
-  if (!parsed.success) redirect(`${returnTo}&error=Datos%20de%20turno%20inválidos`);
+  if (!parsed.success) redirect(appendQueryParam(returnTo, 'error', 'Datos de turno inválidos'));
 
   const startsAt = toMendozaIso(parsed.data.starts_at_local);
   const endsAt = toMendozaIso(parsed.data.ends_at_local);
   const start = new Date(startsAt);
   const end = new Date(endsAt);
-  if (end <= start) redirect(`${returnTo}&error=La%20hora%20de%20fin%20debe%20ser%20posterior`);
+  if (end <= start) redirect(appendQueryParam(returnTo, 'error', 'La hora de fin debe ser posterior'));
 
   // PARTE 3: turno en el pasado — validado server-side contra la hora real
   // del servidor, nunca contra el input del browser.
   try {
     assertNotInPast(startsAt);
   } catch (err) {
-    redirect(`${returnTo}&error=${encodeURIComponent(err instanceof Error ? err.message : 'Fecha inválida')}`);
+    redirect(appendQueryParam(returnTo, 'error', err instanceof Error ? err.message : 'Fecha inválida'));
   }
 
   const service = await validateRelations(tenantId, parsed.data.patient_id, parsed.data.service_id);
@@ -165,7 +165,7 @@ export async function createAppointment(formData: FormData) {
     professional_id: user.id,
   }).select('id').maybeSingle();
 
-  if (error) redirect(`${returnTo}&error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(appendQueryParam(returnTo, 'error', error.message));
 
   // El turno ya está creado y confirmado en este punto. Todo lo que sigue
   // (Google Meet, email, WhatsApp) es estrictamente posterior y está
@@ -323,7 +323,7 @@ export async function createAppointment(formData: FormData) {
   }
 
   revalidatePath('/agenda');
-  redirect(`${returnTo}&ok=Turno%20creado`);
+  redirect(appendQueryParam(returnTo, 'ok', 'Turno creado'));
 }
 
 export async function updateAppointment(formData: FormData) {
@@ -331,16 +331,16 @@ export async function updateAppointment(formData: FormData) {
   const returnTo = safeReturn(formData);
   const parsed = parseAppointment(formData);
   const expectedUpdatedAt = z.string().min(1).safeParse(formData.get('expected_updated_at'));
-  if (!parsed.success || !parsed.data.id || !expectedUpdatedAt.success) redirect(`${returnTo}&error=Datos%20de%20turno%20inválidos`);
+  if (!parsed.success || !parsed.data.id || !expectedUpdatedAt.success) redirect(appendQueryParam(returnTo, 'error', 'Datos de turno inválidos'));
 
   const startsAt = toMendozaIso(parsed.data.starts_at_local);
   const endsAt = toMendozaIso(parsed.data.ends_at_local);
-  if (new Date(endsAt) <= new Date(startsAt)) redirect(`${returnTo}&error=La%20hora%20de%20fin%20debe%20ser%20posterior`);
+  if (new Date(endsAt) <= new Date(startsAt)) redirect(appendQueryParam(returnTo, 'error', 'La hora de fin debe ser posterior'));
 
   try {
     assertNotInPast(startsAt);
   } catch (err) {
-    redirect(`${returnTo}&error=${encodeURIComponent(err instanceof Error ? err.message : 'Fecha inválida')}`);
+    redirect(appendQueryParam(returnTo, 'error', err instanceof Error ? err.message : 'Fecha inválida'));
   }
 
   await validateRelations(tenantId, parsed.data.patient_id, parsed.data.service_id);
@@ -352,12 +352,12 @@ export async function updateAppointment(formData: FormData) {
     .eq('tenant_id', tenantId)
     .maybeSingle();
 
-  if (existingError || !existing) redirect(`${returnTo}&error=Turno%20no%20encontrado`);
+  if (existingError || !existing) redirect(appendQueryParam(returnTo, 'error', 'Turno no encontrado'));
   if (existing.updated_at !== expectedUpdatedAt.data) {
     redirect(editConflictReturn(returnTo, parsed.data.id, 'El turno cambió desde que abriste el editor. Recargá la agenda y revisá la versión más reciente antes de guardar.'));
   }
   if (existing.status === 'cancelled' || existing.status === 'cancelado') {
-    redirect(`${returnTo}&error=No%20se%20puede%20editar%20un%20turno%20cancelado`);
+    redirect(appendQueryParam(returnTo, 'error', 'No se puede editar un turno cancelado'));
   }
 
   const schedulingChanged =
@@ -406,7 +406,7 @@ export async function updateAppointment(formData: FormData) {
   }
 
   if (error || !updated) {
-    redirect(`${returnTo}&error=${encodeURIComponent(error?.message || 'No se pudo guardar el cambio del turno')}`);
+    redirect(appendQueryParam(returnTo, 'error', error?.message || 'No se pudo guardar el cambio del turno'));
   }
 
   // Integraciones posteriores al guardado: nunca revierten el turno.
@@ -557,14 +557,14 @@ export async function updateAppointment(formData: FormData) {
 
   revalidatePath('/agenda');
   revalidatePath(`/patients/${parsed.data.patient_id}`);
-  redirect(`${returnTo}&ok=Turno%20actualizado%20y%20comunicaciones%20procesadas`);
+  redirect(appendQueryParam(returnTo, 'ok', 'Turno actualizado y comunicaciones procesadas'));
 }
 
 export async function cancelAppointment(formData: FormData) {
   const { supabase, user, tenantId } = await requireTenant();
   const returnTo = safeReturn(formData);
   const id = z.string().uuid().safeParse(formData.get('id'));
-  if (!id.success) redirect(`${returnTo}&error=Turno%20inválido`);
+  if (!id.success) redirect(appendQueryParam(returnTo, 'error', 'Turno inválido'));
 
   const { data: appointment, error: readError } = await supabase
     .from('appointments')
@@ -575,11 +575,11 @@ export async function cancelAppointment(formData: FormData) {
     .maybeSingle();
 
   if (readError || !appointment) {
-    redirect(`${returnTo}&error=${encodeURIComponent('Turno no disponible')}`);
+    redirect(appendQueryParam(returnTo, 'error', 'Turno no disponible'));
   }
 
   if (appointment.status === 'cancelled' || appointment.status === 'cancelado') {
-    redirect(`${returnTo}&ok=Turno%20ya%20cancelado`);
+    redirect(appendQueryParam(returnTo, 'ok', 'Turno ya cancelado'));
   }
 
   // La cancelación local ocurre primero. Google/email son efectos posteriores
@@ -595,7 +595,7 @@ export async function cancelAppointment(formData: FormData) {
     .maybeSingle();
 
   if (error || !cancelled) {
-    redirect(`${returnTo}&error=${encodeURIComponent('El turno cambió mientras intentabas cancelarlo. Actualizá la agenda y volvé a revisar.')}`);
+    redirect(appendQueryParam(returnTo, 'error', 'El turno cambió mientras intentabas cancelarlo. Actualizá la agenda y volvé a revisar.'));
   }
 
   try {
@@ -614,7 +614,7 @@ export async function cancelAppointment(formData: FormData) {
 
   revalidatePath('/agenda');
   if (returnTo.startsWith('/patients/')) revalidatePath(returnTo);
-  redirect(`${returnTo}&ok=Turno%20cancelado`);
+  redirect(appendQueryParam(returnTo, 'ok', 'Turno cancelado'));
 }
 
 // FASE 3 de Mercado Pago (mejorada): genera (o reutiliza, si ya existe una
