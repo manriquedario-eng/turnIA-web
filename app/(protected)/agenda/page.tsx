@@ -436,7 +436,7 @@ export default async function AgendaPage({
           />
           <Link className="btn-ghost" href="/planning">Recurrentes</Link>
           <Link className="btn-ghost" href="/waitlist">Lista de espera</Link>
-          <Link className="btn" href={`${returnTo}&new=1#turno-drawer`}>
+          <Link className="btn" href={`${returnTo}&new=1&slot=${date}#turno-drawer`}>
             <IconPlus /> Nuevo turno
           </Link>
         </div>
@@ -580,7 +580,13 @@ export default async function AgendaPage({
         ) : null}
 
         {view === 'week' ? (
-          <div className="week-grid" style={{ borderTop: '1px solid var(--color-border-soft)', padding: '16px 20px 20px' }}>
+          <>
+            <div className="week-selected-day-bar">
+              <span className="text-helper">Día seleccionado</span>
+              <strong>{formatShortDay(`${date}T12:00:00-03:00`)}</strong>
+              <Link className="btn-ghost" href={`/agenda?view=day&date=${date}`}>Abrir día</Link>
+            </div>
+            <div className="week-grid" style={{ borderTop: '1px solid var(--color-border-soft)', padding: '16px 20px 20px' }}>
             {Array.from({ length: 7 }, (_, i) => addDays(rangeStart, i)).map((cellDate) => {
               const dayAppts = appointmentsByDate.get(cellDate) ?? [];
               const isToday = cellDate === todayDate;
@@ -650,7 +656,8 @@ export default async function AgendaPage({
                 </div>
               );
             })}
-          </div>
+            </div>
+          </>
         ) : null}
 
         {view === 'day' ? (
